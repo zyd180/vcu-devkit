@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#1a73e8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+  <!-- Filled shield with checkmark — "verified / validated" -->
+  <path d="M12 2L3 6v5c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V6l-9-4z"
+        fill="#1a73e8" stroke="#1a73e8"/>
+  <polyline points="8.5 12.5 11 15 16 9" fill="none" stroke="white" stroke-width="2.5"/>
+</svg>

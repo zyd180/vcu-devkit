@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#1a73e8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+  <!-- Box with outward arrow — "export out" -->
+  <path d="M8 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-3"/>
+  <path d="M18 2l-4 4" stroke-width="2.5"/>
+  <path d="M18 2h-5" stroke-width="2.5"/>
+  <path d="M18 2v5" stroke-width="2.5"/>
+  <polyline points="7 17 12 12 9 9" stroke-width="1.5" stroke-opacity="0.5"/>
+</svg>
