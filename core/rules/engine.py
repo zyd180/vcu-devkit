@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any
@@ -28,6 +29,8 @@ class RuleResult:
 
 class RuleEngine:
     """Run validation rules on DBC / ARXML / diagnostic data."""
+
+    VALID_IDENTIFIER = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 
     def check_arxml(self, data: ARXMLData) -> list[RuleResult]:
         """Run all ARXML / SWC validation rules."""
@@ -161,7 +164,7 @@ class RuleEngine:
         results: list[RuleResult] = []
         import re
         # Expected: alphanumeric + underscore, starting with letter
-        pattern = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
+        pattern = self.VALID_IDENTIFIER
 
         for msg in data.messages:
             if not pattern.match(msg.name):
@@ -232,7 +235,7 @@ class RuleEngine:
     def _check_swc_naming(self, data: ARXMLData) -> list[RuleResult]:
         results: list[RuleResult] = []
         import re
-        pattern = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
+        pattern = self.VALID_IDENTIFIER
         for swc in data.swcs:
             if not pattern.match(swc.name):
                 results.append(RuleResult(
@@ -296,7 +299,7 @@ class RuleEngine:
     def _check_runnable_naming(self, data: ARXMLData) -> list[RuleResult]:
         results: list[RuleResult] = []
         import re
-        pattern = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
+        pattern = self.VALID_IDENTIFIER
         for swc in data.swcs:
             for run in swc.runnables:
                 if not pattern.match(run.name):

@@ -10,13 +10,15 @@ from typing import Any
 
 from core.db.models import Requirement, TraceabilityLink
 from core.db.manager import DatabaseManager
+from core.db.crud_mixin import CRUDMixin
 
 logger = logging.getLogger(__name__)
 
 
-class TraceMatrixController:
+class TraceMatrixController(CRUDMixin):
     """Manage requirement ↔ artifact traceability links."""
 
+    model = Requirement
     LINK_TYPES = ["swc", "signal", "dtc", "test_case", "port", "runnable"]
 
     def __init__(self, db_manager: DatabaseManager | None = None):
@@ -43,15 +45,7 @@ class TraceMatrixController:
             return None
 
     def update_requirement(self, db_id: int, **kwargs) -> bool:
-        try:
-            req = Requirement.get_by_id(db_id)
-            for k, v in kwargs.items():
-                if hasattr(req, k):
-                    setattr(req, k, v)
-            req.save()
-            return True
-        except Requirement.DoesNotExist:
-            return False
+        return self.update_fields(db_id, **kwargs)
 
     def remove_requirement(self, db_id: int) -> bool:
         try:
@@ -229,44 +223,63 @@ class TraceMatrixController:
     # ── Matrix generation ──────────────────────────────────────────────────
 
     def get_matrix(self) -> dict:
-        """Generate full traceability matrix.
+        """Generate full traceability matrix (single query with LEFT JOIN).
 
         Returns: {req_id: {"title": str, "module": str, "links": {type: [targets]}}}
         """
+        from peewee import JOIN
+
+        # Single query: all requirements LEFT JOIN their links
+        rows = (Requirement
+                .select(Requirement, TraceabilityLink)
+                .join(TraceabilityLink, JOIN.LEFT_OUTER,
+                      on=(TraceabilityLink.req == Requirement.id))
+                .dicts())
+
+        # Python-side grouping
         matrix: dict[str, dict] = {}
-        for req in self.get_requirements():
-            links = self.get_links_for_req(req.req_id)
-            link_map: dict[str, list[str]] = {}
-            for l in links:
-                link_map.setdefault(l["type"], []).append(l["target"])
-            matrix[req.req_id] = {
-                "title": req.title,
-                "module": req.module_name or "",
-                "links": link_map,
-                "link_count": len(links),
-                "verified_count": sum(1 for l in links if l["verified"]),
-            }
+        for row in rows:
+            req_id = row["req_id"]
+            if req_id not in matrix:
+                matrix[req_id] = {
+                    "title": row["title"],
+                    "module": row.get("module_name") or "",
+                    "links": {},
+                    "link_count": 0,
+                    "verified_count": 0,
+                }
+            # row may have link fields if joined, or be NULL if no links
+            if row.get("link_type"):
+                entry = matrix[req_id]
+                entry["links"].setdefault(row["link_type"], []).append(row["link_target"])
+                entry["link_count"] += 1
+                if row.get("verified"):
+                    entry["verified_count"] += 1
         return matrix
 
     def get_statistics(self) -> dict:
-        """Get traceability statistics."""
+        """Get traceability statistics (4 queries instead of 6)."""
+        # Query 1-2: requirement counts
         total_reqs = Requirement.select().count()
         linked_reqs = Requirement.select().where(
             Requirement.id.in_(
                 TraceabilityLink.select(TraceabilityLink.req).distinct()
             )
         ).count()
-        total_links = TraceabilityLink.select().count()
-        verified_links = TraceabilityLink.select().where(
-            TraceabilityLink.verified == True
-        ).count()
-        auto_links = TraceabilityLink.select().where(
-            TraceabilityLink.auto_matched == True
-        ).count()
 
-        # Coverage by type
+        # Query 3: link counts (total, verified, auto) — single pass
+        links = list(TraceabilityLink.select(
+            TraceabilityLink.link_type,
+            TraceabilityLink.verified,
+            TraceabilityLink.auto_matched,
+        ))
+        total_links = len(links)
+        verified_links = sum(1 for l in links if l.verified)
+        auto_links = sum(1 for l in links if l.auto_matched)
+
+        # Type counts from the same data
         type_counts: dict[str, int] = {}
-        for link in TraceabilityLink.select():
+        for link in links:
             type_counts[link.link_type] = type_counts.get(link.link_type, 0) + 1
 
         return {
@@ -355,7 +368,8 @@ class TraceMatrixController:
         """Export traceability matrix to Excel."""
         try:
             from openpyxl import Workbook
-            from openpyxl.styles import PatternFill, Font, Alignment, Border, Side
+            from openpyxl.styles import PatternFill, Font
+            from core.utils.excel_utils import write_header_row, auto_width, THIN_BORDER
 
             wb = Workbook()
 
@@ -363,42 +377,30 @@ class TraceMatrixController:
             ws = wb.active
             ws.title = "追溯矩阵"
 
-            header_fill = PatternFill(start_color="1A73E8", fill_type="solid")
-            header_font = Font(bold=True, color="FFFFFF")
-            border = Border(
-                left=Side(style="thin"), right=Side(style="thin"),
-                top=Side(style="thin"), bottom=Side(style="thin"),
-            )
             green = PatternFill(start_color="E6FFED", fill_type="solid")
             red = PatternFill(start_color="FFEEF0", fill_type="solid")
 
             headers = ["需求ID", "需求标题", "模块", "SWC", "信号", "DTC", "测试用例", "链接总数", "已验证"]
-            for col, h in enumerate(headers, 1):
-                c = ws.cell(row=1, column=col, value=h)
-                c.fill = header_fill
-                c.font = header_font
-                c.border = border
+            write_header_row(ws, headers)
 
             matrix = self.get_matrix()
             for row, (req_id, info) in enumerate(sorted(matrix.items()), 2):
-                ws.cell(row=row, column=1, value=req_id).border = border
-                ws.cell(row=row, column=2, value=info["title"]).border = border
-                ws.cell(row=row, column=3, value=info["module"]).border = border
-                ws.cell(row=row, column=4, value=", ".join(info["links"].get("swc", []))).border = border
-                ws.cell(row=row, column=5, value=", ".join(info["links"].get("signal", []))).border = border
-                ws.cell(row=row, column=6, value=", ".join(info["links"].get("dtc", []))).border = border
-                ws.cell(row=row, column=7, value=", ".join(info["links"].get("test_case", []))).border = border
-                ws.cell(row=row, column=8, value=info["link_count"]).border = border
-                ws.cell(row=row, column=9, value=info["verified_count"]).border = border
+                ws.cell(row=row, column=1, value=req_id).border = THIN_BORDER
+                ws.cell(row=row, column=2, value=info["title"]).border = THIN_BORDER
+                ws.cell(row=row, column=3, value=info["module"]).border = THIN_BORDER
+                ws.cell(row=row, column=4, value=", ".join(info["links"].get("swc", []))).border = THIN_BORDER
+                ws.cell(row=row, column=5, value=", ".join(info["links"].get("signal", []))).border = THIN_BORDER
+                ws.cell(row=row, column=6, value=", ".join(info["links"].get("dtc", []))).border = THIN_BORDER
+                ws.cell(row=row, column=7, value=", ".join(info["links"].get("test_case", []))).border = THIN_BORDER
+                ws.cell(row=row, column=8, value=info["link_count"]).border = THIN_BORDER
+                ws.cell(row=row, column=9, value=info["verified_count"]).border = THIN_BORDER
 
                 # Color code: green if fully linked, red if not
                 fill = green if info["link_count"] > 0 else red
                 for col in range(1, 10):
                     ws.cell(row=row, column=col).fill = fill
 
-            for col_cells in ws.columns:
-                max_len = max(len(str(cell.value or "")) for cell in col_cells)
-                ws.column_dimensions[col_cells[0].column_letter].width = min(max_len + 3, 40)
+            auto_width(ws)
             ws.freeze_panes = "A2"
 
             # Sheet 2: Statistics
@@ -432,5 +434,5 @@ class TraceMatrixController:
 
             wb.save(str(output_path))
             return True, []
-        except Exception as exc:
+        except (OSError, ValueError) as exc:
             return False, [str(exc)]

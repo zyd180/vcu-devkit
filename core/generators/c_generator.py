@@ -32,7 +32,7 @@ class CANCodeGenerator(BaseGenerator):
             output_files.append(self._write_file(output_dir / "can_messages.h", msg_content))
 
             return GenerateResult(success=True, output_files=output_files)
-        except Exception as exc:
+        except (OSError, ValueError) as exc:
             errors.append(str(exc))
             return GenerateResult(success=False, output_files=output_files, errors=errors)
 

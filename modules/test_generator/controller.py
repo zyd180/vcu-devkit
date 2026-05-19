@@ -225,17 +225,17 @@ class TestGeneratorController:
         """Calculate signal coverage statistics."""
         if self.current_dbc is None:
             return {"total_signals": 0, "covered": 0, "coverage": 0}
-        total_signals = set()
-        covered_signals = set()
+        total_signals: set[str] = set()
+        signal_index: dict[str, str] = {}  # signal_name → "msg.signal"
         for msg in self.current_dbc.messages:
             for sig in msg.signals:
-                total_signals.add(f"{msg.name}.{sig.name}")
+                key = f"{msg.name}.{sig.name}"
+                total_signals.add(key)
+                signal_index[sig.name] = key
+        covered_signals = set()
         for tc in self.test_cases:
-            if tc.signal_name:
-                for msg in self.current_dbc.messages:
-                    for sig in msg.signals:
-                        if sig.name == tc.signal_name:
-                            covered_signals.add(f"{msg.name}.{sig.name}")
+            if tc.signal_name and tc.signal_name in signal_index:
+                covered_signals.add(signal_index[tc.signal_name])
         total = len(total_signals)
         covered = len(covered_signals)
         return {
@@ -296,7 +296,7 @@ class TestGeneratorController:
     def export_excel(self, output_path: Path) -> tuple[bool, list[str]]:
         try:
             from openpyxl import Workbook
-            from openpyxl.styles import PatternFill, Font
+            from core.utils.excel_utils import write_header_row, auto_width
 
             wb = Workbook()
             ws = wb.active
@@ -304,13 +304,7 @@ class TestGeneratorController:
 
             headers = ["用例ID", "名称", "分类", "方法", "描述", "前置条件", "测试步骤", "预期结果",
                        "关联信号", "关联报文", "输入值", "优先级", "状态"]
-            header_fill = PatternFill(start_color="1A73E8", fill_type="solid")
-            header_font = Font(bold=True, color="FFFFFF")
-
-            for col, h in enumerate(headers, 1):
-                c = ws.cell(row=1, column=col, value=h)
-                c.fill = header_fill
-                c.font = header_font
+            write_header_row(ws, headers)
 
             for row, tc in enumerate(self.test_cases, 2):
                 ws.cell(row=row, column=1, value=tc.id)
@@ -327,12 +321,9 @@ class TestGeneratorController:
                 ws.cell(row=row, column=12, value=tc.priority)
                 ws.cell(row=row, column=13, value=tc.status)
 
-            for col_cells in ws.columns:
-                max_len = max(len(str(cell.value or "")) for cell in col_cells)
-                ws.column_dimensions[col_cells[0].column_letter].width = min(max_len + 3, 50)
-
+            auto_width(ws)
             ws.freeze_panes = "A2"
             wb.save(str(output_path))
             return True, []
-        except Exception as exc:
+        except (OSError, ValueError) as exc:
             return False, [str(exc)]

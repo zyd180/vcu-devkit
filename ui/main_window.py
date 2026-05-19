@@ -173,36 +173,19 @@ class MainWindow(QMainWindow):
         main_layout.setSpacing(0)
 
         self.page_stack = QStackedWidget()
+        self._loaded_views: dict[int, QWidget] = {}
+        self._view_factories = {
+            0: self._create_can_view,
+            1: self._create_swc_view,
+            2: self._create_diag_view,
+            3: self._create_calib_view,
+            4: self._create_test_view,
+            5: self._create_trace_view,
+        }
 
-        # CAN Builder — real module
-        from modules.can_builder.views.can_builder_view import CANBuilderView
-        self._can_view = CANBuilderView()
-        self.page_stack.addWidget(self._can_view)
-
-        # SWC Designer — real module
-        from modules.swc_designer.views.swc_designer_view import SWCDesignerView
-        self._swc_view = SWCDesignerView()
-        self.page_stack.addWidget(self._swc_view)
-
-        # Diagnostic Builder — real module
-        from modules.diag_builder.views.diag_builder_view import DiagBuilderView
-        self._diag_view = DiagBuilderView()
-        self.page_stack.addWidget(self._diag_view)
-
-        # Calibration Manager — real module
-        from modules.calib_manager.views.calib_manager_view import CalibManagerView
-        self._calib_view = CalibManagerView()
-        self.page_stack.addWidget(self._calib_view)
-
-        # Test Generator — real module
-        from modules.test_generator.views.test_generator_view import TestGeneratorView
-        self._test_view = TestGeneratorView()
-        self.page_stack.addWidget(self._test_view)
-
-        # Traceability Matrix — real module
-        from modules.trace_matrix.views.trace_matrix_view import TraceMatrixView
-        self._trace_view = TraceMatrixView()
-        self.page_stack.addWidget(self._trace_view)
+        # Add placeholder widgets; real views created on first access
+        for _ in range(6):
+            self.page_stack.addWidget(QWidget())
 
         # Splitter: sidebar | content
         splitter = QSplitter(Qt.Horizontal)
@@ -215,6 +198,44 @@ class MainWindow(QMainWindow):
         main_layout.addWidget(splitter)
         self.setCentralWidget(central_widget)
 
+    def _ensure_view_loaded(self, index: int):
+        """Lazily instantiate a module view on first access."""
+        if index in self._loaded_views:
+            return
+        factory = self._view_factories.get(index)
+        if factory is None:
+            return
+        view = factory()
+        self._loaded_views[index] = view
+        old = self.page_stack.widget(index)
+        self.page_stack.removeWidget(old)
+        old.deleteLater()
+        self.page_stack.insertWidget(index, view)
+
+    def _create_can_view(self):
+        from modules.can_builder.views.can_builder_view import CANBuilderView
+        return CANBuilderView()
+
+    def _create_swc_view(self):
+        from modules.swc_designer.views.swc_designer_view import SWCDesignerView
+        return SWCDesignerView()
+
+    def _create_diag_view(self):
+        from modules.diag_builder.views.diag_builder_view import DiagBuilderView
+        return DiagBuilderView()
+
+    def _create_calib_view(self):
+        from modules.calib_manager.views.calib_manager_view import CalibManagerView
+        return CalibManagerView()
+
+    def _create_test_view(self):
+        from modules.test_generator.views.test_generator_view import TestGeneratorView
+        return TestGeneratorView()
+
+    def _create_trace_view(self):
+        from modules.trace_matrix.views.trace_matrix_view import TraceMatrixView
+        return TraceMatrixView()
+
     def _create_status_bar(self):
         """Create status bar."""
         self.status_widget = StatusBarWidget()
@@ -225,6 +246,7 @@ class MainWindow(QMainWindow):
 
     def _on_module_selected(self, index: int):
         """Handle sidebar module selection."""
+        self._ensure_view_loaded(index)
         self.page_stack.setCurrentIndex(index)
         modules = ["CAN开发", "SWC开发", "诊断配置", "标定管理", "测试生成", "需求追溯"]
         if 0 <= index < len(modules):

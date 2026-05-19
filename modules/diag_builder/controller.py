@@ -9,13 +9,16 @@ from typing import Any
 
 from core.db.models import DTCDefinition, DiagService, db
 from core.db.manager import DatabaseManager
+from core.db.crud_mixin import CRUDMixin
 from core.parsers.odx_parser import ODXParser
 
 logger = logging.getLogger(__name__)
 
 
-class DiagBuilderController:
+class DiagBuilderController(CRUDMixin):
     """Orchestrate Diagnostic Builder operations — DTC, UDS services, snapshots."""
+
+    model = DTCDefinition
 
     def __init__(self, db_manager: DatabaseManager | None = None):
         self.db = db_manager or DatabaseManager()
@@ -43,23 +46,10 @@ class DiagBuilderController:
             return None
 
     def update_dtc(self, dtc_id: int, **kwargs) -> bool:
-        try:
-            dtc = DTCDefinition.get_by_id(dtc_id)
-            for k, v in kwargs.items():
-                if hasattr(dtc, k):
-                    setattr(dtc, k, v)
-            dtc.save()
-            return True
-        except DTCDefinition.DoesNotExist:
-            return False
+        return self.update_fields(dtc_id, **kwargs)
 
     def remove_dtc(self, dtc_id: int) -> bool:
-        try:
-            dtc = DTCDefinition.get_by_id(dtc_id)
-            dtc.delete_instance()
-            return True
-        except DTCDefinition.DoesNotExist:
-            return False
+        return self.delete_by_id(dtc_id)
 
     def get_dtc_as_dict(self, dtc_id: int) -> dict | None:
         try:

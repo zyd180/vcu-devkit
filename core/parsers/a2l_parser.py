@@ -10,9 +10,12 @@ This parser extracts CHARACTERISTIC (calibration parameters) and MEASUREMENT
 
 from __future__ import annotations
 
+import logging
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
+
+logger = logging.getLogger(__name__)
 
 from core.parsers.base import BaseParser, ParseResult
 
@@ -94,14 +97,14 @@ class A2LParser(BaseParser):
             content = path.read_text(encoding="utf-8", errors="replace")
             data = self._parse_content(content, str(path))
             return ParseResult(success=True, data=data, source_path=path)
-        except Exception as exc:
+        except (OSError, ValueError) as exc:
             return ParseResult(success=False, errors=[str(exc)])
 
     def parse_string(self, content: str) -> ParseResult:
         try:
             data = self._parse_content(content, "<string>")
             return ParseResult(success=True, data=data)
-        except Exception as exc:
+        except ValueError as exc:
             return ParseResult(success=False, errors=[str(exc)])
 
     def _parse_content(self, content: str, source: str) -> A2LData:
@@ -127,7 +130,8 @@ class A2LParser(BaseParser):
                 result = parser_fn(match.group(1))
                 if result:
                     results.append(result)
-            except Exception:
+            except (ValueError, IndexError, AttributeError) as exc:
+                logger.warning("Failed to parse %s block: %s", block_type, exc)
                 continue
         return results
 

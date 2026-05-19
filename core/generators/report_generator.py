@@ -15,31 +15,18 @@ class ReportGenerator:
     def generate_signal_matrix(self, data: DBCData, output_path: Path):
         """Export complete signal matrix to Excel."""
         from openpyxl import Workbook
-        from openpyxl.styles import PatternFill, Font, Alignment, Border, Side
+        from openpyxl.styles import Alignment
+        from core.utils.excel_utils import write_header_row, auto_width, THIN_BORDER
 
         wb = Workbook()
         ws = wb.active
         ws.title = "Signal Matrix"
 
-        header_fill = PatternFill(start_color="1A73E8", fill_type="solid")
-        header_font = Font(bold=True, color="FFFFFF", size=11)
-        border = Border(
-            left=Side(style="thin", color="D0D0D0"),
-            right=Side(style="thin", color="D0D0D0"),
-            top=Side(style="thin", color="D0D0D0"),
-            bottom=Side(style="thin", color="D0D0D0"),
-        )
-
         headers = [
             "报文名", "CAN ID", "DLC", "发送方", "信号名", "起始位", "位长",
             "字节序", "值类型", "Factor", "Offset", "最小值", "最大值", "单位", "接收方", "值描述",
         ]
-        for col, h in enumerate(headers, 1):
-            cell = ws.cell(row=1, column=col, value=h)
-            cell.fill = header_fill
-            cell.font = header_font
-            cell.alignment = Alignment(horizontal="center")
-            cell.border = border
+        write_header_row(ws, headers)
 
         row = 2
         for msg in data.messages:
@@ -64,13 +51,10 @@ class ReportGenerator:
                 ]
                 for col, val in enumerate(vals, 1):
                     cell = ws.cell(row=row, column=col, value=val)
-                    cell.border = border
+                    cell.border = THIN_BORDER
                 row += 1
 
-        # Auto-width
-        for col_cells in ws.columns:
-            max_len = max(len(str(cell.value or "")) for cell in col_cells)
-            ws.column_dimensions[col_cells[0].column_letter].width = min(max_len + 3, 40)
+        auto_width(ws)
 
         # Freeze header
         ws.freeze_panes = "A2"
@@ -80,20 +64,14 @@ class ReportGenerator:
     def generate_message_summary(self, data: DBCData, output_path: Path):
         """Export message-level summary."""
         from openpyxl import Workbook
-        from openpyxl.styles import PatternFill, Font
+        from core.utils.excel_utils import write_header_row, auto_width, THIN_BORDER
 
         wb = Workbook()
         ws = wb.active
         ws.title = "Message Summary"
 
         headers = ["报文名", "CAN ID", "DLC (bytes)", "发送方", "信号数量", "备注"]
-        header_fill = PatternFill(start_color="1A73E8", fill_type="solid")
-        header_font = Font(bold=True, color="FFFFFF")
-
-        for col, h in enumerate(headers, 1):
-            cell = ws.cell(row=1, column=col, value=h)
-            cell.fill = header_fill
-            cell.font = header_font
+        write_header_row(ws, headers)
 
         for row, msg in enumerate(data.messages, 2):
             ws.cell(row=row, column=1, value=msg.name)
@@ -103,17 +81,15 @@ class ReportGenerator:
             ws.cell(row=row, column=5, value=len(msg.signals))
             ws.cell(row=row, column=6, value=msg.comment)
 
-        for col_cells in ws.columns:
-            max_len = max(len(str(cell.value or "")) for cell in col_cells)
-            ws.column_dimensions[col_cells[0].column_letter].width = min(max_len + 3, 40)
-
+        auto_width(ws)
         ws.freeze_panes = "A2"
         wb.save(str(output_path))
 
     def generate_diff_report(self, diff: DBCDiffResult, output_path: Path):
         """Export diff report to Excel with formatting."""
         from openpyxl import Workbook
-        from openpyxl.styles import PatternFill, Font, Border, Side
+        from openpyxl.styles import PatternFill, Font
+        from core.utils.excel_utils import write_header_row, auto_width
 
         wb = Workbook()
 
@@ -146,9 +122,7 @@ class ReportGenerator:
         bold = Font(bold=True)
 
         headers = ["操作", "报文", "CAN ID", "信号", "变更字段", "旧值", "新值"]
-        for col, h in enumerate(headers, 1):
-            c = ws_det.cell(row=1, column=col, value=h)
-            c.font = bold
+        write_header_row(ws_det, headers)
 
         row = 2
         fill_map = {
@@ -198,9 +172,7 @@ class ReportGenerator:
                         ws_det.cell(row=row, column=c).fill = fill
                 row += 1
 
-        for col_cells in ws_det.columns:
-            max_len = max(len(str(cell.value or "")) for cell in col_cells)
-            ws_det.column_dimensions[col_cells[0].column_letter].width = min(max_len + 3, 40)
+        auto_width(ws_det)
 
         ws_det.freeze_panes = "A2"
         wb.save(str(output_path))

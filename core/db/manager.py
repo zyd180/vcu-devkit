@@ -10,18 +10,26 @@ from core.db.models import db, ALL_MODELS
 class DatabaseManager:
     """Initialise, open, and manage the SQLite database."""
 
+    # Class-level tracking to avoid re-initializing the same database
+    _initialized_paths: set[str] = set()
+
     def __init__(self, db_path: Path | None = None):
         if db_path is None:
             db_path = Path.home() / ".vcu-devkit" / "vcu-devkit.db"
         self.db_path = Path(db_path)
-        self._initialised = False
+        self._initialised = str(self.db_path) in self._initialized_paths
 
     def init(self):
-        """Create database file and tables if they don't exist."""
+        """Create database file and tables if they don't exist (idempotent)."""
+        path_key = str(self.db_path)
+        if path_key in self._initialized_paths:
+            self._initialised = True
+            return
         self.db_path.parent.mkdir(parents=True, exist_ok=True)
-        db.init(str(self.db_path))
+        db.init(path_key)
         db.connect(reuse_if_open=True)
         db.create_tables(ALL_MODELS, safe=True)
+        self._initialized_paths.add(path_key)
         self._initialised = True
 
     def close(self):

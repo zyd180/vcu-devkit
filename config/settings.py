@@ -12,6 +12,12 @@ logger = logging.getLogger(__name__)
 class AppSettings:
     """Application settings."""
 
+    _ALLOWED_KEYS = frozenset({
+        "theme", "last_project_dir", "last_dbc_dir", "last_arxml_dir",
+        "recent_files", "default_arxml_target", "auto_save_interval",
+        "window_geometry", "window_state",
+    })
+
     app_name: str = "VCU DevKit"
     version: str = "0.1.0"
     theme: str = "light"
@@ -34,7 +40,7 @@ class AppSettings:
                 with open(config_path, "r", encoding="utf-8") as f:
                     data = json.load(f)
                 for key, value in data.items():
-                    if hasattr(self, key):
+                    if key in self._ALLOWED_KEYS:
                         setattr(self, key, value)
             except (json.JSONDecodeError, OSError) as exc:
                 logger.warning("Failed to load settings from %s: %s", config_path, exc)

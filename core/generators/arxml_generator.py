@@ -31,7 +31,7 @@ class ARXMLGenerator:
             )
             output_path.write_bytes(xml_bytes)
             return True, []
-        except Exception as exc:
+        except (OSError, etree.XMLSyntaxError, ValueError) as exc:
             return False, [str(exc)]
 
     def generate_string(self, data: ARXMLData) -> str:

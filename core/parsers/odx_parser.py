@@ -72,7 +72,7 @@ class ODXParser(BaseParser):
             tree = etree.parse(str(path), parser=_SAFE_PARSER)
             data = self._parse_tree(tree, str(path))
             return ParseResult(success=True, data=data, source_path=path)
-        except Exception as exc:
+        except (OSError, etree.XMLSyntaxError, ValueError) as exc:
             return ParseResult(success=False, errors=[str(exc)])
 
     def _parse_tree(self, tree: etree._ElementTree, source: str) -> ODXData:

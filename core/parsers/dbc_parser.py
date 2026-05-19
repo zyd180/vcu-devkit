@@ -74,8 +74,10 @@ class DBCParser(BaseParser):
             db = cantools.database.load_file(str(path))
             data = self._convert(db, str(path))
             return ParseResult(success=True, data=data, source_path=path)
-        except Exception as exc:
+        except (OSError, ValueError) as exc:
             return ParseResult(success=False, errors=[str(exc)])
+        except cantools.database.Error as exc:
+            return ParseResult(success=False, errors=[f"DBC parse error: {exc}"])
 
     def parse_string(self, content: str) -> ParseResult:
         """Parse DBC content from string (no file I/O)."""
@@ -83,7 +85,7 @@ class DBCParser(BaseParser):
             db = cantools.database.load_string(content)
             data = self._convert(db, "<string>")
             return ParseResult(success=True, data=data)
-        except Exception as exc:
+        except (ValueError, cantools.database.Error) as exc:
             return ParseResult(success=False, errors=[str(exc)])
 
     def validate(self, file_path: Path) -> list[str]:

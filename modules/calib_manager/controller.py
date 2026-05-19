@@ -8,13 +8,16 @@ from pathlib import Path
 
 from core.db.models import CalibrationParameter, CalibrationChange
 from core.db.manager import DatabaseManager
+from core.db.crud_mixin import CRUDMixin
 from core.parsers.a2l_parser import A2LParser, A2LData, a2l_data_to_dict
 
 logger = logging.getLogger(__name__)
 
 
-class CalibManagerController:
+class CalibManagerController(CRUDMixin):
     """Orchestrate Calibration Manager operations."""
+
+    model = CalibrationParameter
 
     def __init__(self, db_manager: DatabaseManager | None = None):
         self.db = db_manager or DatabaseManager()
@@ -86,12 +89,7 @@ class CalibManagerController:
             return False
 
     def remove_param(self, param_id: int) -> bool:
-        try:
-            param = CalibrationParameter.get_by_id(param_id)
-            param.delete_instance()
-            return True
-        except CalibrationParameter.DoesNotExist:
-            return False
+        return self.delete_by_id(param_id)
 
     def get_param_as_dict(self, param_id: int) -> dict | None:
         try:
