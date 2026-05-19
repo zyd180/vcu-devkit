@@ -120,6 +120,7 @@ class CANBuilderController:
                     senders=[msg_def.sender] if msg_def.sender else [],
                     comment=msg_def.comment or None,
                     is_extended_frame=msg_def.is_extended,
+                    is_fd=msg_def.is_fd or msg_def.dlc > 8,
                     unused_bit_pattern=0,
                     strict=False,
                 )

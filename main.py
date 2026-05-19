@@ -24,6 +24,14 @@ def main():
     app.setApplicationVersion("0.1.0")
     app.setOrganizationName("VCU Team")
 
+    # Discover plugins
+    from core.plugins.registry import PluginRegistry
+    plugin_registry = PluginRegistry()
+    plugin_dirs = [Path(__file__).parent / "plugins"]
+    count = plugin_registry.discover(plugin_dirs)
+    if count:
+        print(f"[VCU DevKit] Loaded {count} plugin(s)")
+
     settings = AppSettings()
     settings.load()
 

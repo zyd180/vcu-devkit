@@ -32,6 +32,13 @@ class RuleEngine:
 
     VALID_IDENTIFIER = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 
+    def __init__(self):
+        self._plugin_rules: list[Any] = []
+
+    def register_plugin_rules(self, rules: list[Any]) -> None:
+        """Register rule plugins to be executed alongside built-in rules."""
+        self._plugin_rules.extend(rules)
+
     def check_arxml(self, data: ARXMLData) -> list[RuleResult]:
         """Run all ARXML / SWC validation rules."""
         results: list[RuleResult] = []
@@ -42,6 +49,9 @@ class RuleEngine:
         results.extend(self._check_empty_swc(data))
         results.extend(self._check_duplicate_swc_names(data))
         results.extend(self._check_composition_connectivity(data))
+        for plugin in self._plugin_rules:
+            if hasattr(plugin, "check_arxml"):
+                results.extend(plugin.check_arxml(data))
         return results
 
     def check_dbc(self, data: DBCData) -> list[RuleResult]:
@@ -53,6 +63,10 @@ class RuleEngine:
         results.extend(self._check_naming_convention(data))
         results.extend(self._check_duplicate_ids(data))
         results.extend(self._check_dlc_vs_signals(data))
+        results.extend(self._check_canfd_dlc(data))
+        for plugin in self._plugin_rules:
+            if hasattr(plugin, "check_dbc"):
+                results.extend(plugin.check_dbc(data))
         return results
 
     # ── Signal overlap ───────────────────────────────────────────────────
@@ -226,6 +240,39 @@ class RuleEngine:
                     location=msg.name,
                     suggestion=f"Increase DLC to at least {needed_bytes}",
                 ))
+        return results
+
+    # ── CAN FD DLC validation ─────────────────────────────────────────────
+
+    _VALID_FD_DLCS = {0, 8, 12, 16, 20, 24, 32, 48, 64}
+
+    def _check_canfd_dlc(self, data: DBCData) -> list[RuleResult]:
+        """Validate CAN FD DLC values and FD flag consistency."""
+        results: list[RuleResult] = []
+        for msg in data.messages:
+            if msg.is_fd or msg.dlc > 8:
+                if msg.dlc not in self._VALID_FD_DLCS:
+                    results.append(RuleResult(
+                        rule_id="DBC_FD_DLC_INVALID",
+                        severity=Severity.ERROR,
+                        message=(
+                            f"CAN FD message '{msg.name}' has invalid DLC {msg.dlc}. "
+                            f"Valid values: {sorted(self._VALID_FD_DLCS)}"
+                        ),
+                        location=msg.name,
+                        suggestion=f"Set DLC to one of {sorted(self._VALID_FD_DLCS)}",
+                    ))
+                if msg.dlc > 8 and not msg.is_fd:
+                    results.append(RuleResult(
+                        rule_id="DBC_FD_FLAG_MISSING",
+                        severity=Severity.WARNING,
+                        message=(
+                            f"Message '{msg.name}' has DLC {msg.dlc} > 8 but is not "
+                            f"marked as CAN FD"
+                        ),
+                        location=msg.name,
+                        suggestion="Set is_fd=True for CAN FD frames",
+                    ))
         return results
 
     # ── ARXML: SWC naming ──────────────────────────────────────────────────

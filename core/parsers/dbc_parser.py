@@ -43,6 +43,7 @@ class MessageDef:
     comment: str
     signals: list[SignalDef] = field(default_factory=list)
     is_extended: bool = False
+    is_fd: bool = False              # CAN FD frame (DLC > 8)
 
 
 @dataclass
@@ -128,6 +129,7 @@ class DBCParser(BaseParser):
     def _convert_message(self, msg: cantools.database.Message) -> MessageDef:
         signals = [self._convert_signal(s) for s in msg.signals]
         comment = msg.comment or ""
+        is_fd = getattr(msg, "is_fd", False) or msg.length > 8
         return MessageDef(
             id=msg.frame_id,
             name=msg.name,
@@ -136,6 +138,7 @@ class DBCParser(BaseParser):
             comment=comment,
             signals=signals,
             is_extended=msg.is_extended_frame,
+            is_fd=is_fd,
         )
 
     def _convert_signal(self, sig: cantools.database.Signal) -> SignalDef:
@@ -201,6 +204,7 @@ def dbc_data_to_dict(data: DBCData) -> dict:
                 "sender": m.sender,
                 "comment": m.comment,
                 "is_extended": m.is_extended,
+                "is_fd": m.is_fd,
                 "signals": [
                     {
                         "name": s.name,
@@ -256,6 +260,7 @@ def dbc_data_from_dict(d: dict) -> DBCData:
             comment=md.get("comment", ""),
             signals=signals,
             is_extended=md.get("is_extended", False),
+            is_fd=md.get("is_fd", False),
         ))
     return DBCData(
         version=d.get("version", ""),

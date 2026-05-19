@@ -111,9 +111,10 @@ class CAPLGenerator(BaseGenerator):
 
     def _generate_tx_block(self, msg: MessageDef) -> list[str]:
         """Generate TX message packing code."""
-        lines = [f"  /* --- {msg.name} --- */"]
+        lines = [f"  /* --- {msg.name}{' (FD)' if msg.is_fd else ''} --- */"]
         lines.append(f"  {{")
-        lines.append(f"    message {msg.id} msg_{msg.name};")
+        fd_star = " *" if msg.is_fd else ""
+        lines.append(f"    message{fd_star} {msg.id} msg_{msg.name};")
         for sig in msg.signals:
             lines.append(f"    msg_{msg.name}.{sig.name} = {sig.name};")
         lines.append(f"    output(msg_{msg.name});")
@@ -123,7 +124,8 @@ class CAPLGenerator(BaseGenerator):
 
     def _generate_rx_handler(self, msg: MessageDef) -> list[str]:
         """Generate on message handler for RX."""
-        lines = [f"/* --- {msg.name} (0x{msg.id:03X}) from {msg.sender} --- */"]
+        fd_tag = " (FD)" if msg.is_fd else ""
+        lines = [f"/* --- {msg.name} (0x{msg.id:03X}){fd_tag} from {msg.sender} --- */"]
         lines.append(f"on message {msg.id}")
         lines.append("{")
         for sig in msg.signals:

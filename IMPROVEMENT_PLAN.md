@@ -273,13 +273,17 @@
 
 > 目标：从"辅助工具"升级为"专业工具"
 
-### 4.1 CAN FD 支持 [P2]
+### 4.1 CAN FD 支持 [P2] ✅
 
-| # | 任务 | 预估工时 |
-|---|------|---------|
-| 1 | DBC 解析支持 CAN FD 64 字节 DLC | 3h |
-| 2 | C 代码生成支持 CAN FD（64 字节 buffer） | 2h |
-| 3 | BRS/CRC 信号标记 | 1h |
+**实际情况：** MessageDef 新增 is_fd 字段，C/CAPL 生成器适配 CAN FD，20 项测试通过
+
+| # | 任务 | 状态 |
+|---|------|------|
+| 1 | DBC 解析支持 CAN FD 64 字节 DLC | ✅ `is_fd` 字段 + 自动检测 |
+| 2 | C 代码生成支持 CAN FD（64 字节 buffer + uint64_t） | ✅ `CAN_IS_FD_xxx` 宏 |
+| 3 | CAPL 生成支持 FD 帧（`message *` 语法） | ✅ |
+| 4 | CAN FD DLC 校验规则（合法值 + BRS 标记） | ✅ `DBC_FD_DLC_INVALID` / `DBC_FD_FLAG_MISSING` |
+| 5 | DBC 保存适配（cantools `is_fd` 参数） | ✅ |
 
 ### 4.2 J1939 协议支持 [P2]
 
@@ -305,14 +309,18 @@
 | 2 | 追溯结果回写到飞书多维表格 | 2h |
 | 3 | 定时同步 + 冲突处理 | 3h |
 
-### 4.5 插件化架构 [P3]
+### 4.5 插件化架构 [P3] ✅
 
-| # | 任务 | 预估工时 |
-|---|------|---------|
-| 1 | 插件接口定义（BasePlugin: parser/generator/rule） | 3h |
-| 2 | 插件发现机制（扫描 plugins/ 目录） | 2h |
-| 3 | 插件注册到对应的 registry（parser_registry / generator_registry） | 2h |
-| 4 | 插件配置 UI（启用/禁用/排序） | 3h |
+**实际情况：** 插件基类 + 发现注册机制 + 规则引擎集成 + 示例插件，19 项测试通过
+
+| # | 任务 | 状态 |
+|---|------|------|
+| 1 | 插件接口定义（ParserPlugin / GeneratorPlugin / RulePlugin） | ✅ `core/plugins/base.py` |
+| 2 | 插件发现机制（扫描 plugins/ 目录，importlib 动态加载） | ✅ `core/plugins/registry.py` |
+| 3 | 插件注册到 registry（parser/generator/rule） | ✅ |
+| 4 | 规则引擎集成（`register_plugin_rules()`） | ✅ `core/rules/engine.py` |
+| 5 | 示例 CSV 解析器插件 | ✅ `plugins/example_csv_parser.py` |
+| 6 | 插件配置 UI（启用/禁用/排序） | ⬜ 待后续迭代 |
 
 ---
 

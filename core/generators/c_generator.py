@@ -55,9 +55,12 @@ class CANCodeGenerator(BaseGenerator):
         ]
 
         for msg in data.messages:
-            lines.append(f"/* ========== {msg.name} (0x{msg.id:03X}) — DLC={msg.dlc} ========== */")
+            fd_tag = " [CAN FD]" if msg.is_fd else ""
+            lines.append(f"/* ========== {msg.name} (0x{msg.id:03X}) — DLC={msg.dlc}{fd_tag} ========== */")
             lines.append(f"#define CAN_MSG_{msg.name}  0x{msg.id:04X}u")
             lines.append(f"#define CAN_DLC_{msg.name}  {msg.dlc}u")
+            if msg.is_fd:
+                lines.append(f"#define CAN_IS_FD_{msg.name}  1")
             lines.append("")
             for sig in msg.signals:
                 lines.extend(self._generate_signal_code(msg, sig))
@@ -288,10 +291,12 @@ class CANCodeGenerator(BaseGenerator):
         if sig.value_type == "signed":
             if sig.bit_length <= 8: return "int8_t"
             if sig.bit_length <= 16: return "int16_t"
-            return "int32_t"
+            if sig.bit_length <= 32: return "int32_t"
+            return "int64_t"
         if sig.bit_length <= 8: return "uint8_t"
         if sig.bit_length <= 16: return "uint16_t"
-        return "uint32_t"
+        if sig.bit_length <= 32: return "uint32_t"
+        return "uint64_t"
 
     @staticmethod
     def _safe_ident(name: str) -> str:
