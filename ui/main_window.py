@@ -8,12 +8,13 @@ from PySide6.QtWidgets import (
     QLabel, QStackedWidget, QSplitter, QToolBar, QApplication,
     QLineEdit,
 )
-from PySide6.QtCore import Qt, QSize, QMimeData
+from PySide6.QtCore import Qt, QSize, QMimeData, QTimer
 from PySide6.QtGui import QAction, QKeySequence, QDragEnterEvent, QDropEvent
 
 from config.settings import AppSettings
 from ui.sidebar import Sidebar
 from ui.widgets.status_bar import StatusBarWidget
+from ui.widgets.welcome_dialog import WelcomeDialog
 
 
 class MainWindow(QMainWindow):
@@ -29,6 +30,9 @@ class MainWindow(QMainWindow):
         self._create_central_area()
         self._create_status_bar()
         self.setAcceptDrops(True)
+        # Show welcome dialog after window is visible (first launch only)
+        if not self.settings.recent_files and not self.settings.last_project_dir:
+            QTimer.singleShot(200, self._show_welcome)
 
     def _setup_window(self):
         """Configure window properties."""
@@ -56,6 +60,10 @@ class MainWindow(QMainWindow):
         open_project_action.setShortcut(QKeySequence("Ctrl+O"))
         open_project_action.triggered.connect(self._on_open_project)
         file_menu.addAction(open_project_action)
+
+        # Recent files submenu
+        self._recent_menu = file_menu.addMenu("最近文件(&R)")
+        self._rebuild_recent_menu()
 
         file_menu.addSeparator()
 
@@ -128,26 +136,31 @@ class MainWindow(QMainWindow):
         self.addToolBar(toolbar)
 
         open_btn = QAction("打开项目", self)
+        open_btn.setToolTip("打开项目目录 (Ctrl+O)")
         open_btn.triggered.connect(self._on_open_project)
         toolbar.addAction(open_btn)
 
         save_btn = QAction("保存", self)
+        save_btn.setToolTip("保存当前模块数据 (Ctrl+S)")
         save_btn.triggered.connect(self._on_save)
         toolbar.addAction(save_btn)
 
         toolbar.addSeparator()
 
         check_btn = QAction("校验", self)
+        check_btn.setToolTip("校验当前配置的规则合规性 (F5)")
         check_btn.triggered.connect(self._on_check)
         toolbar.addAction(check_btn)
 
         generate_btn = QAction("生成", self)
+        generate_btn.setToolTip("生成代码或导出文件 (F6)")
         generate_btn.triggered.connect(self._on_generate)
         toolbar.addAction(generate_btn)
 
         toolbar.addSeparator()
 
         self._export_btn = QAction("导出", self)
+        self._export_btn.setToolTip("选择导出格式（C/CAPL/Excel/ARXML/A2L/JSON）")
         self._export_btn.triggered.connect(self._on_export)
         toolbar.addAction(self._export_btn)
 
@@ -469,6 +482,58 @@ class MainWindow(QMainWindow):
         self.settings.save()
         event.accept()
 
+    # ── Recent Files ──────────────────────────────────────────────────────────
+
+    def _rebuild_recent_menu(self):
+        """Rebuild the recent files submenu."""
+        self._recent_menu.clear()
+        if not self.settings.recent_files:
+            action = self._recent_menu.addAction("（无最近文件）")
+            action.setEnabled(False)
+            return
+        for fp in self.settings.recent_files:
+            name = Path(fp).name
+            action = self._recent_menu.addAction(name)
+            action.setToolTip(fp)
+            action.triggered.connect(lambda checked=False, p=fp: self._on_open_recent(p))
+
+    def _on_open_recent(self, file_path: str):
+        """Open a file from the recent files list."""
+        if not Path(file_path).exists():
+            self.statusBar().showMessage(f"文件不存在: {file_path}", 5000)
+            self.settings.recent_files.remove(file_path)
+            self._rebuild_recent_menu()
+            return
+        self._load_file(file_path)
+
+    def _load_file(self, file_path: str):
+        """Load a file into the appropriate module view."""
+        ext = Path(file_path).suffix.lower()
+        ext_module_map = {
+            ".dbc": 0, ".arxml": 1,
+            ".odx": 2, ".odx-d": 2, ".odx-c": 2, ".cdd": 2,
+            ".a2l": 3,
+        }
+        module_index = ext_module_map.get(ext)
+        if module_index is not None:
+            self._ensure_view_loaded(module_index)
+            self.page_stack.setCurrentIndex(module_index)
+            self.sidebar.module_list.setCurrentRow(module_index)
+            view = self.page_stack.widget(module_index)
+            if hasattr(view, "load_file"):
+                view.load_file(file_path)
+            self.settings.add_recent_file(file_path)
+            self._rebuild_recent_menu()
+            self.statusBar().showMessage(f"已加载: {Path(file_path).name}", 5000)
+
+    # ── Welcome Dialog ────────────────────────────────────────────────────────
+
+    def _show_welcome(self):
+        """Show the welcome/onboarding dialog."""
+        dlg = WelcomeDialog(recent_files=self.settings.recent_files, parent=self)
+        dlg.file_selected.connect(self._load_file)
+        dlg.exec()
+
     # ── Global Search ──────────────────────────────────────────────────────
 
     def _on_global_search(self, query: str):
@@ -493,23 +558,9 @@ class MainWindow(QMainWindow):
             return
         file_path = urls[0].toLocalFile()
         ext = Path(file_path).suffix.lower()
-
-        # Route by extension to the appropriate module
-        ext_module_map = {
-            ".dbc": 0,
-            ".arxml": 1,
-            ".odx": 2, ".odx-d": 2, ".odx-c": 2, ".cdd": 2,
-            ".a2l": 3,
-        }
-        module_index = ext_module_map.get(ext)
-        if module_index is not None:
-            self._ensure_view_loaded(module_index)
-            self.page_stack.setCurrentIndex(module_index)
-            self.sidebar.module_list.setCurrentRow(module_index)
-            view = self.page_stack.widget(module_index)
-            if hasattr(view, "load_file"):
-                view.load_file(file_path)
-            self.statusBar().showMessage(f"已拖入: {Path(file_path).name}", 5000)
+        supported = {".dbc", ".arxml", ".odx", ".odx-d", ".odx-c", ".cdd", ".a2l"}
+        if ext in supported:
+            self._load_file(file_path)
         elif ext == ".json":
             self.statusBar().showMessage(f"JSON文件请通过各模块的导入功能加载: {Path(file_path).name}", 5000)
         else:

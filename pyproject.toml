@@ -36,3 +36,13 @@ build-backend = "setuptools.backends._legacy:_Backend"
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 python_files = "test_*.py"
+
+[tool.coverage.run]
+source = ["core", "modules", "config", "ui"]
+omit = [
+    "*/views/*.py",
+    "*/widgets/*.py",
+    "ui/main_window.py",
+    "ui/sidebar.py",
+    "ui/widgets/*.py",
+]

@@ -36,11 +36,30 @@ class DataTypeDef:
     """AUTOSAR data type."""
     name: str
     category: str
-    base_type: str
-    size: int                      # bits
-    encoding: str                  # e.g. "uint8", "sint16", "float32"
+    base_type: str = ""
+    size: int = 0                  # bits
+    encoding: str = ""             # e.g. "uint8", "sint16", "float32"
     min_value: float | None = None
     max_value: float | None = None
+
+
+@dataclass
+class BaseTypeDef:
+    """SW-BASE-TYPE definition parsed from ARXML."""
+    name: str
+    category: str = ""
+    size: int = 0                  # bits
+    encoding: str = ""
+
+
+@dataclass
+class CompositionConnector:
+    """Connector within a Composition (assembly or delegation)."""
+    provider_component: str
+    provider_port: str
+    requester_component: str
+    requester_port: str
+    connector_type: str = "assembly"  # "assembly" or "delegation"
 
 
 @dataclass
@@ -99,8 +118,8 @@ class SWCDef:
 class CompositionDef:
     """SWC composition (aggregation of components)."""
     name: str
-    components: list[str]      # SWC names
-    connectors: list[dict]     # component-port connections
+    components: list[str]                        # SWC names
+    connectors: list[CompositionConnector] = field(default_factory=list)
 
 
 @dataclass
@@ -167,13 +186,41 @@ class ARXMLParser(BaseParser):
     def supported_extensions(self) -> list[str]:
         return [".arxml"]
 
+    _STREAMING_THRESHOLD = 5 * 1024 * 1024  # 5 MB
+
     def parse(self, file_path: Path) -> ParseResult:
         path = Path(file_path)
         if not path.exists():
             return ParseResult(success=False, errors=[f"File not found: {path}"])
         try:
+            # Use streaming parse for large files to reduce memory footprint
+            if path.stat().st_size > self._STREAMING_THRESHOLD:
+                return self._parse_streaming(path)
             tree = etree.parse(str(path), parser=_SAFE_PARSER)
             data = self._parse_tree(tree, str(path))
+            return ParseResult(success=True, data=data, source_path=path)
+        except (OSError, etree.XMLSyntaxError, ValueError) as exc:
+            return ParseResult(success=False, errors=[str(exc)])
+
+    def _parse_streaming(self, path: Path) -> ParseResult:
+        """Stream-parse a large ARXML file using iterparse.
+
+        Builds the tree incrementally, processes it, then frees memory.
+        """
+        try:
+            context = etree.iterparse(str(path), events=("end",), parser=_SAFE_PARSER)
+            root = None
+            for event, elem in context:
+                if elem.getparent() is None:
+                    root = elem
+                    break
+            if root is None:
+                return ParseResult(success=False, errors=["Empty ARXML file"])
+            tree = etree.ElementTree(root)
+            data = self._parse_tree(tree, str(path))
+            # Free memory
+            root.clear()
+            del context
             return ParseResult(success=True, data=data, source_path=path)
         except (OSError, etree.XMLSyntaxError, ValueError) as exc:
             return ParseResult(success=False, errors=[str(exc)])
@@ -323,12 +370,50 @@ class ARXMLParser(BaseParser):
             ifaces.append(ClientServerInterface(name=name, operations=ops))
         return ifaces
 
+    def _extract_base_types(self, root: etree._Element) -> dict[str, BaseTypeDef]:
+        """Parse all SW-BASE-TYPE elements and return a name-keyed lookup dict."""
+        base_types: dict[str, BaseTypeDef] = {}
+        for elem in root.iter(f"{self._ns}SW-BASE-TYPE"):
+            name = self._text(elem, "SHORT-NAME", "")
+            cat = self._text(elem, "CATEGORY", "")
+            size_str = self._text(elem, "BASE-TYPE-SIZE", "0")
+            try:
+                size = int(size_str)
+            except ValueError:
+                size = 0
+            encoding = cat.lower().replace("_", "") if cat else ""
+            base_types[name] = BaseTypeDef(name=name, category=cat, size=size, encoding=encoding)
+        return base_types
+
     def _extract_data_types(self, root: etree._Element) -> list[DataTypeDef]:
+        base_types = self._extract_base_types(root)
         types: list[DataTypeDef] = []
         for elem in root.iter(f"{self._ns}APPLICATION-PRIMITIVE-DATA-TYPE"):
             name = self._text(elem, "SHORT-NAME", "")
             cat = self._text(elem, "CATEGORY", "")
-            types.append(DataTypeDef(name=name, category=cat, base_type="", size=0, encoding=""))
+
+            # Resolve base type from SW-DATA-DEF-PROPS / BASE-TYPE-REF
+            base_type_name = ""
+            base_type_size = 0
+            base_type_encoding = ""
+            base_type_ref_elem = elem.find(
+                f"{self._ns}SW-DATA-DEF-PROPS/{self._ns}BASE-TYPE-REF"
+            )
+            if base_type_ref_elem is not None and base_type_ref_elem.text:
+                raw_ref = base_type_ref_elem.text.strip()
+                base_type_name = self._strip_path(raw_ref)
+                bt = base_types.get(base_type_name)
+                if bt:
+                    base_type_size = bt.size
+                    base_type_encoding = bt.encoding
+
+            types.append(DataTypeDef(
+                name=name,
+                category=cat,
+                base_type=base_type_name,
+                size=base_type_size,
+                encoding=base_type_encoding,
+            ))
         return types
 
     def _extract_compositions(self, root: etree._Element) -> list[CompositionDef]:
@@ -339,8 +424,86 @@ class ARXMLParser(BaseParser):
                 self._strip_path(self._text(c, "TYPE-TREF", ""))
                 for c in elem.iter(f"{self._ns}SW-COMPONENT-PROTOTYPE")
             ]
-            comps.append(CompositionDef(name=name, components=components, connectors=[]))
+            connectors = self._extract_connectors(elem)
+            comps.append(CompositionDef(name=name, components=components, connectors=connectors))
         return comps
+
+    def _extract_connectors(self, comp_elem: etree._Element) -> list[CompositionConnector]:
+        """Parse ASSEMBLY-SW-CONNECTOR and DELEGATION-SW-CONNECTOR elements."""
+        connectors: list[CompositionConnector] = []
+
+        # ── Assembly connectors ────────────────────────────────────────────
+        for asm in comp_elem.iter(f"{self._ns}ASSEMBLY-SW-CONNECTOR"):
+            provider_comp = ""
+            provider_port = ""
+            requester_comp = ""
+            requester_port = ""
+
+            # PROVIDER-IREF
+            prov_iref = asm.find(f"{self._ns}PROVIDER-IREF")
+            if prov_iref is not None:
+                ctx = prov_iref.find(f"{self._ns}CONTEXT-COMPONENT-REF")
+                if ctx is not None and ctx.text:
+                    provider_comp = self._strip_path(ctx.text.strip())
+                tgt = prov_iref.find(f"{self._ns}TARGET-P-PORT-REF")
+                if tgt is not None and tgt.text:
+                    provider_port = self._strip_path(tgt.text.strip())
+
+            # REQUESTER-IREF
+            req_iref = asm.find(f"{self._ns}REQUESTER-IREF")
+            if req_iref is not None:
+                ctx = req_iref.find(f"{self._ns}CONTEXT-COMPONENT-REF")
+                if ctx is not None and ctx.text:
+                    requester_comp = self._strip_path(ctx.text.strip())
+                tgt = req_iref.find(f"{self._ns}TARGET-R-PORT-REF")
+                if tgt is not None and tgt.text:
+                    requester_port = self._strip_path(tgt.text.strip())
+
+            connectors.append(CompositionConnector(
+                provider_component=provider_comp,
+                provider_port=provider_port,
+                requester_component=requester_comp,
+                requester_port=requester_port,
+                connector_type="assembly",
+            ))
+
+        # ── Delegation connectors ──────────────────────────────────────────
+        for dlg in comp_elem.iter(f"{self._ns}DELEGATION-SW-CONNECTOR"):
+            provider_comp = ""
+            provider_port = ""
+            requester_comp = ""
+            requester_port = ""
+
+            # INNER-PORT-IREF  (the internal side, typically a P-Port)
+            inner_iref = dlg.find(f"{self._ns}INNER-PORT-IREF")
+            if inner_iref is not None:
+                ctx = inner_iref.find(f"{self._ns}CONTEXT-COMPONENT-REF")
+                if ctx is not None and ctx.text:
+                    provider_comp = self._strip_path(ctx.text.strip())
+                # Delegation inner side can target P-PORT or R-PORT
+                tgt_p = inner_iref.find(f"{self._ns}TARGET-P-PORT-REF")
+                tgt_r = inner_iref.find(f"{self._ns}TARGET-R-PORT-REF")
+                if tgt_p is not None and tgt_p.text:
+                    provider_port = self._strip_path(tgt_p.text.strip())
+                elif tgt_r is not None and tgt_r.text:
+                    provider_port = self._strip_path(tgt_r.text.strip())
+
+            # OUTER-PORT-REF  (the external composition port)
+            outer_ref = dlg.find(f"{self._ns}OUTER-PORT-REF")
+            if outer_ref is not None and outer_ref.text:
+                requester_port = self._strip_path(outer_ref.text.strip())
+                # Delegation's outer port is on the composition itself
+                requester_comp = "(composition)"
+
+            connectors.append(CompositionConnector(
+                provider_component=provider_comp,
+                provider_port=provider_port,
+                requester_component=requester_comp,
+                requester_port=requester_port,
+                connector_type="delegation",
+            ))
+
+        return connectors
 
     # ── Helpers ──────────────────────────────────────────────────────────
 
@@ -405,11 +568,21 @@ def arxml_data_to_dict(data: ARXMLData) -> dict:
         "swcs": [_swc(s) for s in data.swcs],
         "interfaces": [_iface(i) for i in data.interfaces],
         "data_types": [
-            {"name": dt.name, "category": dt.category, "encoding": dt.encoding, "size": dt.size}
+            {"name": dt.name, "category": dt.category, "base_type": dt.base_type,
+             "encoding": dt.encoding, "size": dt.size}
             for dt in data.data_types
         ],
         "compositions": [
-            {"name": c.name, "components": c.components, "connectors": c.connectors}
+            {"name": c.name, "components": c.components, "connectors": [
+                {
+                    "provider_component": cn.provider_component,
+                    "provider_port": cn.provider_port,
+                    "requester_component": cn.requester_component,
+                    "requester_port": cn.requester_port,
+                    "connector_type": cn.connector_type,
+                }
+                for cn in c.connectors
+            ]}
             for c in data.compositions
         ],
     }

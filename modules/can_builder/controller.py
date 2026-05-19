@@ -59,9 +59,11 @@ class CANBuilderController:
                 for sig_def in msg_def.signals:
                     is_little_endian = sig_def.byte_order == "little_endian"
                     is_signed = sig_def.value_type == "signed"
-                    # Determine if conversion needs float representation
-                    is_float = (sig_def.factor != int(sig_def.factor)
-                                or sig_def.offset != int(sig_def.offset))
+                    # is_float controls SIG_VALTYPE_ (IEEE 754 raw encoding),
+                    # only valid for 32-bit and 64-bit float signals.
+                    # Normal integer signals with non-integer scale/offset are
+                    # NOT float-encoded; leave is_float=False.
+                    is_float = False
 
                     # Build conversion object
                     if sig_def.value_descriptions:
@@ -132,8 +134,8 @@ class CANBuilderController:
             )
 
             # Write DBC file
-            with open(target, "w", encoding="utf-8") as f:
-                db.dump(f)
+            dbc_content = db.as_dbc_string()
+            target.write_text(dbc_content, encoding="utf-8")
 
             return True, []
         except cantools.database.Error as e:

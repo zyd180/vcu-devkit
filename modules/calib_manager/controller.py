@@ -10,6 +10,7 @@ from core.db.models import CalibrationParameter, CalibrationChange
 from core.db.manager import DatabaseManager
 from core.db.crud_mixin import CRUDMixin
 from core.parsers.a2l_parser import A2LParser, A2LData, a2l_data_to_dict
+from core.generators.a2l_generator import A2LGenerator
 
 logger = logging.getLogger(__name__)
 
@@ -202,6 +203,24 @@ class CalibManagerController(CRUDMixin):
             output_path.write_text("\n".join(lines), encoding="utf-8")
             return True, []
         except Exception as exc:
+            return False, [str(exc)]
+
+    def export_a2l(self, output_path: Path) -> tuple[bool, list[str]]:
+        """Export current A2L data to a ASAP2-compliant .a2l file.
+
+        Requires that an A2L file has been loaded via load_a2l() first.
+        Returns (success, errors).
+        """
+        if self.current_a2l is None:
+            return False, ["No A2L data loaded — call load_a2l() first"]
+        try:
+            generator = A2LGenerator()
+            result = generator.generate(self.current_a2l, output_path)
+            if result.success:
+                return True, []
+            return False, result.errors
+        except Exception as exc:
+            logger.error("Failed to export A2L: %s", exc)
             return False, [str(exc)]
 
     # ── Validation ─────────────────────────────────────────────────────────

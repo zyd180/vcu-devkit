@@ -11,6 +11,7 @@ from lxml import etree
 from core.parsers.arxml_parser import (
     ARXMLData, SWCDef, PortDef, RunnableDef,
     SenderReceiverInterface, ClientServerInterface, DataElementDef,
+    CompositionConnector,
     PortDirection, AUTOSARVersion,
     AUTOSAR_NS, NSMAP, NS,
 )
@@ -37,7 +38,7 @@ class ARXMLGenerator:
     def generate_string(self, data: ARXMLData) -> str:
         """Return ARXML as string (for preview/testing)."""
         tree = self._build_tree(data)
-        return etree.tostring(tree, pretty_print=True, xml_declaration=True, encoding="unicode")
+        return etree.tostring(tree, pretty_print=True, xml_declaration=False, encoding="unicode")
 
     # ── Tree construction ──────────────────────────────────────────────────
 
@@ -170,6 +171,25 @@ class ARXMLGenerator:
                 proto = etree.SubElement(comps_elem, f"{NS}SW-COMPONENT-PROTOTYPE")
                 _sub_text(proto, "SHORT-NAME", f"{comp_name}Inst")
                 _sub_text(proto, "TYPE-TREF", f"/{comp_name}")
+
+        # ── Connectors ─────────────────────────────────────────────────────
+        if comp.connectors:
+            conns_elem = etree.SubElement(elem, f"{NS}CONNECTORS")
+            for conn in comp.connectors:
+                if conn.connector_type == "assembly":
+                    asm = etree.SubElement(conns_elem, f"{NS}ASSEMBLY-SW-CONNECTOR")
+                    prov = etree.SubElement(asm, f"{NS}PROVIDER-IREF")
+                    _sub_text(prov, "CONTEXT-COMPONENT-REF", f"/{conn.provider_component}")
+                    _sub_text(prov, "TARGET-P-PORT-REF", f"/{conn.provider_port}")
+                    req = etree.SubElement(asm, f"{NS}REQUESTER-IREF")
+                    _sub_text(req, "CONTEXT-COMPONENT-REF", f"/{conn.requester_component}")
+                    _sub_text(req, "TARGET-R-PORT-REF", f"/{conn.requester_port}")
+                elif conn.connector_type == "delegation":
+                    dlg = etree.SubElement(conns_elem, f"{NS}DELEGATION-SW-CONNECTOR")
+                    inner = etree.SubElement(dlg, f"{NS}INNER-PORT-IREF")
+                    _sub_text(inner, "CONTEXT-COMPONENT-REF", f"/{conn.provider_component}")
+                    _sub_text(inner, "TARGET-P-PORT-REF", f"/{conn.provider_port}")
+                    _sub_text(dlg, "OUTER-PORT-REF", f"/{conn.requester_port}")
 
     # ── Tool-specific helpers ──────────────────────────────────────────────
 
