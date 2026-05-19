@@ -47,8 +47,6 @@ def main():
         "--noconfirm",
         "--clean",
     ]
-    if args.debug:
-        cmd.append("--console")
 
     print(f"  Running: {' '.join(cmd)}")
     result = subprocess.run(cmd)
