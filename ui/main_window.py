@@ -32,7 +32,7 @@ class MainWindow(QMainWindow):
         self.setAcceptDrops(True)
         # Show welcome dialog after window is visible (first launch only)
         if not self.settings.recent_files and not self.settings.last_project_dir:
-            QTimer.singleShot(200, self._show_welcome)
+            QTimer.singleShot(500, self._show_welcome)
 
     def _setup_window(self):
         """Configure window properties."""
