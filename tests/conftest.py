@@ -63,4 +63,5 @@ def db_manager(tmp_path):
     db_path = tmp_path / "test.db"
     mgr = DatabaseManager(db_path)
     mgr.init()
-    return mgr
+    yield mgr
+    DatabaseManager._initialized_paths.discard(str(db_path))

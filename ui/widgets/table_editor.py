@@ -4,7 +4,7 @@ from PySide6.QtWidgets import (
     QTableView, QWidget, QVBoxLayout, QHBoxLayout,
     QLineEdit, QPushButton, QHeaderView, QAbstractItemView,
 )
-from PySide6.QtCore import Qt, Signal, QAbstractTableModel, QModelIndex
+from PySide6.QtCore import Qt, Signal, QAbstractTableModel, QModelIndex, QTimer
 from PySide6.QtGui import QColor
 
 
@@ -102,7 +102,11 @@ class TableEditor(QWidget):
         search_layout = QHBoxLayout()
         self.search_input = QLineEdit()
         self.search_input.setPlaceholderText("搜索...")
-        self.search_input.textChanged.connect(self._on_search)
+        self._search_timer = QTimer(self)
+        self._search_timer.setSingleShot(True)
+        self._search_timer.setInterval(200)
+        self._search_timer.timeout.connect(self._do_search)
+        self.search_input.textChanged.connect(self._on_search_text_changed)
         search_layout.addWidget(self.search_input)
 
         self.add_btn = QPushButton("+ 添加")
@@ -128,8 +132,13 @@ class TableEditor(QWidget):
         self.table.selectionModel().currentChanged.connect(self._on_row_selected)
         layout.addWidget(self.table)
 
-    def _on_search(self, text: str):
+    def _on_search_text_changed(self, _text: str):
+        """Debounce search input."""
+        self._search_timer.start()
+
+    def _do_search(self):
         """Filter table rows by search text."""
+        text = self.search_input.text()
         for row in range(self.model.rowCount()):
             match = False
             for col in range(self.model.columnCount()):

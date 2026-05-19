@@ -1,5 +1,7 @@
 """Diff viewer widget for displaying version differences."""
 
+import re
+
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QTextEdit, QLabel, QPushButton,
 )
@@ -18,30 +20,29 @@ class DiffHighlighter(QSyntaxHighlighter):
         added_fmt = QTextCharFormat()
         added_fmt.setBackground(QColor("#e6ffed"))
         added_fmt.setForeground(QColor("#22863a"))
-        self._rules.append((r"^\+.*$", added_fmt))
+        self._rules.append((re.compile(r"^\+.*$"), added_fmt))
 
         # Removed lines (red)
         removed_fmt = QTextCharFormat()
         removed_fmt.setBackground(QColor("#ffeef0"))
         removed_fmt.setForeground(QColor("#cb2431"))
-        self._rules.append((r"^-.*$", removed_fmt))
+        self._rules.append((re.compile(r"^-.*$"), removed_fmt))
 
         # Modified lines (orange)
         modified_fmt = QTextCharFormat()
         modified_fmt.setBackground(QColor("#fff5b1"))
         modified_fmt.setForeground(QColor("#735c0f"))
-        self._rules.append((r"^~.*$", modified_fmt))
+        self._rules.append((re.compile(r"^~.*$"), modified_fmt))
 
         # Header lines
         header_fmt = QTextCharFormat()
         header_fmt.setFontWeight(QFont.Bold)
         header_fmt.setForeground(QColor("#6f42c1"))
-        self._rules.append((r"^@@.*$", header_fmt))
+        self._rules.append((re.compile(r"^@@.*$"), header_fmt))
 
     def highlightBlock(self, text: str):
-        import re
         for pattern, fmt in self._rules:
-            match = re.match(pattern, text)
+            match = pattern.match(text)
             if match:
                 self.setFormat(0, len(text), fmt)
                 return

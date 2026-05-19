@@ -38,10 +38,9 @@ class MainWindow(QMainWindow):
 
     def _update_title(self):
         """Update window title with project name."""
-        import os
         base = f"{self.settings.app_name} v{self.settings.version}"
         if self.settings.last_project_dir:
-            project = os.path.basename(self.settings.last_project_dir)
+            project = Path(self.settings.last_project_dir).name
             self.setWindowTitle(f"[{project}] {base}")
         else:
             self.setWindowTitle(base)
@@ -324,25 +323,20 @@ class MainWindow(QMainWindow):
         ext = Path(file_path).suffix.lower()
 
         # Route by extension to the appropriate module
-        if ext == ".dbc":
-            self.page_stack.setCurrentIndex(0)
-            self.sidebar.module_list.setCurrentRow(0)
-            self._can_view.load_file(file_path)
-            self.statusBar().showMessage(f"已拖入: {Path(file_path).name}", 5000)
-        elif ext == ".arxml":
-            self.page_stack.setCurrentIndex(1)
-            self.sidebar.module_list.setCurrentRow(1)
-            self._swc_view.load_file(file_path)
-            self.statusBar().showMessage(f"已拖入: {Path(file_path).name}", 5000)
-        elif ext in (".odx", ".odx-d", ".odx-c", ".cdd"):
-            self.page_stack.setCurrentIndex(2)
-            self.sidebar.module_list.setCurrentRow(2)
-            self._diag_view.load_file(file_path)
-            self.statusBar().showMessage(f"已拖入: {Path(file_path).name}", 5000)
-        elif ext == ".a2l":
-            self.page_stack.setCurrentIndex(3)
-            self.sidebar.module_list.setCurrentRow(3)
-            self._calib_view.load_file(file_path)
+        ext_module_map = {
+            ".dbc": 0,
+            ".arxml": 1,
+            ".odx": 2, ".odx-d": 2, ".odx-c": 2, ".cdd": 2,
+            ".a2l": 3,
+        }
+        module_index = ext_module_map.get(ext)
+        if module_index is not None:
+            self._ensure_view_loaded(module_index)
+            self.page_stack.setCurrentIndex(module_index)
+            self.sidebar.module_list.setCurrentRow(module_index)
+            view = self.page_stack.widget(module_index)
+            if hasattr(view, "load_file"):
+                view.load_file(file_path)
             self.statusBar().showMessage(f"已拖入: {Path(file_path).name}", 5000)
         elif ext == ".json":
             self.statusBar().showMessage(f"JSON文件请通过各模块的导入功能加载: {Path(file_path).name}", 5000)

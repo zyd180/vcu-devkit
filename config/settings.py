@@ -7,6 +7,8 @@ from dataclasses import dataclass, field
 
 logger = logging.getLogger(__name__)
 
+__version__ = "0.1.0"
+
 
 @dataclass
 class AppSettings:
@@ -19,7 +21,7 @@ class AppSettings:
     })
 
     app_name: str = "VCU DevKit"
-    version: str = "0.1.0"
+    version: str = __version__
     theme: str = "light"
     last_project_dir: str = ""
     last_dbc_dir: str = ""
@@ -49,18 +51,21 @@ class AppSettings:
         """Save settings to JSON file."""
         if config_path is None:
             config_path = Path.home() / ".vcu-devkit" / "settings.json"
-        config_path.parent.mkdir(parents=True, exist_ok=True)
-        data = {
-            "theme": self.theme,
-            "last_project_dir": self.last_project_dir,
-            "last_dbc_dir": self.last_dbc_dir,
-            "last_arxml_dir": self.last_arxml_dir,
-            "recent_files": self.recent_files,
-            "default_arxml_target": self.default_arxml_target,
-            "auto_save_interval": self.auto_save_interval,
-        }
-        with open(config_path, "w", encoding="utf-8") as f:
-            json.dump(data, f, indent=2, ensure_ascii=False)
+        try:
+            config_path.parent.mkdir(parents=True, exist_ok=True)
+            data = {
+                "theme": self.theme,
+                "last_project_dir": self.last_project_dir,
+                "last_dbc_dir": self.last_dbc_dir,
+                "last_arxml_dir": self.last_arxml_dir,
+                "recent_files": self.recent_files,
+                "default_arxml_target": self.default_arxml_target,
+                "auto_save_interval": self.auto_save_interval,
+            }
+            with open(config_path, "w", encoding="utf-8") as f:
+                json.dump(data, f, indent=2, ensure_ascii=False)
+        except OSError as exc:
+            logger.warning("Failed to save settings to %s: %s", config_path, exc)
 
     def add_recent_file(self, file_path: str):
         """Add a file to recent files list."""

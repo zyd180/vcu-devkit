@@ -8,6 +8,8 @@ from PySide6.QtWidgets import (
 from PySide6.QtCore import Qt, Signal, QSize
 from PySide6.QtGui import QFont, QIcon
 
+from config.settings import __version__
+
 _ICONS_DIR = Path(__file__).parent / "icons"
 
 
@@ -65,7 +67,7 @@ class Sidebar(QWidget):
         footer.setFrameShape(QFrame.HLine)
         layout.addWidget(footer)
 
-        version_label = QLabel("v0.1.0")
+        version_label = QLabel(f"v{__version__}")
         version_label.setObjectName("sidebar_version")
         version_label.setAlignment(Qt.AlignCenter)
         layout.addWidget(version_label)

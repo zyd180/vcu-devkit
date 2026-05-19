@@ -1,5 +1,7 @@
 """Code editor widget with syntax highlighting."""
 
+import re
+
 from PySide6.QtWidgets import QPlainTextEdit, QWidget, QTextEdit
 from PySide6.QtCore import Qt, QRect, QSize
 from PySide6.QtGui import (
@@ -25,9 +27,12 @@ class LineNumberArea(QWidget):
 class CodeHighlighter(QSyntaxHighlighter):
     """Simple C/C++ syntax highlighter."""
 
+    _BLOCK_START = re.compile(r"/\*")
+    _BLOCK_END = re.compile(r"\*/")
+
     def __init__(self, parent=None):
         super().__init__(parent)
-        self._rules = []
+        self._rules: list[tuple[re.Pattern, QTextCharFormat]] = []
 
         # Keywords
         keyword_fmt = QTextCharFormat()
@@ -39,33 +44,81 @@ class CodeHighlighter(QSyntaxHighlighter):
             "if", "else", "for", "while", "switch", "case", "return", "include", "define",
         ]
         for kw in keywords:
-            self._rules.append((rf"\b{kw}\b", keyword_fmt))
+            self._rules.append((re.compile(rf"\b{kw}\b"), keyword_fmt))
 
         # Preprocessor
         preproc_fmt = QTextCharFormat()
         preproc_fmt.setForeground(QColor("#9b2397"))
-        self._rules.append((r"^#\w+.*$", preproc_fmt))
+        self._rules.append((re.compile(r"^#\w+.*$"), preproc_fmt))
 
-        # Comments
+        # Single-line comments
         comment_fmt = QTextCharFormat()
         comment_fmt.setForeground(QColor("#6a9955"))
-        self._rules.append((r"//[^\n]*", comment_fmt))
+        self._comment_fmt = comment_fmt
+        self._rules.append((re.compile(r"//[^\n]*"), comment_fmt))
+
+        # Block comment pattern
+        self._block_comment_fmt = QTextCharFormat()
+        self._block_comment_fmt.setForeground(QColor("#6a9955"))
 
         # Strings
         string_fmt = QTextCharFormat()
         string_fmt.setForeground(QColor("#a31515"))
-        self._rules.append((r'"[^"]*"', string_fmt))
+        self._rules.append((re.compile(r'"[^"]*"'), string_fmt))
 
         # Numbers
         number_fmt = QTextCharFormat()
         number_fmt.setForeground(QColor("#098658"))
-        self._rules.append((r"\b\d+\.?\d*[fFuUlL]?\b", number_fmt))
+        self._rules.append((re.compile(r"\b\d+\.?\d*[fFuUlL]?\b"), number_fmt))
 
     def highlightBlock(self, text: str):
-        import re
+        # Block comment state machine
+        state = self.previousBlockState()
+        if state == 1:
+            # Inside a block comment from the previous line
+            end = self._BLOCK_END.search(text)
+            if end:
+                self.setFormat(0, end.end(), self._block_comment_fmt)
+                start_pos = end.end()
+            else:
+                self.setFormat(0, len(text), self._block_comment_fmt)
+                self.setCurrentBlockState(1)
+                return
+        else:
+            start_pos = 0
+
+        # Find block comment starts in the remaining text
+        remaining = text[start_pos:]
+        offset = start_pos
+        while remaining:
+            start = self._BLOCK_START.search(remaining)
+            if not start:
+                break
+            # Apply single-line rules before the block comment
+            self._apply_rules(text[offset:offset + start.start()], offset)
+            # Find end of block comment
+            after_start = remaining[start.end():]
+            end = self._BLOCK_END.search(after_start)
+            if end:
+                comment_end = offset + start.start()
+                comment_len = start.end() - start.start() + end.end()
+                self.setFormat(comment_end, comment_len, self._block_comment_fmt)
+                offset = comment_end + comment_len
+                remaining = text[offset:]
+            else:
+                # Block comment extends to next line
+                self.setFormat(offset + start.start(), len(text) - offset - start.start(), self._block_comment_fmt)
+                self.setCurrentBlockState(1)
+                return
+
+        # Apply single-line rules to remaining text
+        self._apply_rules(text[offset:], offset)
+
+    def _apply_rules(self, text: str, offset: int):
+        """Apply single-line highlight rules to a text segment."""
         for pattern, fmt in self._rules:
-            for match in re.finditer(pattern, text):
-                self.setFormat(match.start(), match.end() - match.start(), fmt)
+            for match in pattern.finditer(text):
+                self.setFormat(offset + match.start(), match.end() - match.start(), fmt)
 
 
 class CodeEditor(QPlainTextEdit):

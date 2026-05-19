@@ -162,8 +162,6 @@ class RuleEngine:
 
     def _check_naming_convention(self, data: DBCData) -> list[RuleResult]:
         results: list[RuleResult] = []
-        import re
-        # Expected: alphanumeric + underscore, starting with letter
         pattern = self.VALID_IDENTIFIER
 
         for msg in data.messages:
@@ -234,7 +232,6 @@ class RuleEngine:
 
     def _check_swc_naming(self, data: ARXMLData) -> list[RuleResult]:
         results: list[RuleResult] = []
-        import re
         pattern = self.VALID_IDENTIFIER
         for swc in data.swcs:
             if not pattern.match(swc.name):
@@ -298,7 +295,6 @@ class RuleEngine:
 
     def _check_runnable_naming(self, data: ARXMLData) -> list[RuleResult]:
         results: list[RuleResult] = []
-        import re
         pattern = self.VALID_IDENTIFIER
         for swc in data.swcs:
             for run in swc.runnables:
