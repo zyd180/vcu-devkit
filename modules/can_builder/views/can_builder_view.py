@@ -20,6 +20,7 @@ from ui.widgets.table_editor import DataTableModel
 from ui.widgets.property_panel import PropertyPanel
 from ui.widgets.file_worker import FileWorker
 from ui.icons import icon_open, icon_save, icon_diff, icon_validate, icon_generate, icon_add
+from core.commands.command import CommandHistory, UpdateFieldCommand
 
 
 class SignalTableModel(DataTableModel):
@@ -44,6 +45,7 @@ class CANBuilderView(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.controller = CANBuilderController()
+        self.history = CommandHistory()
         self._setup_ui()
         self._connect_signals()
 
@@ -65,6 +67,13 @@ class CANBuilderView(QWidget):
 
         toolbar.addAction(self.act_open)
         toolbar.addAction(self.act_save)
+        toolbar.addSeparator()
+        self.act_undo = QAction("撤销", self)
+        self.act_undo.setShortcut("Ctrl+Z")
+        self.act_redo = QAction("重做", self)
+        self.act_redo.setShortcut("Ctrl+Y")
+        toolbar.addAction(self.act_undo)
+        toolbar.addAction(self.act_redo)
         toolbar.addSeparator()
         toolbar.addAction(self.act_diff)
         toolbar.addAction(self.act_validate)
@@ -128,6 +137,8 @@ class CANBuilderView(QWidget):
     def _connect_signals(self):
         self.act_open.triggered.connect(self._on_open_dbc)
         self.act_save.triggered.connect(self._on_save)
+        self.act_undo.triggered.connect(self._on_undo)
+        self.act_redo.triggered.connect(self._on_redo)
         self.act_diff.triggered.connect(self._on_diff)
         self.act_validate.triggered.connect(self._on_validate)
         self.act_generate.triggered.connect(self._on_generate)
@@ -174,15 +185,24 @@ class CANBuilderView(QWidget):
     def _on_save(self):
         if self.controller.current_dbc is None:
             return
-        path, _ = QFileDialog.getSaveFileName(
-            self, "保存DBC", "", "JSON快照 (*.json);;所有文件 (*)"
+        path, selected_filter = QFileDialog.getSaveFileName(
+            self, "保存DBC", "", "DBC文件 (*.dbc);;JSON快照 (*.json)"
         )
-        if path:
-            success, errors = self.controller.save_dbc(Path(path))
-            if success:
-                self.status_bar.showMessage(f"已保存 {path}", 5000)
-            else:
-                QMessageBox.warning(self, "保存失败", "\n".join(errors))
+        if not path:
+            return
+        target = Path(path)
+        # Decide save method by file extension
+        if target.suffix.lower() == ".json":
+            success, errors = self.controller.save_json_snapshot(target)
+        else:
+            # Default to DBC format; ensure .dbc extension
+            if target.suffix.lower() != ".dbc":
+                target = target.with_suffix(".dbc")
+            success, errors = self.controller.save_dbc(target)
+        if success:
+            self.status_bar.showMessage(f"已保存 {target}", 5000)
+        else:
+            QMessageBox.warning(self, "保存失败", "\n".join(errors))
 
     def _on_diff(self):
         if self.controller.current_dbc is None:
@@ -276,6 +296,20 @@ class CANBuilderView(QWidget):
             self._load_signals_into_table(current_msg)
             self.status_bar.showMessage(f"已更新 {count} 个信号", 5000)
 
+    def _on_undo(self):
+        if self.history.undo():
+            current_msg = self._get_current_message_name()
+            if current_msg:
+                self._load_signals_into_table(current_msg)
+            self.status_bar.showMessage(f"撤销: {self.history.redo_description}", 3000)
+
+    def _on_redo(self):
+        if self.history.redo():
+            current_msg = self._get_current_message_name()
+            if current_msg:
+                self._load_signals_into_table(current_msg)
+            self.status_bar.showMessage(f"重做: {self.history.undo_description}", 3000)
+
     def _on_property_changed(self, field_name: str, value):
         """Apply single property change from property panel to the selected signal."""
         current_msg = self._get_current_message_name()
@@ -285,7 +319,16 @@ class CANBuilderView(QWidget):
         sig_name = self.signal_model.get_row(selected[0].row()).get("name", "")
         if not sig_name:
             return
-        self.controller.update_signal(current_msg, sig_name, **{field_name: value})
+        # Find the signal dataclass for undo/redo
+        sig = None
+        for s in self.controller.get_signals_for_message(current_msg):
+            if s.name == sig_name:
+                sig = s
+                break
+        if sig is None:
+            return
+        cmd = UpdateFieldCommand(sig, field_name, value)
+        self.history.execute(cmd)
         self._load_signals_into_table(current_msg)
         self.status_bar.showMessage(f"已更新 {sig_name}.{field_name}", 3000)
 

@@ -147,8 +147,9 @@ class MainWindow(QMainWindow):
 
         toolbar.addSeparator()
 
-        export_btn = QAction("导出", self)
-        toolbar.addAction(export_btn)
+        self._export_btn = QAction("导出", self)
+        self._export_btn.triggered.connect(self._on_export)
+        toolbar.addAction(self._export_btn)
 
         # Global search
         toolbar.addSeparator()
@@ -263,16 +264,187 @@ class MainWindow(QMainWindow):
             self.status_widget.set_project(dir_path)
 
     def _on_save(self):
-        """Save current changes."""
-        self.statusBar().showMessage("已保存", 3000)
+        """Save current changes by delegating to the active module's controller."""
+        view = self.page_stack.currentWidget()
+        controller = getattr(view, "controller", None)
+        if controller is None:
+            self.statusBar().showMessage("当前模块没有可保存的数据", 3000)
+            return
+
+        try:
+            # CAN Builder has save_dbc(); other modules may have export methods
+            if hasattr(controller, "save_dbc"):
+                controller.save_dbc()
+                self.statusBar().showMessage("DBC 文件已保存", 3000)
+            elif hasattr(controller, "export_arxml"):
+                path, _ = QFileDialog.getSaveFileName(
+                    self, "保存 ARXML", "", "ARXML 文件 (*.arxml)"
+                )
+                if path:
+                    controller.export_arxml(path)
+                    self.statusBar().showMessage(f"已保存: {path}", 3000)
+            elif hasattr(controller, "export_json"):
+                path, _ = QFileDialog.getSaveFileName(
+                    self, "保存 JSON", "", "JSON 文件 (*.json)"
+                )
+                if path:
+                    controller.export_json(path)
+                    self.statusBar().showMessage(f"已保存: {path}", 3000)
+            elif hasattr(controller, "export_excel"):
+                path, _ = QFileDialog.getSaveFileName(
+                    self, "保存 Excel", "", "Excel 文件 (*.xlsx)"
+                )
+                if path:
+                    controller.export_excel(path)
+                    self.statusBar().showMessage(f"已保存: {path}", 3000)
+            else:
+                self.statusBar().showMessage("当前模块不支持保存操作", 3000)
+        except Exception as e:
+            self.statusBar().showMessage(f"保存失败: {e}", 5000)
 
     def _on_check(self):
-        """Run validation checks."""
-        self.statusBar().showMessage("正在校验...", 5000)
+        """Run validation on the current module's data."""
+        view = self.page_stack.currentWidget()
+        controller = getattr(view, "controller", None)
+        if controller is None or not hasattr(controller, "validate"):
+            self.statusBar().showMessage("当前模块不支持校验", 3000)
+            return
+
+        try:
+            result = controller.validate()
+            # result is expected to be a dict with 'errors' and 'warnings' counts,
+            # or any object that can be meaningfully displayed.
+            if isinstance(result, dict):
+                errors = result.get("errors", 0)
+                warnings = result.get("warnings", 0)
+                if errors == 0 and warnings == 0:
+                    self.statusBar().showMessage("校验通过，无错误和警告", 3000)
+                else:
+                    self.statusBar().showMessage(
+                        f"校验完成: {errors} 个错误, {warnings} 个警告", 5000
+                    )
+            else:
+                self.statusBar().showMessage(f"校验完成: {result}", 5000)
+        except Exception as e:
+            self.statusBar().showMessage(f"校验失败: {e}", 5000)
 
     def _on_generate(self):
-        """Generate code."""
-        self.statusBar().showMessage("正在生成代码...", 5000)
+        """Generate code or export from the current module."""
+        view = self.page_stack.currentWidget()
+        controller = getattr(view, "controller", None)
+        if controller is None:
+            self.statusBar().showMessage("当前模块没有控制器", 3000)
+            return
+
+        try:
+            if hasattr(controller, "generate_code"):
+                # CAN Builder: generate C code
+                output_dir = QFileDialog.getExistingDirectory(
+                    self, "选择代码输出目录"
+                )
+                if output_dir:
+                    controller.generate_code(output_dir)
+                    self.statusBar().showMessage(f"代码已生成到: {output_dir}", 5000)
+            elif hasattr(controller, "export_arxml"):
+                path, _ = QFileDialog.getSaveFileName(
+                    self, "导出 ARXML", "", "ARXML 文件 (*.arxml)"
+                )
+                if path:
+                    controller.export_arxml(path)
+                    self.statusBar().showMessage(f"已导出: {path}", 5000)
+            elif hasattr(controller, "export_json"):
+                path, _ = QFileDialog.getSaveFileName(
+                    self, "导出 JSON", "", "JSON 文件 (*.json)"
+                )
+                if path:
+                    controller.export_json(path)
+                    self.statusBar().showMessage(f"已导出: {path}", 5000)
+            elif hasattr(controller, "export_excel"):
+                path, _ = QFileDialog.getSaveFileName(
+                    self, "导出 Excel", "", "Excel 文件 (*.xlsx)"
+                )
+                if path:
+                    controller.export_excel(path)
+                    self.statusBar().showMessage(f"已导出: {path}", 5000)
+            elif hasattr(controller, "export_a2l"):
+                path, _ = QFileDialog.getSaveFileName(
+                    self, "导出 A2L", "", "A2L 文件 (*.a2l)"
+                )
+                if path:
+                    controller.export_a2l(path)
+                    self.statusBar().showMessage(f"已导出: {path}", 5000)
+            else:
+                self.statusBar().showMessage("当前模块不支持代码生成/导出", 3000)
+        except Exception as e:
+            self.statusBar().showMessage(f"生成/导出失败: {e}", 5000)
+
+    def _on_export(self):
+        """Show export format menu and delegate to the current module's controller."""
+        view = self.page_stack.currentWidget()
+        controller = getattr(view, "controller", None)
+        if controller is None:
+            self.statusBar().showMessage("当前模块没有控制器", 3000)
+            return
+
+        # Build available export actions based on what the controller supports
+        menu = QMenu(self)
+        export_actions = []
+
+        if hasattr(controller, "generate_code"):
+            act = menu.addAction("导出 C 代码")
+            export_actions.append(("generate_code", act, "C 代码", ""))
+        if hasattr(controller, "generate_capl"):
+            act = menu.addAction("导出 CAPL")
+            export_actions.append(("generate_capl", act, "CAPL", ""))
+        if hasattr(controller, "export_excel"):
+            act = menu.addAction("导出 Excel")
+            export_actions.append(("export_excel", act, "Excel", "Excel 文件 (*.xlsx)"))
+        if hasattr(controller, "export_arxml"):
+            act = menu.addAction("导出 ARXML")
+            export_actions.append(("export_arxml", act, "ARXML", "ARXML 文件 (*.arxml)"))
+        if hasattr(controller, "export_json"):
+            act = menu.addAction("导出 JSON")
+            export_actions.append(("export_json", act, "JSON", "JSON 文件 (*.json)"))
+        if hasattr(controller, "export_a2l"):
+            act = menu.addAction("导出 A2L")
+            export_actions.append(("export_a2l", act, "A2L", "A2L 文件 (*.a2l)"))
+
+        if not export_actions:
+            self.statusBar().showMessage("当前模块不支持导出", 3000)
+            return
+
+        # Show menu at the export button position
+        action = menu.exec(self._export_btn.parentWidget().mapToGlobal(
+            self._export_btn.parentWidget().rect().bottomLeft()
+        ))
+        if action is None:
+            return
+
+        # Find which action was triggered
+        for method_name, act, label, filter_str in export_actions:
+            if act is action:
+                try:
+                    if method_name == "generate_code":
+                        # Code generation uses a directory chooser
+                        output_dir = QFileDialog.getExistingDirectory(
+                            self, f"选择 {label} 输出目录"
+                        )
+                        if output_dir:
+                            getattr(controller, method_name)(output_dir)
+                            self.statusBar().showMessage(
+                                f"{label} 已导出到: {output_dir}", 5000
+                            )
+                    else:
+                        # File export uses a save file dialog
+                        path, _ = QFileDialog.getSaveFileName(
+                            self, f"导出 {label}", "", filter_str
+                        )
+                        if path:
+                            getattr(controller, method_name)(path)
+                            self.statusBar().showMessage(f"已导出: {path}", 5000)
+                except Exception as e:
+                    self.statusBar().showMessage(f"导出失败: {e}", 5000)
+                break
 
     def _on_switch_theme(self, theme: str):
         """Switch application theme."""

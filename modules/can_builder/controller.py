@@ -36,17 +36,125 @@ class CANBuilderController:
         return False, result.errors
 
     def save_dbc(self, output_path: Path | None = None) -> tuple[bool, list[str]]:
-        """Save current DBC data (re-export). Placeholder — cantools DB not yet round-tripped."""
-        # For now, save as JSON snapshot
+        """Save current DBC data as a real DBC file via cantools."""
         if self.current_dbc is None:
             return False, ["No DBC loaded"]
         target = output_path or self.current_path
         if target is None:
             return False, ["No output path specified"]
-        import json
-        data = dbc_data_to_dict(self.current_dbc)
-        target.write_text(json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8")
-        return True, []
+
+        try:
+            import cantools
+            import cantools.database
+            import cantools.database.can
+            from cantools.database.conversion import (
+                IdentityConversion, LinearConversion, NamedSignalConversion,
+            )
+            from collections import OrderedDict
+
+            # Build cantools Message objects
+            ct_messages: list[cantools.database.can.Message] = []
+            for msg_def in self.current_dbc.messages:
+                ct_signals: list[cantools.database.can.Signal] = []
+                for sig_def in msg_def.signals:
+                    is_little_endian = sig_def.byte_order == "little_endian"
+                    is_signed = sig_def.value_type == "signed"
+                    # Determine if conversion needs float representation
+                    is_float = (sig_def.factor != int(sig_def.factor)
+                                or sig_def.offset != int(sig_def.offset))
+
+                    # Build conversion object
+                    if sig_def.value_descriptions:
+                        choices: OrderedDict[int, str] = OrderedDict()
+                        for val, desc in sorted(sig_def.value_descriptions.items()):
+                            choices[int(val)] = str(desc)
+                        conversion = NamedSignalConversion(
+                            scale=sig_def.factor,
+                            offset=sig_def.offset,
+                            choices=choices,
+                            is_float=is_float,
+                        )
+                    elif sig_def.factor != 1.0 or sig_def.offset != 0.0:
+                        conversion = LinearConversion(
+                            scale=sig_def.factor,
+                            offset=sig_def.offset,
+                            is_float=is_float,
+                        )
+                    else:
+                        conversion = IdentityConversion(is_float=is_float)
+
+                    # Multiplexer fields
+                    is_multiplexer = False
+                    multiplexer_ids: list[int] | None = None
+                    if sig_def.mux:
+                        if sig_def.mux.get("mux_type") == "multiplexor":
+                            is_multiplexer = True
+                        elif sig_def.mux.get("mux_type") == "multiplexed":
+                            mux_val = sig_def.mux.get("mux_value")
+                            multiplexer_ids = [int(mux_val)] if mux_val is not None else []
+
+                    ct_sig = cantools.database.can.Signal(
+                        name=sig_def.name,
+                        start=sig_def.start_bit,
+                        length=sig_def.bit_length,
+                        byte_order='little_endian' if is_little_endian else 'big_endian',
+                        is_signed=is_signed,
+                        conversion=conversion,
+                        minimum=sig_def.minimum if sig_def.minimum != 0.0 else None,
+                        maximum=sig_def.maximum if sig_def.maximum != 0.0 else None,
+                        unit=sig_def.unit or None,
+                        receivers=sig_def.receivers if sig_def.receivers else [],
+                        comment=sig_def.comment or None,
+                        is_multiplexer=is_multiplexer,
+                        multiplexer_ids=multiplexer_ids,
+                    )
+                    ct_signals.append(ct_sig)
+
+                ct_msg = cantools.database.can.Message(
+                    frame_id=msg_def.id,
+                    name=msg_def.name,
+                    length=msg_def.dlc,
+                    signals=ct_signals,
+                    senders=[msg_def.sender] if msg_def.sender else [],
+                    comment=msg_def.comment or None,
+                    is_extended_frame=msg_def.is_extended,
+                    unused_bit_pattern=0,
+                    strict=False,
+                )
+                ct_messages.append(ct_msg)
+
+            # Build cantools Database
+            db = cantools.database.Database(
+                messages=ct_messages,
+                nodes=[cantools.database.can.Node(name=n) for n in self.current_dbc.nodes],
+                version=self.current_dbc.version or "",
+                dbc_specifics=None,
+            )
+
+            # Write DBC file
+            with open(target, "w", encoding="utf-8") as f:
+                db.dump(f)
+
+            return True, []
+        except cantools.database.Error as e:
+            return False, [f"cantools database error: {e}"]
+        except OSError as e:
+            return False, [f"File write error: {e}"]
+
+    def save_json_snapshot(self, output_path: Path | None = None) -> tuple[bool, list[str]]:
+        """Save current DBC data as a JSON snapshot (legacy format)."""
+        if self.current_dbc is None:
+            return False, ["No DBC loaded"]
+        target = output_path or self.current_path
+        if target is None:
+            return False, ["No output path specified"]
+        try:
+            import json
+            data = dbc_data_to_dict(self.current_dbc)
+            target.write_text(json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8")
+            return True, []
+        except OSError as e:
+            return False, [f"File write error: {e}"]
 
     # ── Data access ──────────────────────────────────────────────────────
 
