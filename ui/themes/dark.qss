@@ -332,3 +332,44 @@ QToolTip {
     border: 1px solid #555555;
     padding: 4px;
 }
+
+/* Sidebar */
+#sidebar_header {
+    background-color: #0d47a1;
+    color: #e0e0e0;
+    font-size: 16px;
+    font-weight: bold;
+}
+
+#sidebar_list {
+    background-color: #252526;
+    border: none;
+    outline: none;
+}
+
+#sidebar_list::item {
+    padding: 12px 16px;
+    border-bottom: 1px solid #3c3c3c;
+    font-size: 13px;
+    color: #cccccc;
+}
+
+#sidebar_list::item:selected {
+    background-color: #264f78;
+    color: #4fc3f7;
+    border-left: 3px solid #4fc3f7;
+}
+
+#sidebar_list::item:hover:!selected {
+    background-color: #2a2d2e;
+}
+
+#sidebar_version {
+    color: #666;
+    font-size: 11px;
+    padding: 8px;
+}
+
+#sidebar_footer {
+    color: #3c3c3c;
+}

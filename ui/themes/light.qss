@@ -298,3 +298,43 @@ QProgressBar::chunk {
     background-color: #1a73e8;
     border-radius: 3px;
 }
+
+/* Sidebar */
+#sidebar_header {
+    background-color: #1a73e8;
+    color: white;
+    font-size: 16px;
+    font-weight: bold;
+}
+
+#sidebar_list {
+    background-color: #f5f5f5;
+    border: none;
+    outline: none;
+}
+
+#sidebar_list::item {
+    padding: 12px 16px;
+    border-bottom: 1px solid #e0e0e0;
+    font-size: 13px;
+}
+
+#sidebar_list::item:selected {
+    background-color: #e3f2fd;
+    color: #1a73e8;
+    border-left: 3px solid #1a73e8;
+}
+
+#sidebar_list::item:hover:!selected {
+    background-color: #eeeeee;
+}
+
+#sidebar_version {
+    color: #999;
+    font-size: 11px;
+    padding: 8px;
+}
+
+#sidebar_footer {
+    color: #e0e0e0;
+}

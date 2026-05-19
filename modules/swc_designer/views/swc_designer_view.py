@@ -358,6 +358,12 @@ class SWCDesignerView(QWidget):
         )
         if not path:
             return
+        self.load_file(path)
+
+    def load_file(self, path: str):
+        """Programmatically load an ARXML file (used by drag-drop)."""
+        if not path:
+            return
         self.status_bar.showMessage("正在加载ARXML文件...")
         self._pending_arxml_path = path
         self._worker = FileWorker(self.controller.load_arxml, Path(path))

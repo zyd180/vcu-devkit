@@ -217,6 +217,12 @@ class CalibManagerView(QWidget):
         )
         if not path:
             return
+        self.load_file(path)
+
+    def load_file(self, path: str):
+        """Programmatically load an A2L file (used by drag-drop)."""
+        if not path:
+            return
         self.status_bar.showMessage("正在加载A2L文件...")
         self._pending_a2l_path = path
         self._worker = FileWorker(self.controller.load_a2l, Path(path))
@@ -456,3 +462,28 @@ class CalibManagerView(QWidget):
         self.info_label.setText(
             f"参数: {len(params)}  |  分组: {len(groups)}  |  SWC: {len(swcs)}{a2l_info}"
         )
+
+    def filter(self, query: str) -> int:
+        """Filter parameter table by query. Returns match count."""
+        query_lower = query.lower()
+        visible = 0
+        for row in range(self.param_model.rowCount()):
+            row_data = self.param_model.get_row(row)
+            text = f"{row_data.get('name', '')} {row_data.get('description', '')}"
+            match = not query or query_lower in text.lower()
+            self.param_table.setRowHidden(row, not match)
+            if match:
+                visible += 1
+        # Filter group tree
+        tree = self.group_tree.tree
+        for i in range(tree.topLevelItemCount()):
+            parent = tree.topLevelItem(i)
+            any_visible = False
+            for j in range(parent.childCount()):
+                child = parent.child(j)
+                match = not query or query_lower in child.text(0).lower()
+                child.setHidden(not match)
+                if match:
+                    any_visible = True
+            parent.setHidden(not any_visible and query != "")
+        return visible

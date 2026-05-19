@@ -540,6 +540,56 @@ class TestDiagBuilderController:
         assert "0x22" in sids
         assert "0x27" in sids
 
+    def test_import_odx(self, diag_ctrl, tmp_path):
+        """Import DTCs and services from an ODX file."""
+        odx_content = """\
+<?xml version="1.0" encoding="UTF-8"?>
+<ODX version="2.2">
+  <DIAG-LAYER-CONTAINER>
+    <SHORT-NAME>VCU_Diag</SHORT-NAME>
+    <DIAG-CODE>
+      <CODE>0xD001</CODE>
+      <TEXT>Battery over-voltage</TEXT>
+    </DIAG-CODE>
+    <DIAG-CODE>
+      <CODE>0xD002</CODE>
+      <TEXT>Motor over-temperature</TEXT>
+    </DIAG-CODE>
+    <DIAG-SERVICE>
+      <SHORT-NAME>ReadDTC</SHORT-NAME>
+      <SEMANTIC>0x19</SEMANTIC>
+      <LONG-NAME>Read DTC Information</LONG-NAME>
+    </DIAG-SERVICE>
+  </DIAG-LAYER-CONTAINER>
+</ODX>
+"""
+        f = tmp_path / "test.odx"
+        f.write_text(odx_content, encoding="utf-8")
+        ok, msgs = diag_ctrl.import_odx(f)
+        assert ok is True
+        assert len(diag_ctrl.get_dtcs()) == 2
+        assert diag_ctrl.get_dtc_by_code("0xD001") is not None
+        assert diag_ctrl.get_dtc_by_code("0xD002") is not None
+        assert len(diag_ctrl.get_services()) == 1
+
+    def test_import_odx_skips_duplicates(self, diag_ctrl, tmp_path):
+        """ODX import skips already-existing DTC codes."""
+        diag_ctrl.add_dtc("0xD001", "Existing DTC")
+        odx_content = """\
+<?xml version="1.0" encoding="UTF-8"?>
+<ODX version="2.2">
+  <DIAG-LAYER-CONTAINER>
+    <DIAG-CODE><CODE>0xD001</CODE><TEXT>Dup</TEXT></DIAG-CODE>
+    <DIAG-CODE><CODE>0xD003</CODE><TEXT>New</TEXT></DIAG-CODE>
+  </DIAG-LAYER-CONTAINER>
+</ODX>
+"""
+        f = tmp_path / "dup.odx"
+        f.write_text(odx_content, encoding="utf-8")
+        ok, msgs = diag_ctrl.import_odx(f)
+        assert ok is True
+        assert len(diag_ctrl.get_dtcs()) == 2  # original + 0xD003, 0xD001 skipped
+
 
 class TestCalibManagerController:
 

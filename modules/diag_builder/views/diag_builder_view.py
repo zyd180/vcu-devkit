@@ -149,6 +149,7 @@ class DiagBuilderView(QWidget):
         self.act_load_standard = QAction(icon_load(), "加载标准服务", self)
         self.act_export = QAction(icon_export_json(), "导出JSON", self)
         self.act_import_json = QAction(icon_open(), "导入JSON", self)
+        self.act_import_odx = QAction(icon_open(), "导入ODX", self)
         self.act_validate = QAction(icon_validate(), "校验", self)
 
         toolbar.addAction(self.act_add_dtc)
@@ -159,6 +160,7 @@ class DiagBuilderView(QWidget):
         toolbar.addSeparator()
         toolbar.addAction(self.act_export)
         toolbar.addAction(self.act_import_json)
+        toolbar.addAction(self.act_import_odx)
         toolbar.addAction(self.act_validate)
 
         layout.addWidget(toolbar)
@@ -267,6 +269,7 @@ class DiagBuilderView(QWidget):
         self.act_load_standard.triggered.connect(self._on_load_standard)
         self.act_export.triggered.connect(self._on_export)
         self.act_import_json.triggered.connect(self._on_import_json)
+        self.act_import_odx.triggered.connect(self._on_import_odx)
         self.act_validate.triggered.connect(self._on_validate)
         self.dtc_tree.item_selected.connect(self._on_dtc_tree_selected)
 
@@ -477,17 +480,56 @@ class DiagBuilderView(QWidget):
         )
         if not path:
             return
-        self.status_bar.showMessage("正在导入诊断配置...")
-        self._worker = FileWorker(self.controller.import_json, Path(path))
-        self._worker.finished_ok.connect(self._on_json_imported)
-        self._worker.finished_err.connect(lambda err: QMessageBox.warning(self, "导入失败", err))
-        self._worker.start()
+        self._start_json_import(path)
 
     def _on_json_imported(self, result: tuple):
         ok, msgs = result
         if ok:
             self._refresh_all()
             self.status_bar.showMessage(msgs[0] if msgs else "导入完成", 5000)
+        else:
+            QMessageBox.warning(self, "导入失败", "\n".join(msgs))
+
+    def _on_import_odx(self):
+        path, _ = QFileDialog.getOpenFileName(
+            self, "导入ODX/CDD文件", "",
+            "ODX/CDD (*.odx *.odx-d *.odx-c *.cdd);;所有文件 (*)"
+        )
+        if not path:
+            return
+        self._start_odx_import(path)
+
+    def _start_odx_import(self, path: str):
+        self.status_bar.showMessage("正在导入ODX文件...")
+        self._odx_worker = FileWorker(self.controller.import_odx, Path(path))
+        self._odx_worker.finished_ok.connect(self._on_odx_imported)
+        self._odx_worker.finished_err.connect(
+            lambda err: QMessageBox.warning(self, "导入失败", err)
+        )
+        self._odx_worker.start()
+
+    def load_file(self, path: str):
+        """Programmatically load a diagnostic file (used by drag-drop)."""
+        ext = Path(path).suffix.lower()
+        if ext in (".odx", ".odx-d", ".odx-c", ".cdd"):
+            self._start_odx_import(path)
+        elif ext == ".json":
+            self._start_json_import(path)
+
+    def _start_json_import(self, path: str):
+        self.status_bar.showMessage("正在导入诊断配置...")
+        self._json_worker = FileWorker(self.controller.import_json, Path(path))
+        self._json_worker.finished_ok.connect(self._on_json_imported)
+        self._json_worker.finished_err.connect(
+            lambda err: QMessageBox.warning(self, "导入失败", err)
+        )
+        self._json_worker.start()
+
+    def _on_odx_imported(self, result: tuple):
+        ok, msgs = result
+        if ok:
+            self._refresh_all()
+            self.status_bar.showMessage(msgs[0] if msgs else "ODX导入完成", 5000)
         else:
             QMessageBox.warning(self, "导入失败", "\n".join(msgs))
 
@@ -578,3 +620,37 @@ class DiagBuilderView(QWidget):
         self.info_label.setText(
             f"DTC: {len(dtcs)}  |  UDS服务: {len(svcs)}  |  快照DID: {len(snaps)}"
         )
+
+    def filter(self, query: str) -> int:
+        """Filter DTC and service tables by query. Returns match count."""
+        query_lower = query.lower()
+        visible = 0
+        # Filter DTC table
+        for row in range(self.dtc_model.rowCount()):
+            row_data = self.dtc_model.get_row(row)
+            text = f"{row_data.get('dtc_code', '')} {row_data.get('description', '')}"
+            match = not query or query_lower in text.lower()
+            self.dtc_table.setRowHidden(row, not match)
+            if match:
+                visible += 1
+        # Filter service table
+        for row in range(self.svc_model.rowCount()):
+            row_data = self.svc_model.get_row(row)
+            text = f"{row_data.get('sid', '')} {row_data.get('service_name', '')} {row_data.get('description', '')}"
+            match = not query or query_lower in text.lower()
+            self.svc_table.setRowHidden(row, not match)
+            if match:
+                visible += 1
+        # Filter DTC tree
+        tree = self.dtc_tree.tree
+        for i in range(tree.topLevelItemCount()):
+            parent = tree.topLevelItem(i)
+            any_visible = False
+            for j in range(parent.childCount()):
+                child = parent.child(j)
+                match = not query or query_lower in child.text(0).lower()
+                child.setHidden(not match)
+                if match:
+                    any_visible = True
+            parent.setHidden(not any_visible and query != "")
+        return visible

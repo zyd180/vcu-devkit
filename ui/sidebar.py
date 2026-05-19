@@ -37,37 +37,15 @@ class Sidebar(QWidget):
 
         # Header
         header = QLabel("VCU DevKit")
+        header.setObjectName("sidebar_header")
         header.setAlignment(Qt.AlignCenter)
         header.setFixedHeight(48)
-        header.setStyleSheet(
-            "background-color: #1a73e8; color: white; "
-            "font-size: 16px; font-weight: bold;"
-        )
         layout.addWidget(header)
 
         # Module list
         self.module_list = QListWidget()
+        self.module_list.setObjectName("sidebar_list")
         self.module_list.setIconSize(QSize(20, 20))
-        self.module_list.setStyleSheet("""
-            QListWidget {
-                background-color: #f5f5f5;
-                border: none;
-                outline: none;
-            }
-            QListWidget::item {
-                padding: 12px 16px;
-                border-bottom: 1px solid #e0e0e0;
-                font-size: 13px;
-            }
-            QListWidget::item:selected {
-                background-color: #e3f2fd;
-                color: #1a73e8;
-                border-left: 3px solid #1a73e8;
-            }
-            QListWidget::item:hover:!selected {
-                background-color: #eeeeee;
-            }
-        """)
 
         for name, desc, icon_file in self.MODULES:
             icon_path = _ICONS_DIR / icon_file
@@ -83,11 +61,11 @@ class Sidebar(QWidget):
         # Footer
         layout.addStretch()
         footer = QFrame()
+        footer.setObjectName("sidebar_footer")
         footer.setFrameShape(QFrame.HLine)
-        footer.setStyleSheet("color: #e0e0e0;")
         layout.addWidget(footer)
 
         version_label = QLabel("v0.1.0")
+        version_label.setObjectName("sidebar_version")
         version_label.setAlignment(Qt.AlignCenter)
-        version_label.setStyleSheet("color: #999; font-size: 11px; padding: 8px;")
         layout.addWidget(version_label)

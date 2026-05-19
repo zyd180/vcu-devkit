@@ -9,6 +9,7 @@ from typing import Any
 
 from core.db.models import DTCDefinition, DiagService, db
 from core.db.manager import DatabaseManager
+from core.parsers.odx_parser import ODXParser
 
 logger = logging.getLogger(__name__)
 
@@ -324,5 +325,61 @@ class DiagBuilderController:
                         imported_svcs += 1
 
             return True, [f"Imported {imported_dtcs} DTCs, {imported_svcs} services"]
+        except Exception as exc:
+            return False, [str(exc)]
+
+    def import_odx(self, input_path: Path) -> tuple[bool, list[str]]:
+        """Import DTCs and services from an ODX/CDD file."""
+        try:
+            parser = ODXParser()
+            result = parser.parse(input_path)
+            if not result.success:
+                return False, result.errors
+
+            odx_data = result.data
+            imported_dtcs = 0
+            imported_svcs = 0
+            skipped_dtcs = 0
+            skipped_svcs = 0
+
+            for odx_dtc in odx_data.dtcs:
+                if self.get_dtc_by_code(odx_dtc.code):
+                    skipped_dtcs += 1
+                    continue
+                dtc = self.add_dtc(
+                    dtc_code=odx_dtc.code,
+                    description=odx_dtc.description,
+                    severity=odx_dtc.severity,
+                    obd_related=odx_dtc.obd_related,
+                )
+                if dtc:
+                    if odx_dtc.snapshot_dids:
+                        dtc.set_snapshot_ids(odx_dtc.snapshot_dids)
+                        dtc.save()
+                    imported_dtcs += 1
+                else:
+                    skipped_dtcs += 1
+
+            for odx_svc in odx_data.services:
+                if self.get_service_by_sid(odx_svc.sid):
+                    skipped_svcs += 1
+                    continue
+                svc = self.add_service(
+                    sid=odx_svc.sid,
+                    service_name=odx_svc.name,
+                    description=odx_svc.description,
+                )
+                if svc:
+                    if odx_svc.sub_functions:
+                        svc.set_sub_functions(odx_svc.sub_functions)
+                        svc.save()
+                    imported_svcs += 1
+                else:
+                    skipped_svcs += 1
+
+            return True, [
+                f"导入完成: {imported_dtcs} DTC, {imported_svcs} 服务 "
+                f"(跳过 {skipped_dtcs} DTC, {skipped_svcs} 服务)"
+            ]
         except Exception as exc:
             return False, [str(exc)]

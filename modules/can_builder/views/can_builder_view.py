@@ -144,6 +144,12 @@ class CANBuilderView(QWidget):
         )
         if not path:
             return
+        self.load_file(path)
+
+    def load_file(self, path: str):
+        """Programmatically load a DBC file (used by drag-drop)."""
+        if not path:
+            return
         self.status_bar.showMessage("正在加载DBC文件...")
         self._pending_dbc_path = path
         self._worker = FileWorker(self.controller.load_dbc, Path(path))
@@ -413,3 +419,27 @@ class CANBuilderView(QWidget):
         layout.addWidget(viewer)
 
         dialog.exec()
+
+    def filter(self, query: str) -> int:
+        """Filter signal table by query. Returns match count."""
+        query_lower = query.lower()
+        visible = 0
+        for row in range(self.signal_model.rowCount()):
+            name = self.signal_model.data(self.signal_model.index(row, 0)) or ""
+            match = not query or query_lower in str(name).lower()
+            self.signal_table.setRowHidden(row, not match)
+            if match:
+                visible += 1
+        # Also filter message tree
+        tree = self.msg_tree.tree
+        for i in range(tree.topLevelItemCount()):
+            parent = tree.topLevelItem(i)
+            any_child_visible = False
+            for j in range(parent.childCount()):
+                child = parent.child(j)
+                match = not query or query_lower in child.text(0).lower()
+                child.setHidden(not match)
+                if match:
+                    any_child_visible = True
+            parent.setHidden(not any_child_visible and query != "")
+        return visible

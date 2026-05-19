@@ -6,9 +6,10 @@ from PySide6.QtWidgets import (
     QMainWindow, QWidget, QHBoxLayout, QVBoxLayout,
     QStatusBar, QMenuBar, QMenu, QFileDialog, QMessageBox,
     QLabel, QStackedWidget, QSplitter, QToolBar, QApplication,
+    QLineEdit,
 )
-from PySide6.QtCore import Qt, QSize
-from PySide6.QtGui import QAction, QKeySequence
+from PySide6.QtCore import Qt, QSize, QMimeData
+from PySide6.QtGui import QAction, QKeySequence, QDragEnterEvent, QDropEvent
 
 from config.settings import AppSettings
 from ui.sidebar import Sidebar
@@ -27,6 +28,7 @@ class MainWindow(QMainWindow):
         self._create_sidebar()
         self._create_central_area()
         self._create_status_bar()
+        self.setAcceptDrops(True)
 
     def _setup_window(self):
         """Configure window properties."""
@@ -82,6 +84,13 @@ class MainWindow(QMainWindow):
         redo_action = QAction("重做(&R)", self)
         redo_action.setShortcut(QKeySequence("Ctrl+Y"))
         edit_menu.addAction(redo_action)
+
+        edit_menu.addSeparator()
+
+        find_action = QAction("搜索(&F)", self)
+        find_action.setShortcut(QKeySequence("Ctrl+F"))
+        find_action.triggered.connect(lambda: self._search_box.setFocus())
+        edit_menu.addAction(find_action)
 
         # Tools menu
         tools_menu = menubar.addMenu("工具(&T)")
@@ -142,6 +151,15 @@ class MainWindow(QMainWindow):
         export_btn = QAction("导出", self)
         toolbar.addAction(export_btn)
 
+        # Global search
+        toolbar.addSeparator()
+        self._search_box = QLineEdit()
+        self._search_box.setPlaceholderText("搜索信号/DTC/参数...")
+        self._search_box.setMinimumWidth(200)
+        self._search_box.setClearButtonEnabled(True)
+        self._search_box.textChanged.connect(self._on_global_search)
+        toolbar.addWidget(self._search_box)
+
     def _create_sidebar(self):
         """Create sidebar navigation."""
         self.sidebar = Sidebar()
@@ -158,27 +176,33 @@ class MainWindow(QMainWindow):
 
         # CAN Builder — real module
         from modules.can_builder.views.can_builder_view import CANBuilderView
-        self.page_stack.addWidget(CANBuilderView())
+        self._can_view = CANBuilderView()
+        self.page_stack.addWidget(self._can_view)
 
         # SWC Designer — real module
         from modules.swc_designer.views.swc_designer_view import SWCDesignerView
-        self.page_stack.addWidget(SWCDesignerView())
+        self._swc_view = SWCDesignerView()
+        self.page_stack.addWidget(self._swc_view)
 
         # Diagnostic Builder — real module
         from modules.diag_builder.views.diag_builder_view import DiagBuilderView
-        self.page_stack.addWidget(DiagBuilderView())
+        self._diag_view = DiagBuilderView()
+        self.page_stack.addWidget(self._diag_view)
 
         # Calibration Manager — real module
         from modules.calib_manager.views.calib_manager_view import CalibManagerView
-        self.page_stack.addWidget(CalibManagerView())
+        self._calib_view = CalibManagerView()
+        self.page_stack.addWidget(self._calib_view)
 
         # Test Generator — real module
         from modules.test_generator.views.test_generator_view import TestGeneratorView
-        self.page_stack.addWidget(TestGeneratorView())
+        self._test_view = TestGeneratorView()
+        self.page_stack.addWidget(self._test_view)
 
         # Traceability Matrix — real module
         from modules.trace_matrix.views.trace_matrix_view import TraceMatrixView
-        self.page_stack.addWidget(TraceMatrixView())
+        self._trace_view = TraceMatrixView()
+        self.page_stack.addWidget(self._trace_view)
 
         # Splitter: sidebar | content
         splitter = QSplitter(Qt.Horizontal)
@@ -251,3 +275,54 @@ class MainWindow(QMainWindow):
         """Handle window close."""
         self.settings.save()
         event.accept()
+
+    # ── Global Search ──────────────────────────────────────────────────────
+
+    def _on_global_search(self, query: str):
+        """Filter current module's content by search query."""
+        current = self.page_stack.currentWidget()
+        if hasattr(current, "filter"):
+            count = current.filter(query)
+            if query:
+                self.statusBar().showMessage(f"搜索 '{query}': {count} 条匹配", 3000)
+            else:
+                self.statusBar().showMessage("就绪")
+
+    # ── Drag & Drop ────────────────────────────────────────────────────────
+
+    def dragEnterEvent(self, event: QDragEnterEvent):
+        if event.mimeData().hasUrls():
+            event.acceptProposedAction()
+
+    def dropEvent(self, event: QDropEvent):
+        urls = event.mimeData().urls()
+        if not urls:
+            return
+        file_path = urls[0].toLocalFile()
+        ext = Path(file_path).suffix.lower()
+
+        # Route by extension to the appropriate module
+        if ext == ".dbc":
+            self.page_stack.setCurrentIndex(0)
+            self.sidebar.module_list.setCurrentRow(0)
+            self._can_view.load_file(file_path)
+            self.statusBar().showMessage(f"已拖入: {Path(file_path).name}", 5000)
+        elif ext == ".arxml":
+            self.page_stack.setCurrentIndex(1)
+            self.sidebar.module_list.setCurrentRow(1)
+            self._swc_view.load_file(file_path)
+            self.statusBar().showMessage(f"已拖入: {Path(file_path).name}", 5000)
+        elif ext in (".odx", ".odx-d", ".odx-c", ".cdd"):
+            self.page_stack.setCurrentIndex(2)
+            self.sidebar.module_list.setCurrentRow(2)
+            self._diag_view.load_file(file_path)
+            self.statusBar().showMessage(f"已拖入: {Path(file_path).name}", 5000)
+        elif ext == ".a2l":
+            self.page_stack.setCurrentIndex(3)
+            self.sidebar.module_list.setCurrentRow(3)
+            self._calib_view.load_file(file_path)
+            self.statusBar().showMessage(f"已拖入: {Path(file_path).name}", 5000)
+        elif ext == ".json":
+            self.statusBar().showMessage(f"JSON文件请通过各模块的导入功能加载: {Path(file_path).name}", 5000)
+        else:
+            self.statusBar().showMessage(f"不支持的文件格式: {ext}", 5000)
