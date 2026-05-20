@@ -51,8 +51,11 @@ class Sidebar(QWidget):
         self.module_list.setIconSize(QSize(20, 20))
 
         for name, desc, icon_file in self.MODULES:
-            icon_path = _ICONS_DIR / icon_file
-            icon = QIcon(str(icon_path)) if icon_path.exists() else QIcon()
+            if icon_file:
+                icon_path = _ICONS_DIR / icon_file
+                icon = QIcon(str(icon_path)) if icon_path.exists() else QIcon()
+            else:
+                icon = QIcon()
             item = QListWidgetItem(icon, f"{name}\n{desc}")
             item.setSizeHint(QSize(220, 52))
             item.setToolTip(desc)
