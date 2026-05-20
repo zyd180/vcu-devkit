@@ -8,6 +8,7 @@ from __future__ import annotations
 from pathlib import Path
 from lxml import etree
 
+from core.generators.base import BaseGenerator, GenerateResult
 from core.parsers.arxml_parser import (
     ARXMLData, SWCDef, PortDef, RunnableDef,
     SenderReceiverInterface, ClientServerInterface, DataElementDef,
@@ -17,23 +18,27 @@ from core.parsers.arxml_parser import (
 )
 
 
-class ARXMLGenerator:
+class ARXMLGenerator(BaseGenerator):
     """Generate ARXML files from ARXMLData."""
 
-    def __init__(self, target_tool: str = "davinci"):
+    def __init__(self, target_tool: str = "davinci", template_dir: Path | None = None):
+        if template_dir is None:
+            template_dir = Path(__file__).parent.parent / "templates" / "arxml"
+        super().__init__(template_dir)
         self.target_tool = target_tool
 
-    def generate(self, data: ARXMLData, output_path: Path) -> tuple[bool, list[str]]:
-        """Write ARXML to file. Returns (success, errors)."""
+    def generate(self, data: ARXMLData, output_path: Path) -> GenerateResult:
+        """Write ARXML to file."""
+        output_path = Path(output_path)
         try:
             tree = self._build_tree(data)
             xml_bytes = etree.tostring(
                 tree, pretty_print=True, xml_declaration=True, encoding="UTF-8"
             )
-            output_path.write_bytes(xml_bytes)
-            return True, []
+            self._write_bytes(output_path, xml_bytes)
+            return GenerateResult(success=True, output_files=[output_path])
         except (OSError, etree.XMLSyntaxError, ValueError) as exc:
-            return False, [str(exc)]
+            return GenerateResult(success=False, errors=[str(exc)])
 
     def generate_string(self, data: ARXMLData) -> str:
         """Return ARXML as string (for preview/testing)."""

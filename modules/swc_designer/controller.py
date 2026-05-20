@@ -14,6 +14,7 @@ from core.parsers.arxml_parser import (
 )
 from core.rules.engine import RuleEngine, RuleResult
 from core.generators.arxml_generator import ARXMLGenerator
+from core.generators.base import GenerateResult
 
 
 class SWCDesignerController:
@@ -58,10 +59,10 @@ class SWCDesignerController:
         output_path.write_text(json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8")
         return True, []
 
-    def save_arxml(self, output_path: Path) -> tuple[bool, list[str]]:
+    def save_arxml(self, output_path: Path) -> GenerateResult:
         """Export current data as ARXML."""
         if self.current_data is None:
-            return False, ["No data"]
+            return GenerateResult(success=False, errors=["No data"])
         gen = ARXMLGenerator(self.target_tool)
         return gen.generate(self.current_data, output_path)
 

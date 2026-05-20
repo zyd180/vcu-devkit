@@ -148,9 +148,9 @@ class TestARXMLGeneratorFile:
         gen = ARXMLGenerator()
         data = _make_arxml_data()
         out = tmp_path / "test.arxml"
-        success, errors = gen.generate(data, out)
-        assert success
-        assert not errors
+        result = gen.generate(data, out)
+        assert result.success
+        assert not result.errors
         assert out.exists()
 
     def test_generated_file_is_valid_xml(self, tmp_path):

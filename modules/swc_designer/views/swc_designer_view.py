@@ -471,11 +471,11 @@ class SWCDesignerView(QWidget):
         )
         if not path:
             return
-        success, errors = self.controller.save_arxml(Path(path))
-        if success:
+        result = self.controller.save_arxml(Path(path))
+        if result.success:
             self.status_bar.showMessage(f"已导出 ARXML → {path}", 5000)
         else:
-            QMessageBox.warning(self, "导出失败", "\n".join(errors))
+            QMessageBox.warning(self, "导出失败", "\n".join(result.errors))
 
     def _on_validate(self):
         results = self.controller.validate()

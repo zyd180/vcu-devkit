@@ -181,7 +181,6 @@ class ARXMLParser(BaseParser):
         self._adapter: ToolAdapter = (
             DaVinciAdapter() if target_tool == "davinci" else EBTresosAdapter()
         )
-        self._ns: str = NS  # default: with namespace
 
     def supported_extensions(self) -> list[str]:
         return [".arxml"]
@@ -242,18 +241,15 @@ class ARXMLParser(BaseParser):
         root = tree.getroot()
 
         # Detect namespace: some ARXML files omit xmlns entirely
-        if root.nsmap and None in root.nsmap:
-            self._ns = NS  # {http://autosar.org/schema/r4.0}
-        else:
-            self._ns = ""  # no namespace
+        ns = NS if (root.nsmap and None in root.nsmap) else ""
 
         autosar_version = self._detect_version(root)
-        package_name = self._extract_package_name(root)
+        package_name = self._extract_package_name(root, ns)
 
-        swcs = self._extract_swcs(root)
-        interfaces = self._extract_interfaces(root)
-        data_types = self._extract_data_types(root)
-        compositions = self._extract_compositions(root)
+        swcs = self._extract_swcs(root, ns)
+        interfaces = self._extract_interfaces(root, ns)
+        data_types = self._extract_data_types(root, ns)
+        compositions = self._extract_compositions(root, ns)
 
         return ARXMLData(
             autosar_version=autosar_version,
@@ -285,26 +281,26 @@ class ARXMLParser(BaseParser):
             return AUTOSARVersion.AUTOSAR_4_3
         return AUTOSARVersion.AUTOSAR_4_2
 
-    def _extract_package_name(self, root: etree._Element) -> str:
-        pkg = root.find(f"{self._ns}AR-PACKAGES/{self._ns}AR-PACKAGE/{self._ns}SHORT-NAME")
+    def _extract_package_name(self, root: etree._Element, ns: str) -> str:
+        pkg = root.find(f"{ns}AR-PACKAGES/{ns}AR-PACKAGE/{ns}SHORT-NAME")
         return pkg.text if pkg is not None else ""
 
-    def _extract_swcs(self, root: etree._Element) -> list[SWCDef]:
+    def _extract_swcs(self, root: etree._Element, ns: str) -> list[SWCDef]:
         swcs: list[SWCDef] = []
-        for swc_elem in root.iter(f"{self._ns}APPLICATION-SW-COMPONENT-TYPE"):
-            swcs.append(self._parse_swc(swc_elem, "ApplicationSoftwareComponent"))
-        for swc_elem in root.iter(f"{self._ns}SERVICE-SW-COMPONENT-TYPE"):
-            swcs.append(self._parse_swc(swc_elem, "ServiceComponent"))
-        for swc_elem in root.iter(f"{self._ns}COMPLEX-DEVICE-DRIVER-SW-COMPONENT-TYPE"):
-            swcs.append(self._parse_swc(swc_elem, "ComplexDeviceDriver"))
+        for swc_elem in root.iter(f"{ns}APPLICATION-SW-COMPONENT-TYPE"):
+            swcs.append(self._parse_swc(swc_elem, "ApplicationSoftwareComponent", ns))
+        for swc_elem in root.iter(f"{ns}SERVICE-SW-COMPONENT-TYPE"):
+            swcs.append(self._parse_swc(swc_elem, "ServiceComponent", ns))
+        for swc_elem in root.iter(f"{ns}COMPLEX-DEVICE-DRIVER-SW-COMPONENT-TYPE"):
+            swcs.append(self._parse_swc(swc_elem, "ComplexDeviceDriver", ns))
         return swcs
 
-    def _parse_swc(self, elem: etree._Element, category: str) -> SWCDef:
-        name = self._text(elem, "SHORT-NAME", "")
-        desc = self._text(elem, "DESC/L-2", "")
+    def _parse_swc(self, elem: etree._Element, category: str, ns: str) -> SWCDef:
+        name = self._text(elem, "SHORT-NAME", "", ns)
+        desc = self._text(elem, "DESC/L-2", "", ns)
 
-        ports = self._extract_ports(elem)
-        runnables = self._extract_runnables(elem)
+        ports = self._extract_ports(elem, ns)
+        runnables = self._extract_runnables(elem, ns)
 
         return SWCDef(
             name=name,
@@ -314,36 +310,36 @@ class ARXMLParser(BaseParser):
             runnables=runnables,
         )
 
-    def _extract_ports(self, swc_elem: etree._Element) -> list[PortDef]:
+    def _extract_ports(self, swc_elem: etree._Element, ns: str) -> list[PortDef]:
         ports: list[PortDef] = []
-        for port_elem in swc_elem.iter(f"{self._ns}P-PORT-PROTOTYPE"):
-            name = self._text(port_elem, "SHORT-NAME", "")
-            iface = self._text(port_elem, "PROVIDED-INTERFACE-TREF", "")
+        for port_elem in swc_elem.iter(f"{ns}P-PORT-PROTOTYPE"):
+            name = self._text(port_elem, "SHORT-NAME", "", ns)
+            iface = self._text(port_elem, "PROVIDED-INTERFACE-TREF", "", ns)
             ports.append(PortDef(name=name, direction=PortDirection.PROVIDED, interface_ref=self._strip_path(iface)))
-        for port_elem in swc_elem.iter(f"{self._ns}R-PORT-PROTOTYPE"):
-            name = self._text(port_elem, "SHORT-NAME", "")
-            iface = self._text(port_elem, "REQUIRED-INTERFACE-TREF", "")
+        for port_elem in swc_elem.iter(f"{ns}R-PORT-PROTOTYPE"):
+            name = self._text(port_elem, "SHORT-NAME", "", ns)
+            iface = self._text(port_elem, "REQUIRED-INTERFACE-TREF", "", ns)
             ports.append(PortDef(name=name, direction=PortDirection.REQUIRED, interface_ref=self._strip_path(iface)))
         return ports
 
-    def _extract_runnables(self, swc_elem: etree._Element) -> list[RunnableDef]:
+    def _extract_runnables(self, swc_elem: etree._Element, ns: str) -> list[RunnableDef]:
         runnables: list[RunnableDef] = []
-        for run_elem in swc_elem.iter(f"{self._ns}RUNNABLE-ENTITY"):
-            name = self._text(run_elem, "SHORT-NAME", "")
+        for run_elem in swc_elem.iter(f"{ns}RUNNABLE-ENTITY"):
+            name = self._text(run_elem, "SHORT-NAME", "", ns)
 
             # Period from timing event
             period_ms: int | None = None
-            for te in swc_elem.iter(f"{self._ns}TIMING-EVENT"):
-                period_str = self._text(te, "PERIOD", "")
+            for te in swc_elem.iter(f"{ns}TIMING-EVENT"):
+                period_str = self._text(te, "PERIOD", "", ns)
                 if period_str:
                     try:
                         period_ms = int(float(period_str) * 1000)
                     except ValueError:
                         pass
 
-            reads = [self._strip_path(e.text or "") for e in run_elem.iter(f"{self._ns}DATA-READ-ACCESSS-REFT")]
-            writes = [self._strip_path(e.text or "") for e in run_elem.iter(f"{self._ns}DATA-WRITE-ACCESSS-REFT")]
-            calls = [self._strip_path(e.text or "") for e in run_elem.iter(f"{self._ns}SERVER-CALL-POINT-REF")]
+            reads = [self._strip_path(e.text or "") for e in run_elem.iter(f"{ns}DATA-READ-ACCESSS-REFT")]
+            writes = [self._strip_path(e.text or "") for e in run_elem.iter(f"{ns}DATA-WRITE-ACCESSS-REFT")]
+            calls = [self._strip_path(e.text or "") for e in run_elem.iter(f"{ns}SERVER-CALL-POINT-REF")]
 
             runnables.append(RunnableDef(
                 name=name,
@@ -354,29 +350,29 @@ class ARXMLParser(BaseParser):
             ))
         return runnables
 
-    def _extract_interfaces(self, root: etree._Element) -> list[SenderReceiverInterface | ClientServerInterface]:
+    def _extract_interfaces(self, root: etree._Element, ns: str) -> list[SenderReceiverInterface | ClientServerInterface]:
         ifaces: list[SenderReceiverInterface | ClientServerInterface] = []
-        for elem in root.iter(f"{self._ns}SENDER-RECEIVER-INTERFACE"):
-            name = self._text(elem, "SHORT-NAME", "")
+        for elem in root.iter(f"{ns}SENDER-RECEIVER-INTERFACE"):
+            name = self._text(elem, "SHORT-NAME", "", ns)
             elements = []
-            for de in elem.iter(f"{self._ns}DATA-ELEMENT-PROTOTYPE"):
-                de_name = self._text(de, "SHORT-NAME", "")
-                type_ref = self._strip_path(self._text(de, "TYPE-TREF", ""))
+            for de in elem.iter(f"{ns}DATA-ELEMENT-PROTOTYPE"):
+                de_name = self._text(de, "SHORT-NAME", "", ns)
+                type_ref = self._strip_path(self._text(de, "TYPE-TREF", "", ns))
                 elements.append(DataElementDef(name=de_name, type_ref=type_ref))
             ifaces.append(SenderReceiverInterface(name=name, data_elements=elements))
-        for elem in root.iter(f"{self._ns}CLIENT-SERVER-INTERFACE"):
-            name = self._text(elem, "SHORT-NAME", "")
-            ops = [self._text(op, "SHORT-NAME", "") for op in elem.iter(f"{self._ns}OPERATION-PROTOTYPE")]
+        for elem in root.iter(f"{ns}CLIENT-SERVER-INTERFACE"):
+            name = self._text(elem, "SHORT-NAME", "", ns)
+            ops = [self._text(op, "SHORT-NAME", "", ns) for op in elem.iter(f"{ns}OPERATION-PROTOTYPE")]
             ifaces.append(ClientServerInterface(name=name, operations=ops))
         return ifaces
 
-    def _extract_base_types(self, root: etree._Element) -> dict[str, BaseTypeDef]:
+    def _extract_base_types(self, root: etree._Element, ns: str) -> dict[str, BaseTypeDef]:
         """Parse all SW-BASE-TYPE elements and return a name-keyed lookup dict."""
         base_types: dict[str, BaseTypeDef] = {}
-        for elem in root.iter(f"{self._ns}SW-BASE-TYPE"):
-            name = self._text(elem, "SHORT-NAME", "")
-            cat = self._text(elem, "CATEGORY", "")
-            size_str = self._text(elem, "BASE-TYPE-SIZE", "0")
+        for elem in root.iter(f"{ns}SW-BASE-TYPE"):
+            name = self._text(elem, "SHORT-NAME", "", ns)
+            cat = self._text(elem, "CATEGORY", "", ns)
+            size_str = self._text(elem, "BASE-TYPE-SIZE", "0", ns)
             try:
                 size = int(size_str)
             except ValueError:
@@ -385,19 +381,19 @@ class ARXMLParser(BaseParser):
             base_types[name] = BaseTypeDef(name=name, category=cat, size=size, encoding=encoding)
         return base_types
 
-    def _extract_data_types(self, root: etree._Element) -> list[DataTypeDef]:
-        base_types = self._extract_base_types(root)
+    def _extract_data_types(self, root: etree._Element, ns: str) -> list[DataTypeDef]:
+        base_types = self._extract_base_types(root, ns)
         types: list[DataTypeDef] = []
-        for elem in root.iter(f"{self._ns}APPLICATION-PRIMITIVE-DATA-TYPE"):
-            name = self._text(elem, "SHORT-NAME", "")
-            cat = self._text(elem, "CATEGORY", "")
+        for elem in root.iter(f"{ns}APPLICATION-PRIMITIVE-DATA-TYPE"):
+            name = self._text(elem, "SHORT-NAME", "", ns)
+            cat = self._text(elem, "CATEGORY", "", ns)
 
             # Resolve base type from SW-DATA-DEF-PROPS / BASE-TYPE-REF
             base_type_name = ""
             base_type_size = 0
             base_type_encoding = ""
             base_type_ref_elem = elem.find(
-                f"{self._ns}SW-DATA-DEF-PROPS/{self._ns}BASE-TYPE-REF"
+                f"{ns}SW-DATA-DEF-PROPS/{ns}BASE-TYPE-REF"
             )
             if base_type_ref_elem is not None and base_type_ref_elem.text:
                 raw_ref = base_type_ref_elem.text.strip()
@@ -416,46 +412,46 @@ class ARXMLParser(BaseParser):
             ))
         return types
 
-    def _extract_compositions(self, root: etree._Element) -> list[CompositionDef]:
+    def _extract_compositions(self, root: etree._Element, ns: str) -> list[CompositionDef]:
         comps: list[CompositionDef] = []
-        for elem in root.iter(f"{self._ns}COMPOSITION-SW-COMPONENT-TYPE"):
-            name = self._text(elem, "SHORT-NAME", "")
+        for elem in root.iter(f"{ns}COMPOSITION-SW-COMPONENT-TYPE"):
+            name = self._text(elem, "SHORT-NAME", "", ns)
             components = [
-                self._strip_path(self._text(c, "TYPE-TREF", ""))
-                for c in elem.iter(f"{self._ns}SW-COMPONENT-PROTOTYPE")
+                self._strip_path(self._text(c, "TYPE-TREF", "", ns))
+                for c in elem.iter(f"{ns}SW-COMPONENT-PROTOTYPE")
             ]
-            connectors = self._extract_connectors(elem)
+            connectors = self._extract_connectors(elem, ns)
             comps.append(CompositionDef(name=name, components=components, connectors=connectors))
         return comps
 
-    def _extract_connectors(self, comp_elem: etree._Element) -> list[CompositionConnector]:
+    def _extract_connectors(self, comp_elem: etree._Element, ns: str) -> list[CompositionConnector]:
         """Parse ASSEMBLY-SW-CONNECTOR and DELEGATION-SW-CONNECTOR elements."""
         connectors: list[CompositionConnector] = []
 
         # ── Assembly connectors ────────────────────────────────────────────
-        for asm in comp_elem.iter(f"{self._ns}ASSEMBLY-SW-CONNECTOR"):
+        for asm in comp_elem.iter(f"{ns}ASSEMBLY-SW-CONNECTOR"):
             provider_comp = ""
             provider_port = ""
             requester_comp = ""
             requester_port = ""
 
             # PROVIDER-IREF
-            prov_iref = asm.find(f"{self._ns}PROVIDER-IREF")
+            prov_iref = asm.find(f"{ns}PROVIDER-IREF")
             if prov_iref is not None:
-                ctx = prov_iref.find(f"{self._ns}CONTEXT-COMPONENT-REF")
+                ctx = prov_iref.find(f"{ns}CONTEXT-COMPONENT-REF")
                 if ctx is not None and ctx.text:
                     provider_comp = self._strip_path(ctx.text.strip())
-                tgt = prov_iref.find(f"{self._ns}TARGET-P-PORT-REF")
+                tgt = prov_iref.find(f"{ns}TARGET-P-PORT-REF")
                 if tgt is not None and tgt.text:
                     provider_port = self._strip_path(tgt.text.strip())
 
             # REQUESTER-IREF
-            req_iref = asm.find(f"{self._ns}REQUESTER-IREF")
+            req_iref = asm.find(f"{ns}REQUESTER-IREF")
             if req_iref is not None:
-                ctx = req_iref.find(f"{self._ns}CONTEXT-COMPONENT-REF")
+                ctx = req_iref.find(f"{ns}CONTEXT-COMPONENT-REF")
                 if ctx is not None and ctx.text:
                     requester_comp = self._strip_path(ctx.text.strip())
-                tgt = req_iref.find(f"{self._ns}TARGET-R-PORT-REF")
+                tgt = req_iref.find(f"{ns}TARGET-R-PORT-REF")
                 if tgt is not None and tgt.text:
                     requester_port = self._strip_path(tgt.text.strip())
 
@@ -468,28 +464,28 @@ class ARXMLParser(BaseParser):
             ))
 
         # ── Delegation connectors ──────────────────────────────────────────
-        for dlg in comp_elem.iter(f"{self._ns}DELEGATION-SW-CONNECTOR"):
+        for dlg in comp_elem.iter(f"{ns}DELEGATION-SW-CONNECTOR"):
             provider_comp = ""
             provider_port = ""
             requester_comp = ""
             requester_port = ""
 
             # INNER-PORT-IREF  (the internal side, typically a P-Port)
-            inner_iref = dlg.find(f"{self._ns}INNER-PORT-IREF")
+            inner_iref = dlg.find(f"{ns}INNER-PORT-IREF")
             if inner_iref is not None:
-                ctx = inner_iref.find(f"{self._ns}CONTEXT-COMPONENT-REF")
+                ctx = inner_iref.find(f"{ns}CONTEXT-COMPONENT-REF")
                 if ctx is not None and ctx.text:
                     provider_comp = self._strip_path(ctx.text.strip())
                 # Delegation inner side can target P-PORT or R-PORT
-                tgt_p = inner_iref.find(f"{self._ns}TARGET-P-PORT-REF")
-                tgt_r = inner_iref.find(f"{self._ns}TARGET-R-PORT-REF")
+                tgt_p = inner_iref.find(f"{ns}TARGET-P-PORT-REF")
+                tgt_r = inner_iref.find(f"{ns}TARGET-R-PORT-REF")
                 if tgt_p is not None and tgt_p.text:
                     provider_port = self._strip_path(tgt_p.text.strip())
                 elif tgt_r is not None and tgt_r.text:
                     provider_port = self._strip_path(tgt_r.text.strip())
 
             # OUTER-PORT-REF  (the external composition port)
-            outer_ref = dlg.find(f"{self._ns}OUTER-PORT-REF")
+            outer_ref = dlg.find(f"{ns}OUTER-PORT-REF")
             if outer_ref is not None and outer_ref.text:
                 requester_port = self._strip_path(outer_ref.text.strip())
                 # Delegation's outer port is on the composition itself
@@ -507,12 +503,12 @@ class ARXMLParser(BaseParser):
 
     # ── Helpers ──────────────────────────────────────────────────────────
 
-    def _text(self, elem: etree._Element, tag: str, default: str = "") -> str:
+    def _text(self, elem: etree._Element, tag: str, default: str = "", ns: str = "") -> str:
         """Find tag (relative path) and return text."""
         parts = tag.split("/")
         current = elem
         for part in parts:
-            child = current.find(f"{self._ns}{part}")
+            child = current.find(f"{ns}{part}")
             if child is None:
                 return default
             current = child

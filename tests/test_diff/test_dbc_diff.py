@@ -156,3 +156,198 @@ class TestDBCDiffEngine:
         result = self.engine.compare(old, new)
         assert "Remove" in result.removed_messages
         assert "Add" in result.added_messages
+
+
+# ── P1: Text report content verification ────────────────────────────────────
+
+
+class TestDBCDiffTextReport:
+
+    def setup_method(self):
+        self.engine = DBCDiffEngine()
+
+    def test_report_header_and_versions(self):
+        old = _make_dbc([], version="v1.0")
+        new = _make_dbc([], version="v2.0")
+        result = self.engine.compare(old, new)
+        report = self.engine.generate_text_report(result)
+        assert "Old: v1.0" in report
+        assert "New: v2.0" in report
+
+    def test_report_summary_counts(self):
+        sig = _make_signal("S1")
+        old = _make_dbc([_make_message("M1", signals=[sig])])
+        new = _make_dbc([_make_message("M1", signals=[_make_signal("S1", factor=0.5)])])
+        result = self.engine.compare(old, new)
+        report = self.engine.generate_text_report(result)
+        assert "Signals modified:  1" in report
+
+    def test_report_diff_markers(self):
+        sig = _make_signal("S1")
+        old = _make_dbc([
+            _make_message("Keep", signals=[sig]),
+            _make_message("Removed"),
+        ])
+        new = _make_dbc([
+            _make_message("Keep", signals=[_make_signal("S1", factor=2.0)]),
+            _make_message("Added"),
+        ])
+        result = self.engine.compare(old, new)
+        report = self.engine.generate_text_report(result)
+        assert "~" in report  # modified marker
+        assert "+" in report  # added marker
+        assert "-" in report  # removed marker
+
+    def test_report_signal_field_change_line(self):
+        old = _make_dbc([_make_message("M1", signals=[_make_signal("S1", factor=1.0)])])
+        new = _make_dbc([_make_message("M1", signals=[_make_signal("S1", factor=0.5)])])
+        result = self.engine.compare(old, new)
+        report = self.engine.generate_text_report(result)
+        assert "factor" in report
+        assert "1.0" in report
+        assert "0.5" in report
+        assert "→" in report
+
+
+# ── P1: Signal field change coverage ────────────────────────────────────────
+
+
+class TestDBCDiffSignalFields:
+
+    def setup_method(self):
+        self.engine = DBCDiffEngine()
+
+    def _diff_signal(self, old_sig, new_sig):
+        old = _make_dbc([_make_message("M1", signals=[old_sig])])
+        new = _make_dbc([_make_message("M1", signals=[new_sig])])
+        result = self.engine.compare(old, new)
+        return result.message_diffs[0].signal_diffs[0]
+
+    def test_byte_order_change(self):
+        old = _make_signal("S1", byte_order="little_endian")
+        new = _make_signal("S1", byte_order="big_endian")
+        sd = self._diff_signal(old, new)
+        assert "byte_order" in sd.changes
+        assert sd.changes["byte_order"] == ("little_endian", "big_endian")
+
+    def test_bit_length_change(self):
+        old = _make_signal("S1", bit_length=8)
+        new = _make_signal("S1", bit_length=16)
+        sd = self._diff_signal(old, new)
+        assert "bit_length" in sd.changes
+        assert sd.changes["bit_length"] == (8, 16)
+
+    def test_offset_change(self):
+        old = _make_signal("S1", offset=0.0)
+        new = _make_signal("S1", offset=-500.0)
+        sd = self._diff_signal(old, new)
+        assert "offset" in sd.changes
+        assert sd.changes["offset"] == (0.0, -500.0)
+
+    def test_minimum_change(self):
+        old = _make_signal("S1", minimum=0.0)
+        new = _make_signal("S1", minimum=-100.0)
+        sd = self._diff_signal(old, new)
+        assert "minimum" in sd.changes
+
+    def test_maximum_change(self):
+        old = _make_signal("S1", maximum=255.0)
+        new = _make_signal("S1", maximum=65535.0)
+        sd = self._diff_signal(old, new)
+        assert "maximum" in sd.changes
+
+    def test_unit_change(self):
+        old = _make_signal("S1", unit="rpm")
+        new = _make_signal("S1", unit="rad/s")
+        sd = self._diff_signal(old, new)
+        assert "unit" in sd.changes
+        assert sd.changes["unit"] == ("rpm", "rad/s")
+
+    def test_value_type_change(self):
+        old = _make_signal("S1", value_type="unsigned")
+        new = _make_signal("S1", value_type="signed")
+        sd = self._diff_signal(old, new)
+        assert "value_type" in sd.changes
+
+    def test_start_bit_change(self):
+        old = _make_signal("S1", start_bit=0)
+        new = _make_signal("S1", start_bit=8)
+        sd = self._diff_signal(old, new)
+        assert "start_bit" in sd.changes
+
+    def test_no_change_same_signal(self):
+        sig = _make_signal("S1", factor=0.1, offset=-40, unit="degC")
+        old = _make_dbc([_make_message("M1", signals=[sig])])
+        new = _make_dbc([_make_message("M1", signals=[sig])])
+        result = self.engine.compare(old, new)
+        assert result.summary["signals_modified"] == 0
+        assert len(result.message_diffs) == 0
+
+
+# ── P1: Excel report content verification ───────────────────────────────────
+
+
+class TestDBCDiffExcelReport:
+
+    def setup_method(self):
+        self.engine = DBCDiffEngine()
+
+    def test_excel_sheet_name_and_headers(self, tmp_path):
+        from openpyxl import load_workbook
+        old = _make_dbc([_make_message("M1", signals=[_make_signal("S1")])])
+        new = _make_dbc([_make_message("M1", signals=[_make_signal("S1", factor=0.5)])])
+        result = self.engine.compare(old, new)
+        out = tmp_path / "diff.xlsx"
+        self.engine.export_excel_report(result, out)
+        wb = load_workbook(out)
+        ws = wb.active
+        assert ws.title == "Diff Report"
+        headers = [ws.cell(row=1, column=c).value for c in range(1, 8)]
+        assert headers == ["类型", "报文", "报文ID", "信号", "变更字段", "旧值", "新值"]
+        wb.close()
+
+    def test_excel_data_values(self, tmp_path):
+        from openpyxl import load_workbook
+        old = _make_dbc([_make_message("M1", signals=[_make_signal("S1", factor=1.0)])])
+        new = _make_dbc([_make_message("M1", signals=[_make_signal("S1", factor=0.5)])])
+        result = self.engine.compare(old, new)
+        out = tmp_path / "diff.xlsx"
+        self.engine.export_excel_report(result, out)
+        wb = load_workbook(out)
+        ws = wb.active
+        assert ws.cell(row=2, column=1).value == "修改"
+        assert ws.cell(row=2, column=2).value == "M1"
+        assert ws.cell(row=2, column=4).value == "S1"
+        assert ws.cell(row=2, column=5).value == "factor"
+        wb.close()
+
+    def test_excel_fill_colors(self, tmp_path):
+        from openpyxl import load_workbook
+        sig_old = _make_signal("S1")
+        sig_new = _make_signal("S1", factor=0.5)
+        old = _make_dbc([
+            _make_message("M1", signals=[sig_old]),
+            _make_message("M2"),
+            _make_message("M3", signals=[_make_signal("S2")]),
+        ])
+        new = _make_dbc([
+            _make_message("M1", signals=[sig_new]),
+            _make_message("M4"),
+            _make_message("M3", signals=[_make_signal("S2")]),
+        ])
+        result = self.engine.compare(old, new)
+        out = tmp_path / "diff.xlsx"
+        self.engine.export_excel_report(result, out)
+        wb = load_workbook(out)
+        ws = wb.active
+        # Find rows by content
+        for row in range(2, ws.max_row + 1):
+            op = ws.cell(row=row, column=1).value
+            fill = ws.cell(row=row, column=1).fill
+            if op == "修改":
+                assert fill.start_color.rgb == "00FFF5B1"  # yellow
+            elif op == "新增":
+                assert fill.start_color.rgb == "00E6FFED"  # green
+            elif op == "删除":
+                assert fill.start_color.rgb == "00FFEEF0"  # red
+        wb.close()

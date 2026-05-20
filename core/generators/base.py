@@ -121,3 +121,9 @@ class BaseGenerator(ABC):
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(content, encoding="utf-8")
         return path
+
+    def _write_bytes(self, path: Path, content: bytes) -> Path:
+        """Write binary content to file, creating directories as needed."""
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(content)
+        return path

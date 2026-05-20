@@ -5,15 +5,15 @@ from __future__ import annotations
 from datetime import datetime
 from pathlib import Path
 
-from core.generators.base import GenerateResult
+from core.generators.base import BaseGenerator, GenerateResult
 from core.parsers.j1939_parser import J1939Data, J1939PGN, J1939SPN
 
 
-class J1939CodeGenerator:
+class J1939CodeGenerator(BaseGenerator):
     """Generate J1939-specific C headers from J1939Data."""
 
     def __init__(self) -> None:
-        pass
+        super().__init__(Path(__file__).parent.parent / "templates" / "j1939")
 
     def generate(self, data: J1939Data, output_dir: Path) -> GenerateResult:
         output_dir = Path(output_dir)
@@ -241,9 +241,3 @@ class J1939CodeGenerator:
     @staticmethod
     def _safe_ident(name: str) -> str:
         return "".join(ch if ch.isalnum() or ch == "_" else "_" for ch in name).upper()
-
-    @staticmethod
-    def _write_file(path: Path, content: str) -> Path:
-        path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(content, encoding="utf-8")
-        return path

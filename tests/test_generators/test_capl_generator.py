@@ -138,3 +138,89 @@ class TestCAPLTypeMapping:
     def test_capl_default_signed(self):
         sig = _make_signal("S", value_type="signed")
         assert CAPLGenerator._capl_default(sig) == "0"
+
+
+# ── P1: Generated content verification ──────────────────────────────────────
+
+
+class TestCAPLContentVerification:
+
+    def setup_method(self):
+        self.gen = CAPLGenerator()
+
+    def test_can_fd_tx_uses_message_star(self, tmp_path):
+        """CAN FD TX block should use 'message *' syntax."""
+        sig = _make_signal("S1")
+        msg = _make_message("FDMsg", dlc=64, sender="VCU", signals=[sig])
+        msg.is_fd = True
+        data = _make_dbc([msg])
+        result = self.gen.generate(data, tmp_path)
+        content = result.output_files[0].read_text(encoding="utf-8")
+        assert "message * 256 msg_FDMsg" in content
+
+    def test_normal_tx_uses_message(self, tmp_path):
+        """Normal CAN TX block should use 'message' (no star)."""
+        sig = _make_signal("S1")
+        data = _make_dbc([_make_message("M1", sender="VCU", signals=[sig])])
+        result = self.gen.generate(data, tmp_path)
+        content = result.output_files[0].read_text(encoding="utf-8")
+        assert "message 256 msg_M1" in content
+        assert "message *" not in content
+
+    def test_tx_signal_assignment(self, tmp_path):
+        """TX block should assign signal to message field."""
+        sig = _make_signal("ThrottlePos")
+        data = _make_dbc([_make_message("M1", sender="VCU", signals=[sig])])
+        result = self.gen.generate(data, tmp_path)
+        content = result.output_files[0].read_text(encoding="utf-8")
+        assert "msg_M1.ThrottlePos = ThrottlePos;" in content
+
+    def test_rx_handler_signal_read(self, tmp_path):
+        """RX handler should read signal via this.SigName."""
+        sig = _make_signal("BMS_Voltage")
+        data = _make_dbc([_make_message("M1", sender="BMS", signals=[sig])])
+        result = self.gen.generate(data, tmp_path)
+        content = result.output_files[0].read_text(encoding="utf-8")
+        assert "BMS_Voltage = this.BMS_Voltage;" in content
+
+    def test_rx_handler_message_id_decimal(self, tmp_path):
+        """RX handler should reference message ID as decimal."""
+        sig = _make_signal("S1")
+        data = _make_dbc([_make_message("M1", msg_id=0x200, sender="BMS", signals=[sig])])
+        result = self.gen.generate(data, tmp_path)
+        content = result.output_files[0].read_text(encoding="utf-8")
+        assert "on message 512" in content
+
+    def test_multiple_messages_in_output(self, tmp_path):
+        """Multiple messages should all appear in the generated file."""
+        data = _make_dbc([
+            _make_message("M1", msg_id=0x100, sender="VCU", signals=[_make_signal("S1")]),
+            _make_message("M2", msg_id=0x200, sender="BMS", signals=[_make_signal("S2")]),
+            _make_message("M3", msg_id=0x300, sender="VCU", signals=[_make_signal("S3")]),
+        ])
+        result = self.gen.generate(data, tmp_path)
+        content = result.output_files[0].read_text(encoding="utf-8")
+        assert "M1" in content
+        assert "M2" in content
+        assert "M3" in content
+        assert "output(msg_M1)" in content
+        assert "output(msg_M3)" in content
+        assert "on message 512" in content
+
+    def test_global_variable_declaration(self, tmp_path):
+        """Signals should be declared as global variables with correct CAPL type and initial value."""
+        sig = _make_signal("Speed", bit_length=16, value_type="unsigned")
+        data = _make_dbc([_make_message("M1", signals=[sig])])
+        result = self.gen.generate(data, tmp_path)
+        content = result.output_files[0].read_text(encoding="utf-8")
+        assert "word Speed = 0;" in content
+
+    def test_fd_rx_handler(self, tmp_path):
+        """CAN FD RX handler should include (FD) tag in comment."""
+        sig = _make_signal("S1")
+        msg = _make_message("FDMsg", msg_id=0x100, dlc=64, sender="BMS", signals=[sig])
+        msg.is_fd = True
+        data = _make_dbc([msg])
+        result = self.gen.generate(data, tmp_path)
+        content = result.output_files[0].read_text(encoding="utf-8")
+        assert "(FD)" in content

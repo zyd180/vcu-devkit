@@ -166,3 +166,238 @@ class TestDBCDataSerialisation:
         assert "nodes" in d
         assert "value_tables" in d
         assert "source_path" in d
+
+
+# ── P1: Validation edge cases ───────────────────────────────────────────────
+
+
+class TestDBCParserValidation:
+
+    def test_validate_overlap_detected(self, dbc_parser, tmp_path):
+        """Overlapping signals should be flagged."""
+        content = """\
+VERSION ""
+
+NS_ :
+
+BS_:
+
+BU_: VCU
+
+BO_ 256 Msg1: 8 VCU
+ SG_ SigA : 0|8@1+ (1,0) [0|255] "" BMS
+ SG_ SigB : 4|8@1+ (1,0) [0|255] "" BMS
+"""
+        f = tmp_path / "overlap.dbc"
+        f.write_text(content, encoding="utf-8")
+        errors = dbc_parser.validate(f)
+        assert any("overlap" in e.lower() for e in errors)
+
+    def test_validate_duplicate_message_ids(self, dbc_parser, tmp_path):
+        """Duplicate message IDs should be flagged."""
+        content = """\
+VERSION ""
+
+NS_ :
+
+BS_:
+
+BU_: VCU
+
+BO_ 256 Msg1: 8 VCU
+ SG_ SigA : 0|8@1+ (1,0) [0|255] "" BMS
+
+BO_ 256 Msg2: 8 VCU
+ SG_ SigB : 0|8@1+ (1,0) [0|255] "" BMS
+"""
+        f = tmp_path / "dup_id.dbc"
+        f.write_text(content, encoding="utf-8")
+        errors = dbc_parser.validate(f)
+        assert any("duplicate" in e.lower() for e in errors)
+
+    def test_validate_invalid_dbc(self, dbc_parser, tmp_path):
+        """Completely invalid DBC should report parse error."""
+        f = tmp_path / "bad.dbc"
+        f.write_text("this is not a valid DBC file at all", encoding="utf-8")
+        errors = dbc_parser.validate(f)
+        assert len(errors) > 0
+
+    def test_parse_string_invalid_content(self, dbc_parser):
+        """Garbage input should return failure."""
+        result = dbc_parser.parse_string("not a valid DBC")
+        assert not result.success
+        assert len(result.errors) > 0
+
+
+# ── P1: Signal features ─────────────────────────────────────────────────────
+
+
+class TestDBCParserSignalFeatures:
+
+    def test_big_endian_signal(self, dbc_parser):
+        """Big endian (Motorola byte order) signal should parse correctly."""
+        content = """\
+VERSION ""
+
+NS_ :
+
+BS_:
+
+BU_: VCU
+
+BO_ 256 Msg1: 8 VCU
+ SG_ BESig : 7|8@0- (1,0) [0|255] "" BMS
+"""
+        result = dbc_parser.parse_string(content)
+        assert result.success
+        sig = result.data.messages[0].signals[0]
+        assert sig.byte_order == "big_endian"
+
+    def test_signed_signal(self, dbc_parser):
+        """Signed signal should parse correctly."""
+        content = """\
+VERSION ""
+
+NS_ :
+
+BS_:
+
+BU_: VCU
+
+BO_ 256 Msg1: 8 VCU
+ SG_ SignedSig : 0|16@1- (0.1,-40) [-40|215] "degC" BMS
+"""
+        result = dbc_parser.parse_string(content)
+        assert result.success
+        sig = result.data.messages[0].signals[0]
+        assert sig.value_type == "signed"
+        assert sig.factor == 0.1
+        assert sig.offset == -40.0
+
+    def test_multiplexor_signal(self, dbc_parser):
+        """Multiplexor signal should have mux_type='multiplexor'."""
+        content = """\
+VERSION ""
+
+NS_ :
+
+BS_:
+
+BU_: VCU
+
+BO_ 256 Msg1: 8 VCU
+ SG_ MuxSig M : 0|8@1+ (1,0) [0|255] "" BMS
+ SG_ DataA m0 : 8|8@1+ (1,0) [0|255] "" BMS
+ SG_ DataB m1 : 16|8@1+ (1,0) [0|255] "" BMS
+"""
+        result = dbc_parser.parse_string(content)
+        assert result.success
+        sig = result.data.messages[0].signals[0]
+        assert sig.mux is not None
+        assert sig.mux["mux_type"] == "multiplexor"
+
+    def test_multiplexed_signal(self, dbc_parser):
+        """Multiplexed signal should have mux_type='multiplexed' and mux_value."""
+        content = """\
+VERSION ""
+
+NS_ :
+
+BS_:
+
+BU_: VCU
+
+BO_ 256 Msg1: 8 VCU
+ SG_ MuxSig M : 0|8@1+ (1,0) [0|255] "" BMS
+ SG_ DataA m0 : 8|8@1+ (1,0) [0|255] "" BMS
+ SG_ DataB m1 : 16|8@1+ (1,0) [0|255] "" BMS
+"""
+        result = dbc_parser.parse_string(content)
+        assert result.success
+        signals = result.data.messages[0].signals
+        data_a = signals[1]
+        assert data_a.mux is not None
+        assert data_a.mux["mux_type"] == "multiplexed"
+        assert data_a.mux["mux_value"] == 0
+
+    def test_extended_frame_id(self, dbc_parser):
+        """Extended frame (29-bit ID) should be parsed with is_extended=True."""
+        content = """\
+VERSION ""
+
+NS_ :
+
+BS_:
+
+BU_: VCU
+
+BO_ 2147483648 ExtMsg: 8 VCU
+ SG_ SigA : 0|8@1+ (1,0) [0|255] "" BMS
+"""
+        result = dbc_parser.parse_string(content)
+        assert result.success
+        msg = result.data.messages[0]
+        assert msg.is_extended is True
+        # 2147483648 = 0x80000000, frame_id = 0x100 (mask strips extended bit)
+        # cantools stores extended flag separately
+
+    def test_can_fd_message(self, dbc_parser):
+        """Message with DLC > 8 should be flagged as CAN FD."""
+        content = """\
+VERSION ""
+
+NS_ :
+
+BS_:
+
+BU_: VCU
+
+BO_ 256 FDMsg: 64 VCU
+ SG_ SigA : 0|8@1+ (1,0) [0|255] "" BMS
+"""
+        result = dbc_parser.parse_string(content)
+        assert result.success
+        msg = result.data.messages[0]
+        assert msg.is_fd is True
+        assert msg.dlc == 64
+
+    def test_signal_no_receivers(self, dbc_parser):
+        """Signal with empty receivers should parse with empty list."""
+        # cantools requires at least one receiver, so we test via _convert_signal
+        from unittest.mock import MagicMock
+        mock_sig = MagicMock()
+        mock_sig.name = "SigA"
+        mock_sig.start = 0
+        mock_sig.length = 8
+        mock_sig.byte_order = "little_endian"
+        mock_sig.is_signed = False
+        mock_sig.scale = 1.0
+        mock_sig.offset = 0.0
+        mock_sig.minimum = 0.0
+        mock_sig.maximum = 255.0
+        mock_sig.unit = ""
+        mock_sig.comment = None
+        mock_sig.receivers = None
+        mock_sig.choices = None
+        mock_sig.is_multiplexer = False
+        mock_sig.multiplexer_ids = None
+        result = dbc_parser._convert_signal(mock_sig)
+        assert result.receivers == []
+
+    def test_no_signals_message(self, dbc_parser):
+        """Message with no signals should still parse."""
+        content = """\
+VERSION ""
+
+NS_ :
+
+BS_:
+
+BU_: VCU
+
+BO_ 256 EmptyMsg: 8 VCU
+"""
+        result = dbc_parser.parse_string(content)
+        assert result.success
+        assert len(result.data.messages) == 1
+        assert len(result.data.messages[0].signals) == 0
