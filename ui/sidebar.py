@@ -19,6 +19,7 @@ class Sidebar(QWidget):
     module_selected = Signal(int)
 
     MODULES = [
+        ("概览", "项目总览与快速操作", None),
         ("CAN开发", "DBC配置与代码生成", "can.svg"),
         ("SWC开发", "AUTOSAR SWC可视化", "swc.svg"),
         ("诊断配置", "UDS / DTC配置", "diag.svg"),

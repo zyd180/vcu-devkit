@@ -1,0 +1,28 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install dependencies
+        run: |
+          pip install --upgrade pip
+          pip install -e ".[full,dev]"
+          pip install pyinstaller
+      - name: Run tests
+        run: pytest tests/ -q
+      - name: Build executable
+        run: pyinstaller vcu_devkit.spec --noconfirm
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: vcu-devkit-${{ github.ref_name }}
+          path: dist/

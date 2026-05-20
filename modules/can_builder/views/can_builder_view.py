@@ -19,6 +19,7 @@ from ui.widgets.tree_view import TreeView
 from ui.widgets.table_editor import DataTableModel
 from ui.widgets.property_panel import PropertyPanel
 from ui.widgets.file_worker import FileWorker
+from ui.widgets.signal_bitmap import SignalBitmapWidget
 from ui.icons import icon_open, icon_save, icon_diff, icon_validate, icon_generate, icon_add
 from core.commands.command import CommandHistory, UpdateFieldCommand
 
@@ -117,10 +118,21 @@ class CANBuilderView(QWidget):
         self.signal_table.setSortingEnabled(True)
         right_layout.addWidget(self.signal_table, stretch=3)
 
-        # Property panel (bottom)
+        # Property panel + signal bitmap (bottom)
+        bottom_widget = QWidget()
+        bottom_layout = QHBoxLayout(bottom_widget)
+        bottom_layout.setContentsMargins(0, 0, 0, 0)
+        bottom_layout.setSpacing(4)
+
         self.prop_panel = PropertyPanel()
-        self.prop_panel.setMaximumHeight(220)
-        right_layout.addWidget(self.prop_panel, stretch=1)
+        bottom_layout.addWidget(self.prop_panel, stretch=3)
+
+        self.signal_bitmap = SignalBitmapWidget()
+        self.signal_bitmap.signal_selected.connect(self._on_bitmap_signal_selected)
+        bottom_layout.addWidget(self.signal_bitmap, stretch=2)
+
+        bottom_widget.setMaximumHeight(220)
+        right_layout.addWidget(bottom_widget, stretch=1)
 
         splitter.addWidget(right_widget)
         splitter.setStretchFactor(0, 0)
@@ -353,6 +365,16 @@ class CANBuilderView(QWidget):
         if props is None:
             return
         self._show_signal_properties(current_msg, sig_name, props)
+        self.signal_bitmap.set_selected_signal(sig_name)
+
+    def _on_bitmap_signal_selected(self, sig_name: str):
+        """When a signal is clicked in the bitmap, highlight it in the table."""
+        self.signal_bitmap.set_selected_signal(sig_name)
+        for row in range(self.signal_model.rowCount()):
+            name = self.signal_model.data(self.signal_model.index(row, 0)) or ""
+            if name == sig_name:
+                self.signal_table.selectRow(row)
+                break
 
     # ── Helpers ──────────────────────────────────────────────────────────
 
@@ -391,6 +413,10 @@ class CANBuilderView(QWidget):
                 "receivers": ", ".join(sig.receivers),
             })
         self.signal_model.load_data(rows)
+        # Update bitmap
+        msg = self.controller.get_message_by_name(msg_name)
+        dlc = msg.dlc if msg else 8
+        self.signal_bitmap.set_signals(signals, dlc=dlc)
         self.status_bar.showMessage(f"报文 {msg_name}: {len(signals)} 个信号")
 
     def _get_current_message_name(self) -> str | None:

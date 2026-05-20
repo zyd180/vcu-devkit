@@ -188,16 +188,17 @@ class MainWindow(QMainWindow):
         self.page_stack = QStackedWidget()
         self._loaded_views: dict[int, QWidget] = {}
         self._view_factories = {
-            0: self._create_can_view,
-            1: self._create_swc_view,
-            2: self._create_diag_view,
-            3: self._create_calib_view,
-            4: self._create_test_view,
-            5: self._create_trace_view,
+            0: self._create_dashboard_view,
+            1: self._create_can_view,
+            2: self._create_swc_view,
+            3: self._create_diag_view,
+            4: self._create_calib_view,
+            5: self._create_test_view,
+            6: self._create_trace_view,
         }
 
         # Add placeholder widgets; real views created on first access
-        for _ in range(6):
+        for _ in range(7):
             self.page_stack.addWidget(QWidget())
 
         # Splitter: sidebar | content
@@ -224,6 +225,13 @@ class MainWindow(QMainWindow):
         self.page_stack.removeWidget(old)
         old.deleteLater()
         self.page_stack.insertWidget(index, view)
+
+    def _create_dashboard_view(self):
+        from ui.widgets.dashboard import DashboardWidget
+        dashboard = DashboardWidget(settings=self.settings)
+        dashboard.module_requested.connect(self._on_module_selected)
+        dashboard.open_file_requested.connect(self._on_open_recent)
+        return dashboard
 
     def _create_can_view(self):
         from modules.can_builder.views.can_builder_view import CANBuilderView
@@ -261,7 +269,7 @@ class MainWindow(QMainWindow):
         """Handle sidebar module selection."""
         self._ensure_view_loaded(index)
         self.page_stack.setCurrentIndex(index)
-        modules = ["CAN开发", "SWC开发", "诊断配置", "标定管理", "测试生成", "需求追溯"]
+        modules = ["概览", "CAN开发", "SWC开发", "诊断配置", "标定管理", "测试生成", "需求追溯"]
         if 0 <= index < len(modules):
             self.statusBar().showMessage(f"当前模块: {modules[index]}")
 
