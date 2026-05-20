@@ -285,21 +285,30 @@
 | 4 | CAN FD DLC 校验规则（合法值 + BRS 标记） | ✅ `DBC_FD_DLC_INVALID` / `DBC_FD_FLAG_MISSING` |
 | 5 | DBC 保存适配（cantools `is_fd` 参数） | ✅ |
 
-### 4.2 J1939 协议支持 [P2]
+### 4.2 J1939 协议支持 [P2] ✅
 
-| # | 任务 | 预估工时 |
-|---|------|---------|
-| 1 | J1939 DBC 解析（PGN/SPN 映射） | 4h |
-| 2 | J1939 传输协议（多帧 BAM/RTS-CTS） | 4h |
-| 3 | J1939 诊断（DM1/DM2 故障码） | 3h |
+**实际情况：** 完整 J1939 协议栈实现（PGN/SPN 映射 + TP 多帧重组 + DM1/DM2 诊断 + C 代码生成 + 校验规则），31 项测试通过
 
-### 4.3 XCP/CCP 标定协议基础 [P3]
+| # | 任务 | 状态 |
+|---|------|------|
+| 1 | J1939 数据模型（J1939PGN/SPN/DTC/TPMessage） | ✅ `core/parsers/j1939_parser.py` |
+| 2 | J1939 解析器（PGN 提取、自动识别、SPN 从注释提取） | ✅ `core/parsers/j1939_parser.py` |
+| 3 | 传输协议 TP 多帧重组（BAM/RTS-CTS） | ✅ `core/parsers/j1939_tp.py` |
+| 4 | DM1/DM2 诊断消息解析（DTC 解码 + 灯状态） | ✅ `core/parsers/j1939_diag.py` |
+| 5 | J1939 C 代码生成（PGN/SPN/DTC 宏 + EncodeDTC/DecodeDTC） | ✅ `core/generators/j1939_c_generator.py` |
+| 6 | J1939 校验规则（PGN 范围 + DLC + SPN 无编号 + SA 冲突） | ✅ `core/rules/engine.py` |
 
-| # | 任务 | 预估工时 |
-|---|------|---------|
-| 1 | XCP 协议帧定义（CONNECT/GET_STATUS/SHORT_UPLOAD） | 4h |
-| 2 | A2L → XCP 映射（地址 → 信号关联） | 3h |
-| 3 | 在线标定参数读写框架 | 4h |
+### 4.3 XCP/CCP 标定协议基础 [P3] ✅
+
+**实际情况：** 完整 XCP + CCP 协议框架实现（编解码 + A2L 地址映射 + 在线读写框架 + LoopbackTransport），71 项测试通过
+
+| # | 任务 | 状态 |
+|---|------|------|
+| 1 | XCP 数据模型（XcpCmd/XcpConnection/XcpAddressMapping） | ✅ `core/protocols/xcp.py` |
+| 2 | XCP 命令编解码（CONNECT/SHORT_UPLOAD/DOWNLOAD/SET_MTA/DAQ） | ✅ `core/protocols/xcp_codec.py` |
+| 3 | A2L → XCP 地址映射 | ✅ `core/protocols/xcp_mapping.py` |
+| 4 | XCP 在线标定读写框架（XcpTransport/XcpSession/LoopbackTransport） | ✅ `core/protocols/xcp_session.py` |
+| 5 | CCP 协议支持（CcpCodec + CcpCmd） | ✅ `core/protocols/ccp.py` |
 
 ### 4.4 飞书多维表格同步 [P3]
 
@@ -343,4 +352,4 @@
 | **M1 — 可用** | 第 4 周末 | 6 个模块 UI 可操作，完成 DBC → 校验 → C 代码 完整流程 |
 | **M2 — 可靠** | 第 8 周末 | DBC 回写可用，测试覆盖率 ≥ 80%，空目录全部有测试 |
 | **M3 — 可交付** | 第 12 周末 | CI/CD 绿灯，用户手册完成，PyInstaller 打包成功 |
-| **M4 — 专业** | 第 24 周末 | CAN FD + J1939 可用，插件架构就位，飞书同步上线 |
+| **M4 — 专业** | 第 24 周末 | CAN FD ✅ + J1939 ✅ + XCP/CCP ✅ 可用，插件架构 ✅ 就位 |

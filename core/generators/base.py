@@ -79,8 +79,11 @@ class TemplateEngine:
     @staticmethod
     def _c_literal_suffix(value: float) -> str:
         """Format a float as a C literal with appropriate suffix."""
-        if value == int(value):
-            return f"{int(value)}f"
+        try:
+            if value == int(value):
+                return f"{int(value)}f"
+        except (OverflowError, ValueError):
+            pass
         return f"{value}f"
 
     def render(self, template_name: str, context: dict[str, Any]) -> str:

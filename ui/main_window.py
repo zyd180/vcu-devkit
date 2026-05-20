@@ -325,9 +325,25 @@ class MainWindow(QMainWindow):
 
         try:
             result = controller.validate()
-            # result is expected to be a dict with 'errors' and 'warnings' counts,
-            # or any object that can be meaningfully displayed.
-            if isinstance(result, dict):
+            if isinstance(result, list) and len(result) > 0 and hasattr(result[0], "severity"):
+                errors = sum(1 for r in result if r.severity.value == "error")
+                warnings = sum(1 for r in result if r.severity.value == "warning")
+                info = sum(1 for r in result if r.severity.value == "info")
+                if errors == 0 and warnings == 0:
+                    self.statusBar().showMessage(f"校验通过 ({info} 条提示)", 3000)
+                else:
+                    self.statusBar().showMessage(
+                        f"校验完成: {errors} 个错误, {warnings} 个警告, {info} 条提示", 5000
+                    )
+            elif isinstance(result, list) and len(result) > 0 and isinstance(result[0], dict):
+                errors = sum(1 for r in result if r.get("type") == "error")
+                warnings = sum(1 for r in result if r.get("type") == "warning")
+                self.statusBar().showMessage(
+                    f"校验完成: {errors} 个错误, {warnings} 个警告", 5000
+                )
+            elif isinstance(result, list):
+                self.statusBar().showMessage("校验通过，无错误和警告", 3000)
+            elif isinstance(result, dict):
                 errors = result.get("errors", 0)
                 warnings = result.get("warnings", 0)
                 if errors == 0 and warnings == 0:

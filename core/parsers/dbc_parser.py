@@ -73,7 +73,7 @@ class DBCParser(BaseParser):
             return ParseResult(success=False, errors=[f"File not found: {path}"])
         try:
             db = cantools.database.load_file(str(path))
-            data = self._convert(db, str(path))
+            data = self.convert(db, str(path))
             return ParseResult(success=True, data=data, source_path=path)
         except (OSError, ValueError) as exc:
             return ParseResult(success=False, errors=[str(exc)])
@@ -84,7 +84,7 @@ class DBCParser(BaseParser):
         """Parse DBC content from string (no file I/O)."""
         try:
             db = cantools.database.load_string(content)
-            data = self._convert(db, "<string>")
+            data = self.convert(db, "<string>")
             return ParseResult(success=True, data=data)
         except (ValueError, cantools.database.Error) as exc:
             return ParseResult(success=False, errors=[str(exc)])
@@ -109,7 +109,7 @@ class DBCParser(BaseParser):
 
     # ── Internal conversion ──────────────────────────────────────────────
 
-    def _convert(self, db: cantools.database.Database, source: str) -> DBCData:
+    def convert(self, db: cantools.database.Database, source: str) -> DBCData:
         messages = [self._convert_message(m) for m in db.messages]
         raw_nodes = getattr(db, "nodes", None) or []
         nodes = [str(n) for n in raw_nodes]

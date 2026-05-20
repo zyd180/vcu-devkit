@@ -9,6 +9,7 @@ from typing import Any
 
 from core.parsers.dbc_parser import DBCData, MessageDef, SignalDef
 from core.parsers.arxml_parser import ARXMLData, PortDirection
+from core.parsers.j1939_parser import J1939Data, extract_pgn
 
 
 class Severity(Enum):
@@ -67,6 +68,18 @@ class RuleEngine:
         for plugin in self._plugin_rules:
             if hasattr(plugin, "check_dbc"):
                 results.extend(plugin.check_dbc(data))
+        return results
+
+    def check_j1939(self, data: J1939Data) -> list[RuleResult]:
+        """Run all J1939 protocol validation rules."""
+        results: list[RuleResult] = []
+        results.extend(self._check_j1939_pgn_range(data))
+        results.extend(self._check_j1939_dlc(data))
+        results.extend(self._check_j1939_spn_no_pgn(data))
+        results.extend(self._check_j1939_sa_conflict(data))
+        for plugin in self._plugin_rules:
+            if hasattr(plugin, "check_j1939"):
+                results.extend(plugin.check_j1939(data))
         return results
 
     # ── Signal overlap ───────────────────────────────────────────────────
@@ -273,6 +286,83 @@ class RuleEngine:
                         location=msg.name,
                         suggestion="Set is_fd=True for CAN FD frames",
                     ))
+        return results
+
+    # ── J1939: PGN range ─────────────────────────────────────────────────
+
+    def _check_j1939_pgn_range(self, data: J1939Data) -> list[RuleResult]:
+        results: list[RuleResult] = []
+        for pgn in data.pgn_messages:
+            if pgn.pgn > 0xFFFF:
+                results.append(RuleResult(
+                    rule_id="J1939_PGN_RANGE",
+                    severity=Severity.ERROR,
+                    message=f"PGN 0x{pgn.pgn:04X} out of J1939 range (0x0000-0xFFFF)",
+                    location=f"PGN:{pgn.name}",
+                    suggestion="Check CAN ID extraction — PGN should be 18 bits max",
+                ))
+        return results
+
+    # ── J1939: DLC check ───────────────────────────────────────────────────
+
+    def _check_j1939_dlc(self, data: J1939Data) -> list[RuleResult]:
+        results: list[RuleResult] = []
+        if not data.dbc_data:
+            return results
+        for msg in data.dbc_data.messages:
+            if msg.is_fd:
+                continue  # CAN FD has its own DLC rules
+            _, pgn, _, _ = extract_pgn(msg.id)
+            if msg.dlc != 8 and msg.dlc > 0:
+                results.append(RuleResult(
+                    rule_id="J1939_DLC_MISMATCH",
+                    severity=Severity.WARNING,
+                    message=(
+                        f"J1939 message '{msg.name}' (PGN 0x{pgn:04X}) has DLC {msg.dlc}, "
+                        f"expected 8 for standard J1939"
+                    ),
+                    location=msg.name,
+                    suggestion="Set DLC to 8 for standard J1939 messages",
+                ))
+        return results
+
+    # ── J1939: SPN without PGN ─────────────────────────────────────────────
+
+    def _check_j1939_spn_no_pgn(self, data: J1939Data) -> list[RuleResult]:
+        results: list[RuleResult] = []
+        for spn in data.spn_signals:
+            if spn.spn == 0:
+                results.append(RuleResult(
+                    rule_id="J1939_SPN_NO_PGN",
+                    severity=Severity.INFO,
+                    message=(
+                        f"Signal '{spn.name}' has no SPN number — "
+                        f"add 'SPN <number>' to signal comment or attribute"
+                    ),
+                    location=f"SPN:{spn.name}",
+                    suggestion="Add SPN number to signal comment (e.g. 'SPN 190')",
+                ))
+        return results
+
+    # ── J1939: Source address conflict ─────────────────────────────────────
+
+    def _check_j1939_sa_conflict(self, data: J1939Data) -> list[RuleResult]:
+        results: list[RuleResult] = []
+        sa_to_names: dict[int, list[str]] = {}
+        for node, sa in data.source_addresses.items():
+            sa_to_names.setdefault(sa, []).append(node)
+        for sa, names in sa_to_names.items():
+            if len(names) > 1:
+                results.append(RuleResult(
+                    rule_id="J1939_SA_CONFLICT",
+                    severity=Severity.WARNING,
+                    message=(
+                        f"Source address 0x{sa:02X} assigned to multiple nodes: "
+                        f"{', '.join(names)}"
+                    ),
+                    location=f"SA:0x{sa:02X}",
+                    suggestion="Each J1939 node should have a unique source address",
+                ))
         return results
 
     # ── ARXML: SWC naming ──────────────────────────────────────────────────
