@@ -67,8 +67,7 @@ class DCMGenerator(BaseGenerator):
             # 2. FESTWERT without numeric value (e.g. TEXT "true" params)
             has_raw = raw_blocks and name in raw_blocks
             use_raw = has_raw and (
-                (block_type and block_type != "FESTWERT")
-                or (block_type == "FESTWERT" and value is None)
+                (block_type and block_type != "FESTWERT") or (block_type == "FESTWERT" and value is None)
             )
             if use_raw:
                 lines.append(raw_blocks[name])

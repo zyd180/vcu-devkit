@@ -382,16 +382,12 @@ class CalibManagerView(QWidget):
             # 已有参数（A2L导入过）→ 按名称匹配更新
             matched, updated, not_found = self.controller.import_dcm_values()
             self._refresh_all()
-            self.status_bar.showMessage(
-                f"DCM导入完成: 匹配 {matched}, 更新 {updated}, 未找到 {not_found}", 5000
-            )
+            self.status_bar.showMessage(f"DCM导入完成: 匹配 {matched}, 更新 {updated}, 未找到 {not_found}", 5000)
         else:
             # 无已有参数 → 全部导入为新参数
             imported, skipped = self.controller.import_dcm_as_new()
             self._refresh_all()
-            self.status_bar.showMessage(
-                f"DCM导入完成: 新增 {imported}, 跳过 {skipped}", 5000
-            )
+            self.status_bar.showMessage(f"DCM导入完成: 新增 {imported}, 跳过 {skipped}", 5000)
 
     def _on_export_dcm(self):
         path, _ = QFileDialog.getSaveFileName(self, "导出DCM文件", "", "DCM文件 (*.dcm);;所有文件 (*)")
