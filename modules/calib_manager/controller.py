@@ -118,12 +118,20 @@ class CalibManagerController(CRUDMixin):
                 not_found += 1
                 continue
             matched += 1
+            param = db_params[char.name]
+            # Update block_type and raw_block for roundtrip support
+            needs_save = False
+            if char.block_type and param.block_type != char.block_type:
+                param.block_type = char.block_type
+                needs_save = True
+            if char.raw_block and param.raw_block != char.raw_block:
+                param.raw_block = char.raw_block
+                needs_save = True
             if char.value is not None:
-                param = db_params[char.name]
                 old_value = param.default_value
                 if old_value != char.value:
                     param.default_value = char.value
-                    param.save()
+                    needs_save = True
                     CalibrationChange.create(
                         param=param,
                         old_value=old_value,
@@ -132,6 +140,8 @@ class CalibManagerController(CRUDMixin):
                         reason=f"DCM import value = {char.value}",
                     )
                     updated += 1
+            if needs_save:
+                param.save()
 
         return matched, updated, not_found
 
@@ -169,6 +179,8 @@ class CalibManagerController(CRUDMixin):
                     "description": char.description or char.name,
                     "source": "dcm",
                     "source_file": self.current_dcm.source_path,
+                    "block_type": char.block_type,
+                    "raw_block": char.raw_block or None,
                 }
             )
 
@@ -182,19 +194,24 @@ class CalibManagerController(CRUDMixin):
     def export_dcm(self, output_path: Path) -> tuple[bool, list[str]]:
         """Export current page parameters to a DCM file."""
         try:
-            params = [
-                {
-                    "name": p.name,
-                    "description": p.description or p.name,
-                    "default_value": p.default_value,
-                    "min_value": p.min_value,
-                    "max_value": p.max_value,
-                    "unit": p.unit or "",
-                }
-                for p in self.get_params()
-            ]
+            params = []
+            raw_blocks = {}
+            for p in self.get_params():
+                params.append(
+                    {
+                        "name": p.name,
+                        "description": p.description or p.name,
+                        "default_value": p.default_value,
+                        "min_value": p.min_value,
+                        "max_value": p.max_value,
+                        "unit": p.unit or "",
+                        "block_type": p.block_type or "",
+                    }
+                )
+                if p.raw_block:
+                    raw_blocks[p.name] = p.raw_block
             generator = DCMGenerator()
-            result = generator.generate(params, output_path)
+            result = generator.generate(params, output_path, raw_blocks=raw_blocks)
             if result.success:
                 return True, []
             return False, result.errors

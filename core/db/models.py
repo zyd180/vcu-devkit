@@ -50,8 +50,11 @@ class CalibrationParameter(BaseModel):
     max_value = FloatField(null=True)
     unit = CharField(max_length=32, null=True)
     description = TextField(null=True)
-    source = CharField(default="manual", max_length=32)  # manual / model / a2l
+    source = CharField(default="manual", max_length=32)  # manual / model / a2l / dcm
     source_file = CharField(max_length=512, null=True)
+    # DCM-specific: block type and raw text for non-scalar params
+    block_type = CharField(max_length=32, null=True)  # FESTWERT / GRUPPENKENNFELD / FESTWERTEBLOCK
+    raw_block = TextField(null=True)  # original DCM block text for roundtrip
     created_at = DateTimeField(default=datetime.now)
     updated_at = DateTimeField(default=datetime.now)
 

@@ -1,5 +1,0 @@
-# Install with all extras:
-#   pip install -e ".[full,dev]"
-#
-# This file kept for CI compatibility. Canonical deps are in pyproject.toml.
--e ".[full,dev]"

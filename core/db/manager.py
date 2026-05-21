@@ -44,6 +44,15 @@ class DatabaseManager:
             db.execute_sql(
                 "UPDATE calibrationparameter SET calibration_page = 'default' WHERE calibration_page IS NULL"
             )
+        # Add block_type and raw_block columns for DCM roundtrip
+        try:
+            db.execute_sql("SELECT block_type FROM calibrationparameter LIMIT 1")
+        except Exception:
+            db.execute_sql("ALTER TABLE calibrationparameter ADD COLUMN block_type VARCHAR(32)")
+        try:
+            db.execute_sql("SELECT raw_block FROM calibrationparameter LIMIT 1")
+        except Exception:
+            db.execute_sql("ALTER TABLE calibrationparameter ADD COLUMN raw_block TEXT")
         # Drop old single-column UNIQUE index on name, replace with composite
         self._migrate_name_unique_to_composite()
 
@@ -90,6 +99,8 @@ class DatabaseManager:
                     description TEXT,
                     source VARCHAR(32) DEFAULT 'manual',
                     source_file VARCHAR(512),
+                    block_type VARCHAR(32),
+                    raw_block TEXT,
                     created_at DATETIME,
                     updated_at DATETIME
                 )"""
@@ -98,12 +109,14 @@ class DatabaseManager:
                 """INSERT INTO calibrationparameter
                    (id, name, calibration_page, swc_name, group_name, data_type,
                     default_value, min_value, max_value, unit, description,
-                    source, source_file, created_at, updated_at)
+                    source, source_file, block_type, raw_block, created_at, updated_at)
                    SELECT id, name,
                           COALESCE(calibration_page, 'default'),
                           swc_name, group_name, data_type,
                           default_value, min_value, max_value, unit, description,
-                          source, source_file, created_at, updated_at
+                          source, source_file,
+                          block_type, raw_block,
+                          created_at, updated_at
                    FROM _calparam_old"""
             )
             db.execute_sql("DROP TABLE _calparam_old")

@@ -759,6 +759,180 @@ class TestDCMParser:
         throttle = next(c for c in result.data.characteristics if c.name == "ThrottlePos")
         assert throttle.value == 15.5
 
+    # ── DAMOS/CDM format tests ──────────────────────────────────────
+
+    def test_parse_damos_basic(self):
+        """DAMOS format: FESTWERT blocks with WERT values."""
+        content = """\
+* DAMOS format
+KONSERVIERUNG_FORMAT 2.0
+
+FESTWERT Param_A
+   LANGNAME "Parameter A"
+   EINHEIT_W "rpm"
+   WERT 1500.0
+END
+
+FESTWERT Param_B
+   LANGNAME "Parameter B"
+   EINHEIT_W "%"
+   WERT 25.5
+END
+"""
+        parser = DCMParser()
+        result = parser.parse_string(content)
+        assert result.success
+        assert len(result.data.characteristics) == 2
+        names = [c.name for c in result.data.characteristics]
+        assert "Param_A" in names
+        assert "Param_B" in names
+
+    def test_parse_damos_values(self):
+        """DAMOS format: verify value extraction."""
+        content = """\
+KONSERVIERUNG_FORMAT 2.0
+
+FESTWERT Speed_P
+   LANGNAME "Engine Speed"
+   EINHEIT_W "rpm"
+   WERT 1500.000000
+END
+"""
+        parser = DCMParser()
+        result = parser.parse_string(content)
+        char = result.data.characteristics[0]
+        assert char.name == "Speed_P"
+        assert char.value == 1500.0
+        assert char.unit == "rpm"
+        assert char.description == "Engine Speed"
+        assert char.block_type == "FESTWERT"
+
+    def test_parse_damos_unit(self):
+        """DAMOS format: EINHEIT_W is the value unit."""
+        content = """\
+KONSERVIERUNG_FORMAT 2.0
+
+FESTWERT Temp_P
+   LANGNAME ""
+   EINHEIT_W "C"
+   WERT 85.0
+END
+"""
+        parser = DCMParser()
+        result = parser.parse_string(content)
+        assert result.data.characteristics[0].unit == "C"
+
+    def test_parse_damos_array(self):
+        """DAMOS format: FESTWERTEBLOCK (value array)."""
+        content = """\
+KONSERVIERUNG_FORMAT 2.0
+
+FESTWERTEBLOCK Array_K 3
+   LANGNAME "Array param"
+   EINHEIT_W "-"
+   WERT   1.0   2.0   3.0
+END
+"""
+        parser = DCMParser()
+        result = parser.parse_string(content)
+        assert len(result.data.characteristics) == 1
+        char = result.data.characteristics[0]
+        assert char.name == "Array_K"
+        assert char.block_type == "FESTWERTEBLOCK"
+        assert char.values == [1.0, 2.0, 3.0]
+        assert char.value == 1.0  # first value as scalar
+
+    def test_parse_damos_negative_values(self):
+        """DAMOS format: negative WERT values."""
+        content = """\
+KONSERVIERUNG_FORMAT 2.0
+
+FESTWERT Neg_P
+   LANGNAME ""
+   EINHEIT_W "-"
+   WERT -100.0
+END
+"""
+        parser = DCMParser()
+        result = parser.parse_string(content)
+        assert result.data.characteristics[0].value == -100.0
+
+    def test_parse_damos_with_comments(self):
+        """DAMOS format: comment lines starting with * are skipped."""
+        content = """\
+* encoding="UTF-8"
+* DAMOS format
+* Created by CDM V7.3.7 Build 108
+KONSERVIERUNG_FORMAT 2.0
+
+* no memory layouts specified
+
+FESTWERT Test_P
+   LANGNAME ""
+   EINHEIT_W "-"
+   WERT 42.0
+END
+"""
+        parser = DCMParser()
+        result = parser.parse_string(content)
+        assert result.success
+        assert len(result.data.characteristics) == 1
+        assert result.data.characteristics[0].value == 42.0
+
+    def test_parse_damos_map(self):
+        """DAMOS format: GRUPPENKENNFELD (2D map)."""
+        content = """\
+KONSERVIERUNG_FORMAT 2.0
+
+GRUPPENKENNFELD Map_M 3 2
+   LANGNAME "Test Map"
+   EINHEIT_X "rpm"
+   EINHEIT_Y "km/h"
+   EINHEIT_W "Nm"
+*SSTX	Axis_X
+*SSTY	Axis_Y
+   ST/X   0.0   1.0   2.0
+   ST/Y   0.0
+   WERT   1.0   2.0
+   ST/Y   100.0
+   WERT   3.0   4.0
+END
+"""
+        parser = DCMParser()
+        result = parser.parse_string(content)
+        assert len(result.data.characteristics) == 1
+        char = result.data.characteristics[0]
+        assert char.name == "Map_M"
+        assert char.block_type == "GRUPPENKENNFELD"
+        assert len(char.values) > 0
+        assert char.unit == "Nm"
+
+    def test_validate_damos(self, tmp_path):
+        """validate() accepts DAMOS format files."""
+        f = tmp_path / "test.dcm"
+        f.write_text("KONSERVIERUNG_FORMAT 2.0\nFESTWERT X\nWERT 1\nEND\n", encoding="utf-8")
+        parser = DCMParser()
+        errors = parser.validate(f)
+        assert errors == []
+
+    def test_parse_damos_file(self, tmp_path):
+        """Parse DAMOS format from file."""
+        content = """\
+KONSERVIERUNG_FORMAT 2.0
+
+FESTWERT File_P
+   LANGNAME ""
+   EINHEIT_W "-"
+   WERT 99.0
+END
+"""
+        f = tmp_path / "test.dcm"
+        f.write_text(content, encoding="utf-8")
+        parser = DCMParser()
+        result = parser.parse(f)
+        assert result.success
+        assert result.data.characteristics[0].value == 99.0
+
 
 class TestDCMGenerator:
     def test_generate_basic(self, tmp_path):
@@ -792,8 +966,8 @@ class TestDCMGenerator:
         ]
         content = gen.generate_string(params)
         assert "EngSpeed" in content
-        assert "VALUE = 1500" in content
-        assert "/begin CHARACTERISTIC" in content
+        assert "WERT 1500" in content
+        assert "FESTWERT" in content
 
     def test_generate_with_unit(self):
         gen = DCMGenerator()
@@ -808,7 +982,7 @@ class TestDCMGenerator:
             },
         ]
         content = gen.generate_string(params)
-        assert 'UNIT "V"' in content
+        assert 'EINHEIT_W "V"' in content
 
     def test_generate_roundtrip(self, tmp_path):
         """Generate DCM, parse it back, values should match."""

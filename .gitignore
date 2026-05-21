@@ -8,6 +8,10 @@ dist/
 build/
 *.egg
 .coverage
+
+# Cache
+.pytest_cache/
+.ruff_cache/
 # Virtual environments
 .venv/
 venv/
