@@ -4,6 +4,8 @@ import pytest
 from pathlib import Path
 
 from core.parsers.a2l_parser import A2LParser
+from core.parsers.dcm_parser import DCMParser
+from core.generators.dcm_generator import DCMGenerator
 from core.db.manager import DatabaseManager
 from modules.calib_manager.controller import CalibManagerController
 
@@ -636,3 +638,320 @@ class TestCalibrationPage:
         # default has the group
         controller.set_current_page("default")
         assert "Engine" in controller.get_groups()
+
+
+# ── DCM content fixtures ─────────────────────────────────────────────────────
+
+DCM_BASIC = """\
+/begin PROJECT VCU_Calibration "VCU Calibration Data"
+  /begin HEADER "DCM Export"
+    VERSION "1.0"
+  /end HEADER
+
+  /begin MODULE VCU_Module "VCU"
+
+    /begin CHARACTERISTIC
+      EngSpeed "Engine Speed" VALUE 0x1000 Default_RL 0 CM_Identical
+      0
+      8000
+      VALUE = 1500
+    /end CHARACTERISTIC
+
+    /begin CHARACTERISTIC
+      ThrottlePos "Throttle Position" VALUE 0x1004 Default_RL 0 CM_Identical
+      0
+      100
+      VALUE = 15.5
+    /end CHARACTERISTIC
+
+    /begin CHARACTERISTIC
+      BatteryVolt "Battery Voltage" VALUE 0x1008 Default_RL 0 CM_Identical
+      0
+      18
+      VALUE = 12.6
+    /end CHARACTERISTIC
+
+  /end MODULE
+/end PROJECT
+"""
+
+DCM_EXTRA = """\
+/begin PROJECT VCU_Calibration "VCU Calibration Data"
+  /begin HEADER "DCM Export"
+    VERSION "1.0"
+  /end HEADER
+
+  /begin MODULE VCU_Module "VCU"
+
+    /begin CHARACTERISTIC
+      EngSpeed "Engine Speed" VALUE 0x1000 Default_RL 0 CM_Identical
+      0
+      8000
+      VALUE = 2000
+    /end CHARACTERISTIC
+
+    /begin CHARACTERISTIC
+      NewParam "New Parameter" VALUE 0x2000 Default_RL 0 CM_Identical
+      0
+      100
+      VALUE = 50
+    /end CHARACTERISTIC
+
+  /end MODULE
+/end PROJECT
+"""
+
+
+# ── DCM tests ────────────────────────────────────────────────────────────────
+
+
+class TestDCMParser:
+
+    def test_parse_dcm_basic(self):
+        parser = DCMParser()
+        result = parser.parse_string(DCM_BASIC)
+        assert result.success
+        assert len(result.data.characteristics) == 3
+
+    def test_parse_dcm_names(self):
+        parser = DCMParser()
+        result = parser.parse_string(DCM_BASIC)
+        names = [c.name for c in result.data.characteristics]
+        assert "EngSpeed" in names
+        assert "ThrottlePos" in names
+        assert "BatteryVolt" in names
+
+    def test_parse_dcm_values(self):
+        parser = DCMParser()
+        result = parser.parse_string(DCM_BASIC)
+        eng = next(c for c in result.data.characteristics if c.name == "EngSpeed")
+        assert eng.value == 1500.0
+
+    def test_parse_dcm_limits(self):
+        parser = DCMParser()
+        result = parser.parse_string(DCM_BASIC)
+        eng = next(c for c in result.data.characteristics if c.name == "EngSpeed")
+        assert eng.lower_limit == 0.0
+        assert eng.upper_limit == 8000.0
+
+    def test_parse_dcm_description(self):
+        parser = DCMParser()
+        result = parser.parse_string(DCM_BASIC)
+        eng = next(c for c in result.data.characteristics if c.name == "EngSpeed")
+        assert "Engine" in eng.description
+
+    def test_parse_dcm_file(self, tmp_path):
+        f = tmp_path / "test.dcm"
+        f.write_text(DCM_BASIC, encoding="utf-8")
+        parser = DCMParser()
+        result = parser.parse(f)
+        assert result.success
+        assert len(result.data.characteristics) == 3
+
+    def test_parse_dcm_nonexistent(self):
+        parser = DCMParser()
+        result = parser.parse(Path("/nonexistent.dcm"))
+        assert not result.success
+
+    def test_parse_dcm_empty(self):
+        parser = DCMParser()
+        result = parser.parse_string("not a dcm file")
+        assert result.success  # parser returns empty, not error
+        assert len(result.data.characteristics) == 0
+
+    def test_parse_dcm_float_value(self):
+        parser = DCMParser()
+        result = parser.parse_string(DCM_BASIC)
+        throttle = next(c for c in result.data.characteristics if c.name == "ThrottlePos")
+        assert throttle.value == 15.5
+
+
+class TestDCMGenerator:
+
+    def test_generate_basic(self, tmp_path):
+        gen = DCMGenerator()
+        params = [
+            {"name": "EngSpeed", "description": "Engine Speed", "default_value": 1500,
+             "min_value": 0, "max_value": 8000, "unit": "rpm"},
+        ]
+        out = tmp_path / "out.dcm"
+        result = gen.generate(params, out)
+        assert result.success
+        assert out.exists()
+
+    def test_generate_content(self):
+        gen = DCMGenerator()
+        params = [
+            {"name": "EngSpeed", "description": "Engine Speed", "default_value": 1500,
+             "min_value": 0, "max_value": 8000, "unit": "rpm"},
+        ]
+        content = gen.generate_string(params)
+        assert "EngSpeed" in content
+        assert "VALUE = 1500" in content
+        assert "/begin CHARACTERISTIC" in content
+
+    def test_generate_with_unit(self):
+        gen = DCMGenerator()
+        params = [
+            {"name": "BatteryVolt", "description": "Battery Voltage", "default_value": 12.6,
+             "min_value": 0, "max_value": 18, "unit": "V"},
+        ]
+        content = gen.generate_string(params)
+        assert 'UNIT "V"' in content
+
+    def test_generate_roundtrip(self, tmp_path):
+        """Generate DCM, parse it back, values should match."""
+        gen = DCMGenerator()
+        params = [
+            {"name": "Param1", "description": "Test Param", "default_value": 42.5,
+             "min_value": 0, "max_value": 100, "unit": ""},
+        ]
+        out = tmp_path / "roundtrip.dcm"
+        gen.generate(params, out)
+
+        parser = DCMParser()
+        result = parser.parse(out)
+        assert result.success
+        assert len(result.data.characteristics) == 1
+        assert result.data.characteristics[0].name == "Param1"
+        assert result.data.characteristics[0].value == 42.5
+
+
+class TestDCMController:
+
+    def test_load_dcm(self, controller, tmp_path):
+        f = tmp_path / "test.dcm"
+        f.write_text(DCM_BASIC, encoding="utf-8")
+        ok, errs = controller.load_dcm(f)
+        assert ok
+        assert controller.current_dcm is not None
+        assert len(controller.current_dcm.characteristics) == 3
+
+    def test_load_dcm_nonexistent(self, controller):
+        ok, errs = controller.load_dcm(Path("/nonexistent.dcm"))
+        assert not ok
+
+    def test_import_dcm_values_to_existing(self, controller, a2l_file, tmp_path):
+        """Import A2L first, then import DCM values."""
+        controller.load_a2l(a2l_file)
+        controller.import_a2l_to_db()
+
+        dcm_file = tmp_path / "test.dcm"
+        dcm_file.write_text(DCM_BASIC, encoding="utf-8")
+        controller.load_dcm(dcm_file)
+
+        matched, updated, not_found = controller.import_dcm_values()
+        assert matched == 3
+        assert updated == 3
+        assert not_found == 0
+
+        eng = controller.get_param_by_name("EngSpeed")
+        assert eng.default_value == 1500.0
+
+    def test_import_dcm_values_partial_match(self, controller, a2l_file, tmp_path):
+        """DCM has extra params not in DB."""
+        controller.load_a2l(a2l_file)
+        controller.import_a2l_to_db()
+
+        dcm_file = tmp_path / "extra.dcm"
+        dcm_file.write_text(DCM_EXTRA, encoding="utf-8")
+        controller.load_dcm(dcm_file)
+
+        matched, updated, not_found = controller.import_dcm_values()
+        assert matched == 1  # EngSpeed
+        assert not_found == 1  # NewParam
+
+    def test_import_dcm_values_no_dcm_loaded(self, controller):
+        matched, updated, not_found = controller.import_dcm_values()
+        assert matched == 0
+
+    def test_import_dcm_as_new(self, controller, tmp_path):
+        """Import DCM as new records without A2L."""
+        f = tmp_path / "test.dcm"
+        f.write_text(DCM_BASIC, encoding="utf-8")
+        controller.load_dcm(f)
+
+        imported, skipped = controller.import_dcm_as_new()
+        assert imported == 3
+        assert skipped == 0
+
+        params = controller.get_params()
+        assert len(params) == 3
+
+    def test_import_dcm_as_new_skip_existing(self, controller, a2l_file, tmp_path):
+        """Duplicated names are skipped."""
+        controller.load_a2l(a2l_file)
+        controller.import_a2l_to_db()
+
+        dcm_file = tmp_path / "test.dcm"
+        dcm_file.write_text(DCM_BASIC, encoding="utf-8")
+        controller.load_dcm(dcm_file)
+
+        imported, skipped = controller.import_dcm_as_new()
+        assert imported == 0
+        assert skipped == 3
+
+    def test_export_dcm(self, controller, a2l_file, tmp_path):
+        controller.load_a2l(a2l_file)
+        controller.import_a2l_to_db()
+
+        out = tmp_path / "export.dcm"
+        ok, errs = controller.export_dcm(out)
+        assert ok
+        assert out.exists()
+
+        # Verify exported DCM can be parsed back
+        parser = DCMParser()
+        result = parser.parse(out)
+        assert result.success
+        assert len(result.data.characteristics) == 3
+
+    def test_export_dcm_values_match_db(self, controller, a2l_file, tmp_path):
+        """Exported DCM values should match DB values."""
+        controller.load_a2l(a2l_file)
+        controller.import_a2l_to_db()
+
+        # Modify a value
+        p = controller.get_param_by_name("EngSpeed")
+        controller.update_param(p.id, default_value=2500.0, changed_by="test", reason="test")
+
+        out = tmp_path / "export.dcm"
+        controller.export_dcm(out)
+
+        parser = DCMParser()
+        result = parser.parse(out)
+        eng = next(c for c in result.data.characteristics if c.name == "EngSpeed")
+        assert eng.value == 2500.0
+
+    def test_a2l_then_dcm_pipeline(self, controller, a2l_file, tmp_path):
+        """Full pipeline: A2L defines structure, DCM fills values."""
+        # Step 1: Load A2L and import structure
+        controller.load_a2l(a2l_file)
+        imported, _ = controller.import_a2l_to_db()
+        assert imported == 3
+
+        # Verify A2L default values (lower_limit)
+        eng = controller.get_param_by_name("EngSpeed")
+        assert eng.default_value == 0.0
+
+        # Step 2: Load DCM and import values
+        dcm_file = tmp_path / "values.dcm"
+        dcm_file.write_text(DCM_BASIC, encoding="utf-8")
+        controller.load_dcm(dcm_file)
+        matched, updated, _ = controller.import_dcm_values()
+        assert matched == 3
+        assert updated == 3
+
+        # Step 3: Verify values updated
+        eng = controller.get_param_by_name("EngSpeed")
+        assert eng.default_value == 1500.0
+
+        # Step 4: Export DCM with updated values
+        out = tmp_path / "roundtrip.dcm"
+        ok, _ = controller.export_dcm(out)
+        assert ok
+
+        parser = DCMParser()
+        result = parser.parse(out)
+        eng_dcm = next(c for c in result.data.characteristics if c.name == "EngSpeed")
+        assert eng_dcm.value == 1500.0

@@ -11,7 +11,9 @@ from core.db.models import CalibrationParameter, CalibrationChange, CalibrationP
 from core.db.manager import DatabaseManager
 from core.db.crud_mixin import CRUDMixin
 from core.parsers.a2l_parser import A2LParser, A2LData, a2l_data_to_dict
+from core.parsers.dcm_parser import DCMParser, DCMData
 from core.generators.a2l_generator import A2LGenerator
+from core.generators.dcm_generator import DCMGenerator
 
 logger = logging.getLogger(__name__)
 
@@ -27,6 +29,7 @@ class CalibManagerController(CRUDMixin):
             self.db.init()
         self.a2l_parser = A2LParser()
         self.current_a2l: A2LData | None = None
+        self.current_dcm: DCMData | None = None
         self.current_page: str = "default"
         self._ensure_default_page()
 
@@ -78,6 +81,121 @@ class CalibManagerController(CRUDMixin):
                 CalibrationParameter.insert_many(rows[i:i + batch_size]).execute()
 
         return len(rows), skipped
+
+    # ── DCM file operations ──────────────────────────────────────────────────
+
+    def load_dcm(self, file_path: Path) -> tuple[bool, list[str]]:
+        """Parse a DCM file and store the result."""
+        parser = DCMParser()
+        result = parser.parse(file_path)
+        if result.success:
+            self.current_dcm = result.data
+            return True, []
+        return False, result.errors
+
+    def import_dcm_values(self) -> tuple[int, int, int]:
+        """Import DCM values into existing DB parameters by name matching.
+
+        Returns (matched, updated, not_found).
+        matched: params found in both DCM and DB
+        updated: params whose default_value was actually changed
+        not_found: DCM params that have no DB match on current page
+        """
+        if self.current_dcm is None:
+            return 0, 0, 0
+
+        # Build name→param lookup for current page
+        db_params: dict[str, CalibrationParameter] = {}
+        for p in CalibrationParameter.select().where(
+            CalibrationParameter.calibration_page == self.current_page
+        ):
+            db_params[p.name] = p
+
+        matched = updated = not_found = 0
+        for char in self.current_dcm.characteristics:
+            if char.name not in db_params:
+                not_found += 1
+                continue
+            matched += 1
+            if char.value is not None:
+                param = db_params[char.name]
+                if param.default_value != char.value:
+                    param.default_value = char.value
+                    param.save()
+                    CalibrationChange.create(
+                        param=param,
+                        old_value=param.default_value,
+                        new_value=char.value,
+                        changed_by="dcm_import",
+                        reason=f"DCM import value = {char.value}",
+                    )
+                    updated += 1
+
+        return matched, updated, not_found
+
+    def import_dcm_as_new(self) -> tuple[int, int]:
+        """Import DCM parameters as new DB records (independent of A2L).
+
+        Returns (imported, skipped).
+        """
+        if self.current_dcm is None:
+            return 0, 0
+
+        existing_names = set(
+            row.name
+            for row in CalibrationParameter.select(CalibrationParameter.name)
+            .where(CalibrationParameter.calibration_page == self.current_page)
+        )
+
+        rows = []
+        skipped = 0
+        for char in self.current_dcm.characteristics:
+            if char.name in existing_names:
+                skipped += 1
+                continue
+            existing_names.add(char.name)
+            rows.append({
+                "name": char.name,
+                "calibration_page": self.current_page,
+                "data_type": "VALUE",
+                "default_value": char.value if char.value is not None else 0.0,
+                "min_value": char.lower_limit,
+                "max_value": char.upper_limit,
+                "unit": char.unit,
+                "description": char.description or char.name,
+                "source": "dcm",
+                "source_file": self.current_dcm.source_path,
+            })
+
+        if rows:
+            batch_size = 500
+            for i in range(0, len(rows), batch_size):
+                CalibrationParameter.insert_many(rows[i:i + batch_size]).execute()
+
+        return len(rows), skipped
+
+    def export_dcm(self, output_path: Path) -> tuple[bool, list[str]]:
+        """Export current page parameters to a DCM file."""
+        try:
+            params = [
+                {
+                    "name": p.name,
+                    "description": p.description or p.name,
+                    "default_value": p.default_value,
+                    "min_value": p.min_value,
+                    "max_value": p.max_value,
+                    "unit": p.unit or "",
+                }
+                for p in self.get_params()
+            ]
+            generator = DCMGenerator()
+            result = generator.generate(params, output_path)
+            if result.success:
+                return True, []
+            return False, result.errors
+        except Exception as exc:
+            logger.error("Failed to export DCM: %s", exc)
+            return False, [str(exc)]
 
     # ── Page management ───────────────────────────────────────────────────
 

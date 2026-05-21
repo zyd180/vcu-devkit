@@ -106,6 +106,9 @@ class CalibManagerView(QWidget):
         self.act_load_a2l = QAction(icon_load(), "加载A2L", self)
         self.act_import_a2l = QAction(icon_open(), "导入A2L到DB", self)
         self.act_writeback_a2l = QAction(icon_save(), "回写A2L", self)
+        self.act_load_dcm = QAction(icon_load(), "加载DCM", self)
+        self.act_import_dcm = QAction(icon_open(), "导入DCM值", self)
+        self.act_export_dcm = QAction(icon_save(), "导出DCM", self)
         self.act_add_param = QAction(icon_add(), "新建参数", self)
         self.act_export_json = QAction(icon_export_json(), "导出JSON", self)
         self.act_export_a2l = QAction(icon_export_a2l(), "导出A2L摘要", self)
@@ -114,6 +117,10 @@ class CalibManagerView(QWidget):
         toolbar.addAction(self.act_load_a2l)
         toolbar.addAction(self.act_import_a2l)
         toolbar.addAction(self.act_writeback_a2l)
+        toolbar.addSeparator()
+        toolbar.addAction(self.act_load_dcm)
+        toolbar.addAction(self.act_import_dcm)
+        toolbar.addAction(self.act_export_dcm)
         toolbar.addSeparator()
 
         # Page selector
@@ -230,6 +237,9 @@ class CalibManagerView(QWidget):
         self.act_load_a2l.triggered.connect(self._on_load_a2l)
         self.act_import_a2l.triggered.connect(self._on_import_a2l)
         self.act_writeback_a2l.triggered.connect(self._on_writeback_a2l)
+        self.act_load_dcm.triggered.connect(self._on_load_dcm)
+        self.act_import_dcm.triggered.connect(self._on_import_dcm)
+        self.act_export_dcm.triggered.connect(self._on_export_dcm)
         self.act_add_param.triggered.connect(self._on_add_param)
         self.act_export_json.triggered.connect(self._on_export_json)
         self.act_export_a2l.triggered.connect(self._on_export_a2l)
@@ -330,6 +340,44 @@ class CalibManagerView(QWidget):
         if len(a2l.measurements) > 50:
             lines.append(f"  ... 共 {len(a2l.measurements)} 个")
         self.a2l_info.setPlainText("\n".join(lines))
+
+    # ── DCM operations ──────────────────────────────────────────────────────
+
+    def _on_load_dcm(self):
+        path, _ = QFileDialog.getOpenFileName(
+            self, "加载DCM文件", "", "DCM文件 (*.dcm);;所有文件 (*)"
+        )
+        if not path:
+            return
+        ok, errs = self.controller.load_dcm(Path(path))
+        if ok:
+            dcm = self.controller.current_dcm
+            count = len(dcm.characteristics) if dcm else 0
+            self.status_bar.showMessage(f"已加载DCM: {path} ({count} 参数)", 5000)
+        else:
+            QMessageBox.critical(self, "加载失败", "\n".join(errs))
+
+    def _on_import_dcm(self):
+        if self.controller.current_dcm is None:
+            QMessageBox.information(self, "提示", "请先加载DCM文件")
+            return
+        matched, updated, not_found = self.controller.import_dcm_values()
+        self._refresh_all()
+        self.status_bar.showMessage(
+            f"DCM导入完成: 匹配 {matched}, 更新 {updated}, 未找到 {not_found}", 5000
+        )
+
+    def _on_export_dcm(self):
+        path, _ = QFileDialog.getSaveFileName(
+            self, "导出DCM文件", "", "DCM文件 (*.dcm);;所有文件 (*)"
+        )
+        if not path:
+            return
+        ok, errs = self.controller.export_dcm(Path(path))
+        if ok:
+            self.status_bar.showMessage(f"已导出DCM → {path}", 5000)
+        else:
+            QMessageBox.warning(self, "导出失败", "\n".join(errs))
 
     # ── Parameter operations ───────────────────────────────────────────────
 
@@ -623,8 +671,11 @@ class CalibManagerView(QWidget):
         a2l_info = ""
         if self.controller.current_a2l:
             a2l_info = f"  |  A2L: {len(self.controller.current_a2l.characteristics)} chars"
+        dcm_info = ""
+        if self.controller.current_dcm:
+            dcm_info = f"  |  DCM: {len(self.controller.current_dcm.characteristics)} params"
         self.info_label.setText(
-            f"参数: {len(params)}  |  分组: {len(groups)}  |  SWC: {len(swcs)}{a2l_info}"
+            f"参数: {len(params)}  |  分组: {len(groups)}  |  SWC: {len(swcs)}{a2l_info}{dcm_info}"
         )
 
     def filter(self, query: str) -> int:
