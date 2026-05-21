@@ -6,6 +6,7 @@ from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
 from typing import Any
+
 from lxml import etree
 
 from core.parsers.base import BaseParser, ParseResult
@@ -34,11 +35,12 @@ class PortDirection(Enum):
 @dataclass
 class DataTypeDef:
     """AUTOSAR data type."""
+
     name: str
     category: str
     base_type: str = ""
-    size: int = 0                  # bits
-    encoding: str = ""             # e.g. "uint8", "sint16", "float32"
+    size: int = 0  # bits
+    encoding: str = ""  # e.g. "uint8", "sint16", "float32"
     min_value: float | None = None
     max_value: float | None = None
 
@@ -46,15 +48,17 @@ class DataTypeDef:
 @dataclass
 class BaseTypeDef:
     """SW-BASE-TYPE definition parsed from ARXML."""
+
     name: str
     category: str = ""
-    size: int = 0                  # bits
+    size: int = 0  # bits
     encoding: str = ""
 
 
 @dataclass
 class CompositionConnector:
     """Connector within a Composition (assembly or delegation)."""
+
     provider_component: str
     provider_port: str
     requester_component: str
@@ -65,6 +69,7 @@ class CompositionConnector:
 @dataclass
 class DataElementDef:
     """Data element within an interface."""
+
     name: str
     type_ref: str
     description: str = ""
@@ -73,6 +78,7 @@ class DataElementDef:
 @dataclass
 class SenderReceiverInterface:
     """Sender-Receiver port interface."""
+
     name: str
     data_elements: list[DataElementDef] = field(default_factory=list)
 
@@ -80,6 +86,7 @@ class SenderReceiverInterface:
 @dataclass
 class ClientServerInterface:
     """Client-Server port interface."""
+
     name: str
     operations: list[str] = field(default_factory=list)
 
@@ -87,6 +94,7 @@ class ClientServerInterface:
 @dataclass
 class PortDef:
     """Port on a component."""
+
     name: str
     direction: PortDirection
     interface_ref: str
@@ -95,8 +103,9 @@ class PortDef:
 @dataclass
 class RunnableDef:
     """Runnable entity inside an SWC internal behaviour."""
+
     name: str
-    period_ms: int | None              # None → event-triggered
+    period_ms: int | None  # None → event-triggered
     min_start_interval: int = 0
     data_read_access: list[str] = field(default_factory=list)
     data_write_access: list[str] = field(default_factory=list)
@@ -106,6 +115,7 @@ class RunnableDef:
 @dataclass
 class SWCDef:
     """Software component definition."""
+
     name: str
     category: str
     description: str
@@ -117,14 +127,16 @@ class SWCDef:
 @dataclass
 class CompositionDef:
     """SWC composition (aggregation of components)."""
+
     name: str
-    components: list[str]                        # SWC names
+    components: list[str]  # SWC names
     connectors: list[CompositionConnector] = field(default_factory=list)
 
 
 @dataclass
 class ARXMLData:
     """Parsed ARXML file data."""
+
     autosar_version: AUTOSARVersion
     package_name: str
     swcs: list[SWCDef]
@@ -156,6 +168,7 @@ class ToolAdapter:
 
 class DaVinciAdapter(ToolAdapter):
     """DaVinci Configurator adapter."""
+
     pass
 
 
@@ -178,9 +191,7 @@ class ARXMLParser(BaseParser):
 
     def __init__(self, target_tool: str = "davinci"):
         self.target_tool = target_tool
-        self._adapter: ToolAdapter = (
-            DaVinciAdapter() if target_tool == "davinci" else EBTresosAdapter()
-        )
+        self._adapter: ToolAdapter = DaVinciAdapter() if target_tool == "davinci" else EBTresosAdapter()
 
     def supported_extensions(self) -> list[str]:
         return [".arxml"]
@@ -341,16 +352,20 @@ class ARXMLParser(BaseParser):
             writes = [self._strip_path(e.text or "") for e in run_elem.iter(f"{ns}DATA-WRITE-ACCESSS-REFT")]
             calls = [self._strip_path(e.text or "") for e in run_elem.iter(f"{ns}SERVER-CALL-POINT-REF")]
 
-            runnables.append(RunnableDef(
-                name=name,
-                period_ms=period_ms,
-                data_read_access=reads,
-                data_write_access=writes,
-                server_call_points=calls,
-            ))
+            runnables.append(
+                RunnableDef(
+                    name=name,
+                    period_ms=period_ms,
+                    data_read_access=reads,
+                    data_write_access=writes,
+                    server_call_points=calls,
+                )
+            )
         return runnables
 
-    def _extract_interfaces(self, root: etree._Element, ns: str) -> list[SenderReceiverInterface | ClientServerInterface]:
+    def _extract_interfaces(
+        self, root: etree._Element, ns: str
+    ) -> list[SenderReceiverInterface | ClientServerInterface]:
         ifaces: list[SenderReceiverInterface | ClientServerInterface] = []
         for elem in root.iter(f"{ns}SENDER-RECEIVER-INTERFACE"):
             name = self._text(elem, "SHORT-NAME", "", ns)
@@ -392,9 +407,7 @@ class ARXMLParser(BaseParser):
             base_type_name = ""
             base_type_size = 0
             base_type_encoding = ""
-            base_type_ref_elem = elem.find(
-                f"{ns}SW-DATA-DEF-PROPS/{ns}BASE-TYPE-REF"
-            )
+            base_type_ref_elem = elem.find(f"{ns}SW-DATA-DEF-PROPS/{ns}BASE-TYPE-REF")
             if base_type_ref_elem is not None and base_type_ref_elem.text:
                 raw_ref = base_type_ref_elem.text.strip()
                 base_type_name = self._strip_path(raw_ref)
@@ -403,13 +416,15 @@ class ARXMLParser(BaseParser):
                     base_type_size = bt.size
                     base_type_encoding = bt.encoding
 
-            types.append(DataTypeDef(
-                name=name,
-                category=cat,
-                base_type=base_type_name,
-                size=base_type_size,
-                encoding=base_type_encoding,
-            ))
+            types.append(
+                DataTypeDef(
+                    name=name,
+                    category=cat,
+                    base_type=base_type_name,
+                    size=base_type_size,
+                    encoding=base_type_encoding,
+                )
+            )
         return types
 
     def _extract_compositions(self, root: etree._Element, ns: str) -> list[CompositionDef]:
@@ -417,8 +432,7 @@ class ARXMLParser(BaseParser):
         for elem in root.iter(f"{ns}COMPOSITION-SW-COMPONENT-TYPE"):
             name = self._text(elem, "SHORT-NAME", "", ns)
             components = [
-                self._strip_path(self._text(c, "TYPE-TREF", "", ns))
-                for c in elem.iter(f"{ns}SW-COMPONENT-PROTOTYPE")
+                self._strip_path(self._text(c, "TYPE-TREF", "", ns)) for c in elem.iter(f"{ns}SW-COMPONENT-PROTOTYPE")
             ]
             connectors = self._extract_connectors(elem, ns)
             comps.append(CompositionDef(name=name, components=components, connectors=connectors))
@@ -455,13 +469,15 @@ class ARXMLParser(BaseParser):
                 if tgt is not None and tgt.text:
                     requester_port = self._strip_path(tgt.text.strip())
 
-            connectors.append(CompositionConnector(
-                provider_component=provider_comp,
-                provider_port=provider_port,
-                requester_component=requester_comp,
-                requester_port=requester_port,
-                connector_type="assembly",
-            ))
+            connectors.append(
+                CompositionConnector(
+                    provider_component=provider_comp,
+                    provider_port=provider_port,
+                    requester_component=requester_comp,
+                    requester_port=requester_port,
+                    connector_type="assembly",
+                )
+            )
 
         # ── Delegation connectors ──────────────────────────────────────────
         for dlg in comp_elem.iter(f"{ns}DELEGATION-SW-CONNECTOR"):
@@ -491,13 +507,15 @@ class ARXMLParser(BaseParser):
                 # Delegation's outer port is on the composition itself
                 requester_comp = "(composition)"
 
-            connectors.append(CompositionConnector(
-                provider_component=provider_comp,
-                provider_port=provider_port,
-                requester_component=requester_comp,
-                requester_port=requester_port,
-                connector_type="delegation",
-            ))
+            connectors.append(
+                CompositionConnector(
+                    provider_component=provider_comp,
+                    provider_port=provider_port,
+                    requester_component=requester_comp,
+                    requester_port=requester_port,
+                    connector_type="delegation",
+                )
+            )
 
         return connectors
 
@@ -527,6 +545,7 @@ class ARXMLParser(BaseParser):
 
 def arxml_data_to_dict(data: ARXMLData) -> dict:
     """Convert ARXMLData to JSON-serialisable dict."""
+
     def _port(p: PortDef) -> dict:
         return {"name": p.name, "direction": p.direction.value, "interface_ref": p.interface_ref}
 
@@ -564,21 +583,30 @@ def arxml_data_to_dict(data: ARXMLData) -> dict:
         "swcs": [_swc(s) for s in data.swcs],
         "interfaces": [_iface(i) for i in data.interfaces],
         "data_types": [
-            {"name": dt.name, "category": dt.category, "base_type": dt.base_type,
-             "encoding": dt.encoding, "size": dt.size}
+            {
+                "name": dt.name,
+                "category": dt.category,
+                "base_type": dt.base_type,
+                "encoding": dt.encoding,
+                "size": dt.size,
+            }
             for dt in data.data_types
         ],
         "compositions": [
-            {"name": c.name, "components": c.components, "connectors": [
-                {
-                    "provider_component": cn.provider_component,
-                    "provider_port": cn.provider_port,
-                    "requester_component": cn.requester_component,
-                    "requester_port": cn.requester_port,
-                    "connector_type": cn.connector_type,
-                }
-                for cn in c.connectors
-            ]}
+            {
+                "name": c.name,
+                "components": c.components,
+                "connectors": [
+                    {
+                        "provider_component": cn.provider_component,
+                        "provider_port": cn.provider_port,
+                        "requester_component": cn.requester_component,
+                        "requester_port": cn.requester_port,
+                        "connector_type": cn.connector_type,
+                    }
+                    for cn in c.connectors
+                ],
+            }
             for c in data.compositions
         ],
     }

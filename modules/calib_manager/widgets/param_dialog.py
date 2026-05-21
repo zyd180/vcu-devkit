@@ -3,17 +3,21 @@
 from __future__ import annotations
 
 from PySide6.QtWidgets import (
-    QDialog, QVBoxLayout, QFormLayout, QLineEdit, QComboBox,
-    QDialogButtonBox, QDoubleSpinBox, QLabel, QMessageBox,
+    QComboBox,
+    QDialog,
+    QDialogButtonBox,
+    QDoubleSpinBox,
+    QFormLayout,
+    QLineEdit,
+    QMessageBox,
+    QVBoxLayout,
 )
-from PySide6.QtCore import Qt
 
 
 class ParamDialog(QDialog):
     """Dialog for adding or editing a calibration parameter."""
 
-    def __init__(self, groups: list[str], swcs: list[str],
-                 param_data: dict | None = None, parent=None):
+    def __init__(self, groups: list[str], swcs: list[str], param_data: dict | None = None, parent=None):
         super().__init__(parent)
         self.setWindowTitle("编辑标定参数" if param_data else "新建标定参数")
         self.setMinimumWidth(450)

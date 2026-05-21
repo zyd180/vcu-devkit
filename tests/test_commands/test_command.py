@@ -1,9 +1,13 @@
 """Tests for core.commands.command — undo/redo framework."""
 
-import pytest
 from core.commands.command import (
-    Command, UpdateFieldCommand, BatchUpdateCommand,
-    AddItemCommand, RemoveItemCommand, CompoundCommand, CommandHistory,
+    AddItemCommand,
+    BatchUpdateCommand,
+    Command,
+    CommandHistory,
+    CompoundCommand,
+    RemoveItemCommand,
+    UpdateFieldCommand,
 )
 
 
@@ -15,8 +19,8 @@ class DummyObj:
 
 # ── UpdateFieldCommand ────────────────────────────────────────────────────────
 
-class TestUpdateFieldCommand:
 
+class TestUpdateFieldCommand:
     def test_execute_sets_field(self):
         obj = DummyObj(x=1)
         cmd = UpdateFieldCommand(obj, "x", 2)
@@ -46,8 +50,8 @@ class TestUpdateFieldCommand:
 
 # ── BatchUpdateCommand ────────────────────────────────────────────────────────
 
-class TestBatchUpdateCommand:
 
+class TestBatchUpdateCommand:
     def test_execute_sets_multiple_fields(self):
         obj = DummyObj(a=1, b=2)
         cmd = BatchUpdateCommand(obj, {"a": 10, "b": 20})
@@ -71,8 +75,8 @@ class TestBatchUpdateCommand:
 
 # ── AddItemCommand / RemoveItemCommand ────────────────────────────────────────
 
-class TestAddItemCommand:
 
+class TestAddItemCommand:
     def test_add_to_end(self):
         lst = [1, 2]
         cmd = AddItemCommand(lst, 3)
@@ -94,7 +98,6 @@ class TestAddItemCommand:
 
 
 class TestRemoveItemCommand:
-
     def test_remove(self):
         lst = [1, 2, 3]
         cmd = RemoveItemCommand(lst, 1)
@@ -117,8 +120,8 @@ class TestRemoveItemCommand:
 
 # ── CompoundCommand ───────────────────────────────────────────────────────────
 
-class TestCompoundCommand:
 
+class TestCompoundCommand:
     def test_execute_runs_all(self):
         obj = DummyObj(a=1, b=2)
         cmds = [
@@ -145,11 +148,14 @@ class TestCompoundCommand:
 
     def test_undo_order_reversed(self):
         log = []
+
         class LoggingCmd(Command):
             def __init__(self, name):
                 self.name = name
+
             def execute(self):
                 log.append(f"exec-{self.name}")
+
             def undo(self):
                 log.append(f"undo-{self.name}")
 
@@ -165,8 +171,8 @@ class TestCompoundCommand:
 
 # ── CommandHistory ────────────────────────────────────────────────────────────
 
-class TestCommandHistory:
 
+class TestCommandHistory:
     def test_execute_pushes_to_undo(self):
         history = CommandHistory()
         obj = DummyObj(x=1)

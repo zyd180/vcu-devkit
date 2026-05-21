@@ -1,11 +1,18 @@
 """Property panel for editing selected item properties."""
 
-from PySide6.QtWidgets import (
-    QWidget, QVBoxLayout, QFormLayout, QLineEdit, QComboBox,
-    QSpinBox, QDoubleSpinBox, QCheckBox, QLabel, QGroupBox,
-    QScrollArea,
-)
 from PySide6.QtCore import Qt, Signal
+from PySide6.QtWidgets import (
+    QCheckBox,
+    QComboBox,
+    QDoubleSpinBox,
+    QFormLayout,
+    QLabel,
+    QLineEdit,
+    QScrollArea,
+    QSpinBox,
+    QVBoxLayout,
+    QWidget,
+)
 
 
 class PropertyPanel(QWidget):
@@ -63,7 +70,6 @@ class PropertyPanel(QWidget):
             name = field_def["name"]
             label = field_def["label"]
             ftype = field_def.get("type", "text")
-            value = field_def.get("value", "")
 
             widget = self._create_field_widget(ftype, field_def)
             if widget is not None:
@@ -76,7 +82,9 @@ class PropertyPanel(QWidget):
 
         if ftype == "text":
             widget = QLineEdit(str(value))
-            widget.editingFinished.connect(lambda n=field_def["name"], w=widget: self.property_changed.emit(n, w.text()))
+            widget.editingFinished.connect(
+                lambda n=field_def["name"], w=widget: self.property_changed.emit(n, w.text())
+            )
             return widget
 
         if ftype == "int":
@@ -84,7 +92,9 @@ class PropertyPanel(QWidget):
             widget.setMinimum(field_def.get("min", -999999))
             widget.setMaximum(field_def.get("max", 999999))
             widget.setValue(int(value) if value else 0)
-            widget.editingFinished.connect(lambda n=field_def["name"], w=widget: self.property_changed.emit(n, w.value()))
+            widget.editingFinished.connect(
+                lambda n=field_def["name"], w=widget: self.property_changed.emit(n, w.value())
+            )
             return widget
 
         if ftype == "float":
@@ -93,7 +103,9 @@ class PropertyPanel(QWidget):
             widget.setMaximum(field_def.get("max", 999999.0))
             widget.setDecimals(field_def.get("decimals", 2))
             widget.setValue(float(value) if value else 0.0)
-            widget.editingFinished.connect(lambda n=field_def["name"], w=widget: self.property_changed.emit(n, w.value()))
+            widget.editingFinished.connect(
+                lambda n=field_def["name"], w=widget: self.property_changed.emit(n, w.value())
+            )
             return widget
 
         if ftype == "combo":

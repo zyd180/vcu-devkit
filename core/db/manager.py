@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from core.db.models import db, ALL_MODELS
+from core.db.models import ALL_MODELS, db
 
 
 class DatabaseManager:
@@ -36,17 +36,13 @@ class DatabaseManager:
     def _auto_migrate(self):
         """Auto-migrate schema changes for existing databases."""
         try:
-            db.execute_sql(
-                "SELECT calibration_page FROM calibrationparameter LIMIT 1"
-            )
+            db.execute_sql("SELECT calibration_page FROM calibrationparameter LIMIT 1")
         except Exception:
             db.execute_sql(
-                "ALTER TABLE calibrationparameter "
-                "ADD COLUMN calibration_page VARCHAR(128) DEFAULT 'default'"
+                "ALTER TABLE calibrationparameter ADD COLUMN calibration_page VARCHAR(128) DEFAULT 'default'"
             )
             db.execute_sql(
-                "UPDATE calibrationparameter SET calibration_page = 'default' "
-                "WHERE calibration_page IS NULL"
+                "UPDATE calibrationparameter SET calibration_page = 'default' WHERE calibration_page IS NULL"
             )
         # Drop old single-column UNIQUE index on name, replace with composite
         self._migrate_name_unique_to_composite()
@@ -63,10 +59,7 @@ class DatabaseManager:
             for row in db.execute_sql("PRAGMA index_list(calibrationparameter)"):
                 if not row[2]:  # not unique
                     continue
-                cols = [
-                    r[2] for r in
-                    db.execute_sql(f"PRAGMA index_info({row[1]})")
-                ]
+                cols = [r[2] for r in db.execute_sql(f"PRAGMA index_info({row[1]})")]
                 if cols == ["name"]:
                     has_old_unique = True
                     break
@@ -138,19 +131,22 @@ class DatabaseManager:
     # ── Convenience CRUD wrappers ────────────────────────────────────────
 
     # Calibration
-    def add_calibration_param(self, **kwargs) -> "CalibrationParameter":
+    def add_calibration_param(self, **kwargs) -> "CalibrationParameter":  # noqa: F821
         from core.db.models import CalibrationParameter
+
         return CalibrationParameter.create(**kwargs)
 
     def get_calibration_params(self, group: str | None = None) -> list:
         from core.db.models import CalibrationParameter
+
         query = CalibrationParameter.select()
         if group:
             query = query.where(CalibrationParameter.group_name == group)
         return list(query)
 
     def update_calibration_param(self, param_id: int, changed_by: str, reason: str, **kwargs):
-        from core.db.models import CalibrationParameter, CalibrationChange
+        from core.db.models import CalibrationChange, CalibrationParameter
+
         param = CalibrationParameter.get_by_id(param_id)
         old_value = param.default_value
         for k, v in kwargs.items():
@@ -165,36 +161,42 @@ class DatabaseManager:
         )
 
     # DTC
-    def add_dtc(self, **kwargs) -> "DTCDefinition":
+    def add_dtc(self, **kwargs) -> "DTCDefinition":  # noqa: F821
         from core.db.models import DTCDefinition
+
         return DTCDefinition.create(**kwargs)
 
     def get_dtcs(self, obd_only: bool = False) -> list:
         from core.db.models import DTCDefinition
+
         query = DTCDefinition.select()
         if obd_only:
-            query = query.where(DTCDefinition.obd_related == True)
+            query = query.where(DTCDefinition.obd_related)
         return list(query)
 
     # Diag services
-    def add_diag_service(self, **kwargs) -> "DiagService":
+    def add_diag_service(self, **kwargs) -> "DiagService":  # noqa: F821
         from core.db.models import DiagService
+
         return DiagService.create(**kwargs)
 
     def get_diag_services(self, enabled_only: bool = True) -> list:
         from core.db.models import DiagService
+
         query = DiagService.select()
         if enabled_only:
-            query = query.where(DiagService.enabled == True)
+            query = query.where(DiagService.enabled)
         return list(query)
 
     # Requirements
-    def add_requirement(self, **kwargs) -> "Requirement":
+    def add_requirement(self, **kwargs) -> "Requirement":  # noqa: F821
         from core.db.models import Requirement
+
         return Requirement.create(**kwargs)
 
     def get_requirements(self, module: str | None = None) -> list:
         from core.db.models import Requirement
+
         query = Requirement.select()
         if module:
             query = query.where(Requirement.module_name == module)
@@ -202,6 +204,7 @@ class DatabaseManager:
 
     def add_trace_link(self, req_id: int, link_type: str, link_target: str, auto: bool = False):
         from core.db.models import TraceabilityLink
+
         return TraceabilityLink.create(
             req=req_id,
             link_type=link_type,
@@ -212,6 +215,7 @@ class DatabaseManager:
     def get_trace_matrix(self) -> dict:
         """Return full traceability matrix as dict: req_id → links."""
         from core.db.models import Requirement, TraceabilityLink
+
         matrix = {}
         for req in Requirement.select():
             links = list(TraceabilityLink.select().where(TraceabilityLink.req == req))
@@ -220,12 +224,12 @@ class DatabaseManager:
                 "module": req.module_name,
                 "links": [
                     {
-                        "type": l.link_type,
-                        "target": l.link_target,
-                        "auto": l.auto_matched,
-                        "verified": l.verified,
+                        "type": lnk.link_type,
+                        "target": lnk.link_target,
+                        "auto": lnk.auto_matched,
+                        "verified": lnk.verified,
                     }
-                    for l in links
+                    for lnk in links
                 ],
             }
         return matrix
@@ -233,6 +237,7 @@ class DatabaseManager:
     # File versions
     def record_file_version(self, file_path: str, file_type: str, checksum: str, **kwargs):
         from core.db.models import FileVersion
+
         return FileVersion.create(
             file_path=file_path,
             file_type=file_type,
@@ -242,8 +247,7 @@ class DatabaseManager:
 
     def get_file_versions(self, file_path: str) -> list:
         from core.db.models import FileVersion
+
         return list(
-            FileVersion.select()
-            .where(FileVersion.file_path == file_path)
-            .order_by(FileVersion.created_at.desc())
+            FileVersion.select().where(FileVersion.file_path == file_path).order_by(FileVersion.created_at.desc())
         )

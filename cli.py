@@ -45,6 +45,7 @@ def main(argv: list[str] | None = None) -> int:
         return files
 
     from core.batch import BatchProcessor
+
     proc = BatchProcessor()
 
     if args.command == "generate":

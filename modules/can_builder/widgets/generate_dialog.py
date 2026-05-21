@@ -2,20 +2,25 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
-from pathlib import Path
+from dataclasses import dataclass
 
 from PySide6.QtWidgets import (
-    QDialog, QVBoxLayout, QHBoxLayout, QGroupBox,
-    QCheckBox, QPushButton, QLabel, QLineEdit,
-    QFileDialog, QFormLayout, QComboBox,
+    QCheckBox,
+    QDialog,
+    QFileDialog,
+    QFormLayout,
+    QGroupBox,
+    QHBoxLayout,
+    QLineEdit,
+    QPushButton,
+    QVBoxLayout,
 )
-from PySide6.QtCore import Qt
 
 
 @dataclass
 class GenerateConfig:
     """Configuration for code generation."""
+
     output_dir: str = ""
     generate_c_pack: bool = True
     generate_c_signals: bool = True
@@ -96,15 +101,14 @@ class GenerateDialog(QDialog):
         layout.addLayout(btn_layout)
 
     def _browse_dir(self):
-        dir_path = QFileDialog.getExistingDirectory(
-            self, "选择输出目录", self.dir_edit.text()
-        )
+        dir_path = QFileDialog.getExistingDirectory(self, "选择输出目录", self.dir_edit.text())
         if dir_path:
             self.dir_edit.setText(dir_path)
 
     def _on_generate(self):
         if not self.dir_edit.text():
             from PySide6.QtWidgets import QMessageBox
+
             QMessageBox.warning(self, "提示", "请先选择输出目录")
             return
         self.accept()

@@ -5,9 +5,9 @@ from __future__ import annotations
 from datetime import datetime
 from pathlib import Path
 
+from core.diff.dbc_diff import DBCDiffResult, DiffType
 from core.generators.base import GenerateResult
 from core.parsers.dbc_parser import DBCData
-from core.diff.dbc_diff import DBCDiffResult, DiffType
 
 
 class ReportGenerator:
@@ -17,16 +17,30 @@ class ReportGenerator:
         """Export complete signal matrix to Excel."""
         try:
             from openpyxl import Workbook
-            from openpyxl.styles import Alignment
-            from core.utils.excel_utils import write_header_row, auto_width, THIN_BORDER
+
+            from core.utils.excel_utils import THIN_BORDER, auto_width, write_header_row
 
             wb = Workbook()
             ws = wb.active
             ws.title = "Signal Matrix"
 
             headers = [
-                "报文名", "CAN ID", "DLC", "发送方", "信号名", "起始位", "位长",
-                "字节序", "值类型", "Factor", "Offset", "最小值", "最大值", "单位", "接收方", "值描述",
+                "报文名",
+                "CAN ID",
+                "DLC",
+                "发送方",
+                "信号名",
+                "起始位",
+                "位长",
+                "字节序",
+                "值类型",
+                "Factor",
+                "Offset",
+                "最小值",
+                "最大值",
+                "单位",
+                "接收方",
+                "值描述",
             ]
             write_header_row(ws, headers)
 
@@ -67,7 +81,8 @@ class ReportGenerator:
         """Export message-level summary."""
         try:
             from openpyxl import Workbook
-            from core.utils.excel_utils import write_header_row, auto_width, THIN_BORDER
+
+            from core.utils.excel_utils import auto_width, write_header_row
 
             wb = Workbook()
             ws = wb.active
@@ -95,8 +110,9 @@ class ReportGenerator:
         """Export diff report to Excel with formatting."""
         try:
             from openpyxl import Workbook
-            from openpyxl.styles import PatternFill, Font
-            from core.utils.excel_utils import write_header_row, auto_width
+            from openpyxl.styles import Font, PatternFill
+
+            from core.utils.excel_utils import auto_width, write_header_row
 
             wb = Workbook()
 
@@ -126,7 +142,6 @@ class ReportGenerator:
             green = PatternFill(start_color="E6FFED", fill_type="solid")
             red = PatternFill(start_color="FFEEF0", fill_type="solid")
             yellow = PatternFill(start_color="FFF5B1", fill_type="solid")
-            bold = Font(bold=True)
 
             headers = ["操作", "报文", "CAN ID", "信号", "变更字段", "旧值", "新值"]
             write_header_row(ws_det, headers)

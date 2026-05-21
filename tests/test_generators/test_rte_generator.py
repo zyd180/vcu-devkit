@@ -1,20 +1,27 @@
 """Tests for core.generators.rte_generator — AUTOSAR RTE header generation."""
 
-import pytest
-from pathlib import Path
-
-from core.parsers.arxml_parser import (
-    ARXMLData, SWCDef, PortDef, PortDirection, RunnableDef,
-    DataElementDef, SenderReceiverInterface, ClientServerInterface,
-    DataTypeDef, AUTOSARVersion,
-)
 from core.generators.rte_generator import RTEGenerator
+from core.parsers.arxml_parser import (
+    ARXMLData,
+    AUTOSARVersion,
+    ClientServerInterface,
+    DataElementDef,
+    DataTypeDef,
+    PortDef,
+    PortDirection,
+    RunnableDef,
+    SenderReceiverInterface,
+    SWCDef,
+)
 
 
 def _make_swc(name="VcuPowerMgr", category="APPLICATION", ports=None, runnables=None):
     return SWCDef(
-        name=name, category=category, description="",
-        ports=ports or [], runnables=runnables or [],
+        name=name,
+        category=category,
+        description="",
+        ports=ports or [],
+        runnables=runnables or [],
     )
 
 
@@ -39,7 +46,6 @@ def _make_arxml(swcs=None, interfaces=None, data_types=None):
 
 
 class TestRTEGenerator:
-
     def setup_method(self):
         self.gen = RTEGenerator()
 
@@ -86,7 +92,6 @@ class TestRTEGenerator:
 
 
 class TestRTETypeHeader:
-
     def setup_method(self):
         self.gen = RTEGenerator()
 
@@ -133,7 +138,6 @@ class TestRTETypeHeader:
 
 
 class TestRTESWCHeader:
-
     def setup_method(self):
         self.gen = RTEGenerator()
 
@@ -188,10 +192,13 @@ class TestRTESWCHeader:
         assert "Rte_Call_DiagMgr_PP_Diag_ClearDTC(void)" in content
 
     def test_runnable_declarations(self, tmp_path):
-        swc = _make_swc("VcuPowerMgr", runnables=[
-            _make_runnable("Init", period_ms=None),
-            _make_runnable("Run_10ms", period_ms=10),
-        ])
+        swc = _make_swc(
+            "VcuPowerMgr",
+            runnables=[
+                _make_runnable("Init", period_ms=None),
+                _make_runnable("Run_10ms", period_ms=10),
+            ],
+        )
         data = _make_arxml(swcs=[swc])
         self.gen.generate(data, tmp_path)
         content = (tmp_path / "Rte_VcuPowerMgr.h").read_text(encoding="utf-8")

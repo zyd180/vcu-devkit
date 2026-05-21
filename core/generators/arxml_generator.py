@@ -6,15 +6,21 @@ Supports DaVinci and EB Tresos output modes (minor formatting/path differences).
 from __future__ import annotations
 
 from pathlib import Path
+
 from lxml import etree
 
 from core.generators.base import BaseGenerator, GenerateResult
 from core.parsers.arxml_parser import (
-    ARXMLData, SWCDef, PortDef, RunnableDef,
-    SenderReceiverInterface, ClientServerInterface, DataElementDef,
-    CompositionConnector,
-    PortDirection, AUTOSARVersion,
-    AUTOSAR_NS, NSMAP, NS,
+    NS,
+    NSMAP,
+    ARXMLData,
+    AUTOSARVersion,
+    ClientServerInterface,
+    PortDef,
+    PortDirection,
+    RunnableDef,
+    SenderReceiverInterface,
+    SWCDef,
 )
 
 
@@ -32,9 +38,7 @@ class ARXMLGenerator(BaseGenerator):
         output_path = Path(output_path)
         try:
             tree = self._build_tree(data)
-            xml_bytes = etree.tostring(
-                tree, pretty_print=True, xml_declaration=True, encoding="UTF-8"
-            )
+            xml_bytes = etree.tostring(tree, pretty_print=True, xml_declaration=True, encoding="UTF-8")
             self._write_bytes(output_path, xml_bytes)
             return GenerateResult(success=True, output_files=[output_path])
         except (OSError, etree.XMLSyntaxError, ValueError) as exc:
@@ -50,7 +54,7 @@ class ARXMLGenerator(BaseGenerator):
     def _build_tree(self, data: ARXMLData) -> etree._ElementTree:
         root = etree.Element("AUTOSAR", nsmap=NSMAP)
         root.set(
-            f"{{http://www.w3.org/2001/XMLSchema-instance}}schemaLocation",
+            "{http://www.w3.org/2001/XMLSchema-instance}schemaLocation",
             f"http://autosar.org/schema/r4.0 AUTOSAR_{self._version_str(data.autosar_version)}.xsd",
         )
 

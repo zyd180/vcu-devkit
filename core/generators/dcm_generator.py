@@ -42,10 +42,10 @@ class DCMGenerator(BaseGenerator):
             '/begin PROJECT VCU_Calibration "VCU Calibration Data"',
             '  /begin HEADER "DCM Export"',
             '    VERSION "1.0"',
-            '  /end HEADER',
-            '',
+            "  /end HEADER",
+            "",
             '  /begin MODULE VCU_Module "VCU"',
-            '',
+            "",
         ]
 
         for p in params:
@@ -56,21 +56,21 @@ class DCMGenerator(BaseGenerator):
             value = self._fmt_val(p.get("default_value"))
             unit = p.get("unit", "")
 
-            lines.append('    /begin CHARACTERISTIC')
+            lines.append("    /begin CHARACTERISTIC")
             lines.append(f'      {name} "{desc}" VALUE 0x0 Default_RL 0 CM_Identical')
-            lines.append(f'      {lower}')
-            lines.append(f'      {upper}')
-            lines.append(f'      VALUE = {value}')
+            lines.append(f"      {lower}")
+            lines.append(f"      {upper}")
+            lines.append(f"      VALUE = {value}")
             if unit:
                 lines.append(f'      UNIT "{unit}"')
-            lines.append('    /end CHARACTERISTIC')
-            lines.append('')
+            lines.append("    /end CHARACTERISTIC")
+            lines.append("")
 
-        lines.append('  /end MODULE')
-        lines.append('/end PROJECT')
-        lines.append('')
+        lines.append("  /end MODULE")
+        lines.append("/end PROJECT")
+        lines.append("")
 
-        return '\n'.join(lines)
+        return "\n".join(lines)
 
     @staticmethod
     def _fmt_val(value) -> str:

@@ -2,8 +2,8 @@
 
 import json
 import logging
-from pathlib import Path
 from dataclasses import dataclass, field
+from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
@@ -14,11 +14,19 @@ __version__ = "0.1.0"
 class AppSettings:
     """Application settings."""
 
-    _ALLOWED_KEYS = frozenset({
-        "theme", "last_project_dir", "last_dbc_dir", "last_arxml_dir",
-        "recent_files", "default_arxml_target", "auto_save_interval",
-        "window_geometry", "window_state",
-    })
+    _ALLOWED_KEYS = frozenset(
+        {
+            "theme",
+            "last_project_dir",
+            "last_dbc_dir",
+            "last_arxml_dir",
+            "recent_files",
+            "default_arxml_target",
+            "auto_save_interval",
+            "window_geometry",
+            "window_state",
+        }
+    )
 
     app_name: str = "VCU DevKit"
     version: str = __version__

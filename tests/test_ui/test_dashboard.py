@@ -1,8 +1,8 @@
 """Tests for ui.widgets.dashboard — Dashboard home page widget."""
 
-import pytest
 from unittest.mock import MagicMock
 
+import pytest
 from PySide6.QtCore import Qt
 
 from ui.widgets.dashboard import DashboardWidget
@@ -29,7 +29,6 @@ def dashboard_with_settings(qtbot):
 
 
 class TestDashboardCreation:
-
     def test_create_without_settings(self, dashboard):
         assert dashboard is not None
         assert dashboard.settings is None
@@ -51,7 +50,6 @@ class TestDashboardCreation:
 
 
 class TestDashboardStats:
-
     def test_update_stats_all(self, dashboard):
         dashboard.update_stats({"dbc": 3, "arxml": 2, "a2l": 1})
         assert dashboard._stats_labels["dbc"].text() == "3"
@@ -75,7 +73,6 @@ class TestDashboardStats:
 
 
 class TestDashboardModuleStatus:
-
     def test_set_module_loaded(self, dashboard):
         dashboard.set_module_loaded(0, True)
         assert "已加载" in dashboard._module_status_labels[0].text()
@@ -97,7 +94,6 @@ class TestDashboardModuleStatus:
 
 
 class TestDashboardRecentFiles:
-
     def test_recent_populated(self, dashboard_with_settings):
         assert dashboard_with_settings._recent_list.count() == 3
 
@@ -126,7 +122,6 @@ class TestDashboardRecentFiles:
 
 
 class TestDashboardSignals:
-
     def test_module_requested_signal(self, dashboard, qtbot):
         with qtbot.waitSignal(dashboard.module_requested, timeout=1000) as blocker:
             dashboard.module_requested.emit(1)

@@ -3,18 +3,24 @@
 from __future__ import annotations
 
 import json
-from pathlib import Path
 from copy import deepcopy
+from pathlib import Path
 
+from core.generators.arxml_generator import ARXMLGenerator
+from core.generators.base import GenerateResult
 from core.parsers.arxml_parser import (
-    ARXMLParser, ARXMLData, SWCDef, PortDef, RunnableDef,
-    DataElementDef, SenderReceiverInterface, ClientServerInterface,
-    PortDirection, AUTOSARVersion, CompositionDef,
+    ARXMLData,
+    ARXMLParser,
+    AUTOSARVersion,
+    ClientServerInterface,
+    PortDef,
+    PortDirection,
+    RunnableDef,
+    SenderReceiverInterface,
+    SWCDef,
     arxml_data_to_dict,
 )
 from core.rules.engine import RuleEngine, RuleResult
-from core.generators.arxml_generator import ARXMLGenerator
-from core.generators.base import GenerateResult
 
 
 class SWCDesignerController:
@@ -247,6 +253,7 @@ class SWCDesignerController:
 
 
 # ── Default VCU template definitions ─────────────────────────────────────────
+
 
 def _build_default_templates() -> list[SWCDef]:
     return [

@@ -1,10 +1,9 @@
 """Tests for core.db.crud_mixin — generic CRUD operations."""
 
 import pytest
-from peewee import SqliteDatabase, Model, IntegerField, CharField
+from peewee import CharField, IntegerField, Model, SqliteDatabase
 
 from core.db.crud_mixin import CRUDMixin
-
 
 # In-memory test model
 test_db = SqliteDatabase(":memory:")
@@ -33,7 +32,6 @@ def setup_db():
 
 
 class TestCRUDMixin:
-
     def test_get_by_id(self):
         obj = TestModel.create(name="test", value=42)
         result = TestCRUD().get_by_id(obj.id)
@@ -47,6 +45,7 @@ class TestCRUDMixin:
     def test_get_by_id_no_model(self):
         class NoModel(CRUDMixin):
             model = None
+
         assert NoModel().get_by_id(1) is None
 
     def test_update_fields(self):

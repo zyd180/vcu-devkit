@@ -4,24 +4,38 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from PySide6.QtWidgets import (
-    QWidget, QVBoxLayout, QHBoxLayout, QSplitter,
-    QPushButton, QFileDialog, QLabel, QToolBar, QMessageBox,
-    QTabWidget, QHeaderView, QAbstractItemView,
-    QTableView, QStatusBar, QTextEdit, QCheckBox,
-    QGroupBox, QProgressBar,
-)
-from PySide6.QtCore import Qt, Signal, QModelIndex
+from PySide6.QtCore import QModelIndex, Qt
 from PySide6.QtGui import QAction
+from PySide6.QtWidgets import (
+    QAbstractItemView,
+    QCheckBox,
+    QFileDialog,
+    QGroupBox,
+    QHBoxLayout,
+    QHeaderView,
+    QLabel,
+    QMessageBox,
+    QProgressBar,
+    QPushButton,
+    QSplitter,
+    QStatusBar,
+    QTableView,
+    QTabWidget,
+    QTextEdit,
+    QToolBar,
+    QVBoxLayout,
+    QWidget,
+)
 
 from modules.test_generator.controller import (
-    TestGeneratorController, TestMethod, TestCase,
+    TestCase,
+    TestGeneratorController,
+    TestMethod,
 )
-from ui.widgets.tree_view import TreeView
-from ui.widgets.table_editor import DataTableModel
+from ui.icons import icon_clear, icon_export_excel, icon_export_json, icon_generate, icon_open
 from ui.widgets.file_worker import FileWorker
-from ui.icons import icon_open, icon_generate, icon_export_json, icon_export_excel, icon_clear
-
+from ui.widgets.table_editor import DataTableModel
+from ui.widgets.tree_view import TreeView
 
 # ── Main view ────────────────────────────────────────────────────────────────
 
@@ -181,9 +195,7 @@ class TestGeneratorView(QWidget):
     # ── Slots ───────────────────────────────────────────────────────────────
 
     def _on_load_dbc(self):
-        path, _ = QFileDialog.getOpenFileName(
-            self, "打开DBC文件", "", "DBC文件 (*.dbc);;所有文件 (*)"
-        )
+        path, _ = QFileDialog.getOpenFileName(self, "打开DBC文件", "", "DBC文件 (*.dbc);;所有文件 (*)")
         if not path:
             return
         self.status_bar.showMessage("正在加载DBC文件...")
@@ -201,9 +213,7 @@ class TestGeneratorView(QWidget):
         path = self._pending_dbc_path
         msgs = self.controller.current_dbc.messages if self.controller.current_dbc else []
         sig_count = sum(len(m.signals) for m in msgs)
-        self.info_label.setText(
-            f"已加载: {Path(path).name}  |  报文: {len(msgs)}  |  信号: {sig_count}"
-        )
+        self.info_label.setText(f"已加载: {Path(path).name}  |  报文: {len(msgs)}  |  信号: {sig_count}")
         self.status_bar.showMessage(f"已加载 {path}", 5000)
 
     def _on_generate(self):
@@ -229,9 +239,7 @@ class TestGeneratorView(QWidget):
         if not self.controller.get_test_cases():
             QMessageBox.information(self, "提示", "暂无测试用例")
             return
-        path, _ = QFileDialog.getSaveFileName(
-            self, "导出测试用例", "", "JSON文件 (*.json);;所有文件 (*)"
-        )
+        path, _ = QFileDialog.getSaveFileName(self, "导出测试用例", "", "JSON文件 (*.json);;所有文件 (*)")
         if not path:
             return
         ok, errs = self.controller.export_json(Path(path))
@@ -244,9 +252,7 @@ class TestGeneratorView(QWidget):
         if not self.controller.get_test_cases():
             QMessageBox.information(self, "提示", "暂无测试用例")
             return
-        path, _ = QFileDialog.getSaveFileName(
-            self, "导出测试用例", "", "Excel文件 (*.xlsx);;所有文件 (*)"
-        )
+        path, _ = QFileDialog.getSaveFileName(self, "导出测试用例", "", "Excel文件 (*.xlsx);;所有文件 (*)")
         if not path:
             return
         ok, errs = self.controller.export_excel(Path(path))
@@ -357,16 +363,18 @@ class TestGeneratorView(QWidget):
     def _load_cases_into_table(self, cases: list[TestCase]):
         rows = []
         for tc in cases:
-            rows.append({
-                "id": tc.id,
-                "name": tc.name,
-                "category": tc.category,
-                "method": tc.method,
-                "signal_name": tc.signal_name,
-                "message_name": tc.message_name,
-                "priority": tc.priority,
-                "status": tc.status,
-            })
+            rows.append(
+                {
+                    "id": tc.id,
+                    "name": tc.name,
+                    "category": tc.category,
+                    "method": tc.method,
+                    "signal_name": tc.signal_name,
+                    "message_name": tc.message_name,
+                    "priority": tc.priority,
+                    "status": tc.status,
+                }
+            )
         self.tc_model.load_data(rows)
 
     def _refresh_coverage(self):
@@ -374,8 +382,7 @@ class TestGeneratorView(QWidget):
         pct = int(cov["coverage"])
         self.coverage_bar.setValue(pct)
         self.coverage_label.setText(
-            f"信号: {cov['covered']}/{cov['total_signals']} 已覆盖  |  "
-            f"测试用例: {cov['total_cases']}"
+            f"信号: {cov['covered']}/{cov['total_signals']} 已覆盖  |  测试用例: {cov['total_cases']}"
         )
         # Show uncovered signals
         if self.controller.current_dbc:
@@ -389,15 +396,11 @@ class TestGeneratorView(QWidget):
                     if sig.name not in covered:
                         uncovered.append(f"{msg.name}.{sig.name}")
             if uncovered:
-                self.coverage_detail.setPlainText(
-                    f"未覆盖信号 ({len(uncovered)}):\n\n" + "\n".join(uncovered[:100])
-                )
+                self.coverage_detail.setPlainText(f"未覆盖信号 ({len(uncovered)}):\n\n" + "\n".join(uncovered[:100]))
             else:
                 self.coverage_detail.setPlainText("所有信号已覆盖！")
 
     def _update_info_label(self):
         cases = self.controller.get_test_cases()
         cov = self.controller.get_coverage()
-        self.info_label.setText(
-            f"测试用例: {len(cases)}  |  信号覆盖率: {cov['coverage']:.1f}%"
-        )
+        self.info_label.setText(f"测试用例: {len(cases)}  |  信号覆盖率: {cov['coverage']:.1f}%")

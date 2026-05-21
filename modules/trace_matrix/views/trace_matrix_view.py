@@ -4,21 +4,32 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from PySide6.QtWidgets import (
-    QWidget, QVBoxLayout, QHBoxLayout, QSplitter,
-    QPushButton, QFileDialog, QLabel, QToolBar, QMessageBox,
-    QTabWidget, QHeaderView, QAbstractItemView,
-    QTableView, QStatusBar, QTextEdit, QProgressBar,
-)
-from PySide6.QtCore import Qt, Signal, QAbstractTableModel, QModelIndex
+from PySide6.QtCore import QAbstractTableModel, QModelIndex, Qt
 from PySide6.QtGui import QAction, QColor
+from PySide6.QtWidgets import (
+    QAbstractItemView,
+    QFileDialog,
+    QHBoxLayout,
+    QHeaderView,
+    QLabel,
+    QMessageBox,
+    QProgressBar,
+    QPushButton,
+    QSplitter,
+    QStatusBar,
+    QTableView,
+    QTabWidget,
+    QTextEdit,
+    QToolBar,
+    QVBoxLayout,
+    QWidget,
+)
 
 from modules.trace_matrix.controller import TraceMatrixController
 from modules.trace_matrix.widgets.link_dialog import LinkDialog, RequirementDialog
-from ui.widgets.tree_view import TreeView
+from ui.icons import icon_add, icon_export_excel, icon_export_json, icon_generate, icon_open
 from ui.widgets.file_worker import FileWorker
-from ui.icons import icon_open, icon_save, icon_validate, icon_export_json, icon_export_excel, icon_add, icon_generate
-
+from ui.widgets.tree_view import TreeView
 
 # ── Table models ─────────────────────────────────────────────────────────────
 
@@ -321,9 +332,7 @@ class TraceMatrixView(QWidget):
         self._on_edit_req()
 
     def _on_import_req(self):
-        path, _ = QFileDialog.getOpenFileName(
-            self, "导入需求", "", "JSON文件 (*.json);;所有文件 (*)"
-        )
+        path, _ = QFileDialog.getOpenFileName(self, "导入需求", "", "JSON文件 (*.json);;所有文件 (*)")
         if not path:
             return
         self.status_bar.showMessage("正在导入需求...")
@@ -341,8 +350,11 @@ class TraceMatrixView(QWidget):
             req_id = req_data.get("req_id", "")
             for link in req_data.get("links", []):
                 if self.controller.add_link(
-                    req_id, link.get("type", ""), link.get("target", ""),
-                    link.get("target_id", ""), auto=link.get("auto_matched", False),
+                    req_id,
+                    link.get("type", ""),
+                    link.get("target", ""),
+                    link.get("target_id", ""),
+                    auto=link.get("auto_matched", False),
                 ):
                     links_imported += 1
         return f"导入: {imported} 需求, {links_imported} 链接, {skipped} 跳过"
@@ -397,10 +409,10 @@ class TraceMatrixView(QWidget):
             QMessageBox.information(self, "链接管理", f"需求 {req_id} 暂无链接。\n点击「添加链接」创建新链接。")
             return
         lines = [f"需求 {req_id} 的链接 ({len(links)}):\n"]
-        for l in links:
-            v = "✓" if l["verified"] else "○"
-            a = "[自动]" if l["auto_matched"] else "[手动]"
-            lines.append(f"  {v} [{l['type']}] → {l['target']} {a}")
+        for lnk in links:
+            v = "✓" if lnk["verified"] else "○"
+            a = "[自动]" if lnk["auto_matched"] else "[手动]"
+            lines.append(f"  {v} [{lnk['type']}] → {lnk['target']} {a}")
         lines.append("\n点击「添加链接」创建新链接。")
         QMessageBox.information(self, "链接管理", "\n".join(lines))
 
@@ -424,9 +436,7 @@ class TraceMatrixView(QWidget):
     # ── Export ──────────────────────────────────────────────────────────────
 
     def _on_export_json(self):
-        path, _ = QFileDialog.getSaveFileName(
-            self, "导出追溯矩阵", "", "JSON文件 (*.json);;所有文件 (*)"
-        )
+        path, _ = QFileDialog.getSaveFileName(self, "导出追溯矩阵", "", "JSON文件 (*.json);;所有文件 (*)")
         if not path:
             return
         ok, errs = self.controller.export_json(Path(path))
@@ -436,9 +446,7 @@ class TraceMatrixView(QWidget):
             QMessageBox.warning(self, "导出失败", "\n".join(errs))
 
     def _on_export_excel(self):
-        path, _ = QFileDialog.getSaveFileName(
-            self, "导出追溯矩阵", "", "Excel文件 (*.xlsx);;所有文件 (*)"
-        )
+        path, _ = QFileDialog.getSaveFileName(self, "导出追溯矩阵", "", "Excel文件 (*.xlsx);;所有文件 (*)")
         if not path:
             return
         ok, errs = self.controller.export_excel(Path(path))
@@ -490,14 +498,16 @@ class TraceMatrixView(QWidget):
         id_map = {}
         for i, r in enumerate(reqs):
             info = matrix.get(r.req_id, {"link_count": 0, "verified_count": 0})
-            rows.append({
-                "req_id": r.req_id,
-                "title": r.title,
-                "module_name": r.module_name or "",
-                "source": r.source,
-                "link_count": info["link_count"],
-                "verified_count": info["verified_count"],
-            })
+            rows.append(
+                {
+                    "req_id": r.req_id,
+                    "title": r.title,
+                    "module_name": r.module_name or "",
+                    "source": r.source,
+                    "link_count": info["link_count"],
+                    "verified_count": info["verified_count"],
+                }
+            )
             id_map[i] = r.id
         self.req_model.load_data(rows, id_map)
 
@@ -553,4 +563,4 @@ class TraceMatrixView(QWidget):
 
 
 # Need json import at module level
-import json
+import json  # noqa: E402

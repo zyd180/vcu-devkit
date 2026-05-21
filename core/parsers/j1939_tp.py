@@ -7,22 +7,25 @@ from dataclasses import dataclass, field
 
 from core.parsers.j1939_parser import J1939TPMessage, extract_pgn
 
-
 # ── TP Control byte types ──────────────────────────────────────────────────
+
 
 class TPControl:
     """Transport Protocol control byte values (PGN 0xEC00)."""
-    BAM = 0x20        # Broadcast Announce Message
-    RTS = 0x10        # Request To Send
-    CTS = 0x11        # Clear To Send
-    EOM = 0x13        # End of Message
-    ABORT = 0xFF      # Connection Abort
+
+    BAM = 0x20  # Broadcast Announce Message
+    RTS = 0x10  # Request To Send
+    CTS = 0x11  # Clear To Send
+    EOM = 0x13  # End of Message
+    ABORT = 0xFF  # Connection Abort
 
 
 # ── TP Abort reasons ───────────────────────────────────────────────────────
 
+
 class TPAbort:
     """Abort reason codes."""
+
     BUSY = 0x01
     RESOURCES = 0x02
     TIMEOUT = 0x03
@@ -32,9 +35,11 @@ class TPAbort:
 
 # ── Reassembly state ───────────────────────────────────────────────────────
 
+
 @dataclass
 class _TPSession:
     """Tracks an in-progress TP reassembly."""
+
     pgn: int
     total_length: int
     max_packets: int
@@ -65,6 +70,7 @@ class _TPSession:
 
 
 # ── Transport Protocol handler ─────────────────────────────────────────────
+
 
 class J1939TransportProtocol:
     """Reassemble multi-frame J1939 messages (BAM and RTS/CTS).
@@ -201,11 +207,7 @@ class J1939TransportProtocol:
         payload = data[1:]
 
         # Collect candidate sessions from this SA
-        candidates = [
-            ((pgn, key_sa), session)
-            for (pgn, key_sa), session in self._sessions.items()
-            if key_sa == sa
-        ]
+        candidates = [((pgn, key_sa), session) for (pgn, key_sa), session in self._sessions.items() if key_sa == sa]
 
         if not candidates:
             return None
@@ -241,10 +243,7 @@ class J1939TransportProtocol:
     def cleanup_expired(self) -> None:
         """Remove sessions that have timed out."""
         now = time.monotonic()
-        expired = [
-            key for key, session in self._sessions.items()
-            if now - session.last_activity > self.SESSION_TIMEOUT
-        ]
+        expired = [key for key, session in self._sessions.items() if now - session.last_activity > self.SESSION_TIMEOUT]
         for key in expired:
             del self._sessions[key]
 

@@ -4,24 +4,32 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from PySide6.QtWidgets import (
-    QWidget, QVBoxLayout, QHBoxLayout, QLabel, QGroupBox,
-    QPushButton, QListWidget, QListWidgetItem, QGridLayout, QFrame,
-)
-from PySide6.QtCore import Qt, Signal, QSize
+from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QFont
+from PySide6.QtWidgets import (
+    QGridLayout,
+    QGroupBox,
+    QHBoxLayout,
+    QLabel,
+    QListWidget,
+    QListWidgetItem,
+    QPushButton,
+    QVBoxLayout,
+    QWidget,
+)
 
 
 class DashboardWidget(QWidget):
     """Application home page — recent files, stats, quick actions."""
 
     open_file_requested = Signal(str)  # file path
-    module_requested = Signal(int)     # module index (0-5)
+    module_requested = Signal(int)  # module index (0-5)
 
     _EXT_MODULE_MAP = {
         ".dbc": 0,
         ".arxml": 1,
-        ".odx": 2, ".cdd": 2,
+        ".odx": 2,
+        ".cdd": 2,
         ".a2l": 3,
         ".json": -1,
     }

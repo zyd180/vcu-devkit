@@ -4,22 +4,34 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from PySide6.QtWidgets import (
-    QWidget, QVBoxLayout, QHBoxLayout, QSplitter,
-    QPushButton, QFileDialog, QLabel, QToolBar, QMessageBox,
-    QTabWidget, QHeaderView, QAbstractItemView,
-    QTableView, QStatusBar, QTextEdit, QLineEdit,
-    QComboBox, QInputDialog,
-)
-from PySide6.QtCore import Qt, Signal, QAbstractTableModel, QModelIndex
+from PySide6.QtCore import QAbstractTableModel, QModelIndex, Qt
 from PySide6.QtGui import QAction
+from PySide6.QtWidgets import (
+    QAbstractItemView,
+    QComboBox,
+    QFileDialog,
+    QHBoxLayout,
+    QHeaderView,
+    QInputDialog,
+    QLabel,
+    QLineEdit,
+    QMessageBox,
+    QPushButton,
+    QSplitter,
+    QStatusBar,
+    QTableView,
+    QTabWidget,
+    QTextEdit,
+    QToolBar,
+    QVBoxLayout,
+    QWidget,
+)
 
 from modules.calib_manager.controller import CalibManagerController
 from modules.calib_manager.widgets.param_dialog import ParamDialog
-from ui.widgets.tree_view import TreeView
+from ui.icons import icon_add, icon_export_a2l, icon_export_json, icon_load, icon_open, icon_save, icon_validate
 from ui.widgets.file_worker import FileWorker
-from ui.icons import icon_open, icon_save, icon_validate, icon_export_json, icon_export_a2l, icon_add, icon_load
-
+from ui.widgets.tree_view import TreeView
 
 # ── Table model ──────────────────────────────────────────────────────────────
 
@@ -28,7 +40,17 @@ class ParamTableModel(QAbstractTableModel):
     """Table model for calibration parameters."""
 
     HEADERS = ["参数名", "类型", "分组", "SWC", "默认值", "最小值", "最大值", "单位", "描述"]
-    KEYS = ["name", "data_type", "group_name", "swc_name", "default_value", "min_value", "max_value", "unit", "description"]
+    KEYS = [
+        "name",
+        "data_type",
+        "group_name",
+        "swc_name",
+        "default_value",
+        "min_value",
+        "max_value",
+        "unit",
+        "description",
+    ]
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -254,9 +276,7 @@ class CalibManagerView(QWidget):
     # ── A2L operations ─────────────────────────────────────────────────────
 
     def _on_load_a2l(self):
-        path, _ = QFileDialog.getOpenFileName(
-            self, "加载A2L文件", "", "A2L文件 (*.a2l);;所有文件 (*)"
-        )
+        path, _ = QFileDialog.getOpenFileName(self, "加载A2L文件", "", "A2L文件 (*.a2l);;所有文件 (*)")
         if not path:
             return
         self.load_file(path)
@@ -293,10 +313,11 @@ class CalibManagerView(QWidget):
             QMessageBox.information(self, "提示", "请先加载A2L文件")
             return
         reply = QMessageBox.question(
-            self, "回写A2L",
+            self,
+            "回写A2L",
             "将数据库中标定量的修改写回A2L文件。\n"
             f"原始文件: {self.controller.current_a2l.source_path}\n\n"
-            "选择\"另存为\"可保存到新文件，不修改原文件。",
+            '选择"另存为"可保存到新文件，不修改原文件。',
             QMessageBox.Save | QMessageBox.Discard | QMessageBox.Cancel,
         )
         if reply == QMessageBox.Cancel:
@@ -306,9 +327,7 @@ class CalibManagerView(QWidget):
             ok, errs = self.controller.writeback_a2l()
         else:
             # Save as
-            path, _ = QFileDialog.getSaveFileName(
-                self, "另存为A2L文件", "", "A2L文件 (*.a2l);;所有文件 (*)"
-            )
+            path, _ = QFileDialog.getSaveFileName(self, "另存为A2L文件", "", "A2L文件 (*.a2l);;所有文件 (*)")
             if not path:
                 return
             ok, errs = self.controller.writeback_a2l(Path(path))
@@ -344,9 +363,7 @@ class CalibManagerView(QWidget):
     # ── DCM operations ──────────────────────────────────────────────────────
 
     def _on_load_dcm(self):
-        path, _ = QFileDialog.getOpenFileName(
-            self, "加载DCM文件", "", "DCM文件 (*.dcm);;所有文件 (*)"
-        )
+        path, _ = QFileDialog.getOpenFileName(self, "加载DCM文件", "", "DCM文件 (*.dcm);;所有文件 (*)")
         if not path:
             return
         ok, errs = self.controller.load_dcm(Path(path))
@@ -363,14 +380,10 @@ class CalibManagerView(QWidget):
             return
         matched, updated, not_found = self.controller.import_dcm_values()
         self._refresh_all()
-        self.status_bar.showMessage(
-            f"DCM导入完成: 匹配 {matched}, 更新 {updated}, 未找到 {not_found}", 5000
-        )
+        self.status_bar.showMessage(f"DCM导入完成: 匹配 {matched}, 更新 {updated}, 未找到 {not_found}", 5000)
 
     def _on_export_dcm(self):
-        path, _ = QFileDialog.getSaveFileName(
-            self, "导出DCM文件", "", "DCM文件 (*.dcm);;所有文件 (*)"
-        )
+        path, _ = QFileDialog.getSaveFileName(self, "导出DCM文件", "", "DCM文件 (*.dcm);;所有文件 (*)")
         if not path:
             return
         ok, errs = self.controller.export_dcm(Path(path))
@@ -492,7 +505,7 @@ class CalibManagerView(QWidget):
             params = self.controller.get_params(group=group_key)
         rows = []
         id_map = {}
-        for i, p in enumerate(params[:self._TABLE_MAX_ROWS]):
+        for i, p in enumerate(params[: self._TABLE_MAX_ROWS]):
             rows.append(self._param_to_row(p))
             id_map[i] = p.id
         self.param_model.load_data(rows, id_map)
@@ -528,9 +541,7 @@ class CalibManagerView(QWidget):
     # ── Export / Validation ─────────────────────────────────────────────────
 
     def _on_export_json(self):
-        path, _ = QFileDialog.getSaveFileName(
-            self, "导出标定参数", "", "JSON文件 (*.json);;所有文件 (*)"
-        )
+        path, _ = QFileDialog.getSaveFileName(self, "导出标定参数", "", "JSON文件 (*.json);;所有文件 (*)")
         if not path:
             return
         ok, errs = self.controller.export_json(Path(path))
@@ -540,9 +551,7 @@ class CalibManagerView(QWidget):
             QMessageBox.warning(self, "导出失败", "\n".join(errs))
 
     def _on_export_a2l(self):
-        path, _ = QFileDialog.getSaveFileName(
-            self, "导出A2L摘要", "", "A2L文件 (*.a2l);;所有文件 (*)"
-        )
+        path, _ = QFileDialog.getSaveFileName(self, "导出A2L摘要", "", "A2L文件 (*.a2l);;所有文件 (*)")
         if not path:
             return
         ok, errs = self.controller.export_a2l_summary(Path(path))
@@ -585,7 +594,8 @@ class CalibManagerView(QWidget):
             QMessageBox.information(self, "提示", "不能删除 default 页面")
             return
         reply = QMessageBox.question(
-            self, "删除标定页",
+            self,
+            "删除标定页",
             f"确定删除页面 '{page}' 及其所有参数？此操作不可撤销。",
             QMessageBox.Yes | QMessageBox.No,
         )
@@ -639,7 +649,7 @@ class CalibManagerView(QWidget):
     def _refresh_param_table(self):
         params = self.controller.get_params()
         total = len(params)
-        display = params[:self._TABLE_MAX_ROWS]
+        display = params[: self._TABLE_MAX_ROWS]
         rows = []
         id_map = {}
         for i, p in enumerate(display):
@@ -647,9 +657,7 @@ class CalibManagerView(QWidget):
             id_map[i] = p.id
         self.param_model.load_data(rows, id_map)
         if total > self._TABLE_MAX_ROWS:
-            self.status_bar.showMessage(
-                f"显示 {self._TABLE_MAX_ROWS} / {total} 条（使用搜索缩小范围）", 0
-            )
+            self.status_bar.showMessage(f"显示 {self._TABLE_MAX_ROWS} / {total} 条（使用搜索缩小范围）", 0)
 
     def _param_to_row(self, p) -> dict:
         return {
@@ -674,9 +682,7 @@ class CalibManagerView(QWidget):
         dcm_info = ""
         if self.controller.current_dcm:
             dcm_info = f"  |  DCM: {len(self.controller.current_dcm.characteristics)} params"
-        self.info_label.setText(
-            f"参数: {len(params)}  |  分组: {len(groups)}  |  SWC: {len(swcs)}{a2l_info}{dcm_info}"
-        )
+        self.info_label.setText(f"参数: {len(params)}  |  分组: {len(groups)}  |  SWC: {len(swcs)}{a2l_info}{dcm_info}")
 
     def filter(self, query: str) -> int:
         """Filter parameter table by query. Returns match count."""

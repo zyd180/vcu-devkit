@@ -4,10 +4,9 @@ import sys
 from pathlib import Path
 
 from PySide6.QtWidgets import QApplication
-from PySide6.QtCore import Qt
 
-from ui.main_window import MainWindow
 from config.settings import AppSettings
+from ui.main_window import MainWindow
 
 
 def load_stylesheet(theme: str = "light") -> str:
@@ -26,6 +25,7 @@ def main():
 
     # Discover plugins
     from core.plugins.registry import PluginRegistry
+
     plugin_registry = PluginRegistry()
     plugin_dirs = [Path(__file__).parent / "plugins"]
     count = plugin_registry.discover(plugin_dirs)

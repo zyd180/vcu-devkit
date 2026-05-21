@@ -7,14 +7,15 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from core.parsers.base import BaseParser, ParseResult
-from core.generators.base import BaseGenerator, GenerateResult
+from core.generators.base import BaseGenerator
+from core.parsers.base import BaseParser
 from core.rules.engine import RuleResult
 
 
 @dataclass
 class PluginMeta:
     """Metadata describing a plugin."""
+
     name: str
     version: str = "1.0.0"
     author: str = ""
@@ -33,8 +34,7 @@ class ParserPlugin(BaseParser, ABC):
 
     @property
     @abstractmethod
-    def plugin_meta(self) -> PluginMeta:
-        ...
+    def plugin_meta(self) -> PluginMeta: ...
 
 
 class GeneratorPlugin(BaseGenerator, ABC):
@@ -52,8 +52,7 @@ class GeneratorPlugin(BaseGenerator, ABC):
 
     @property
     @abstractmethod
-    def plugin_meta(self) -> PluginMeta:
-        ...
+    def plugin_meta(self) -> PluginMeta: ...
 
 
 class RulePlugin(ABC):
@@ -66,8 +65,7 @@ class RulePlugin(ABC):
 
     @property
     @abstractmethod
-    def plugin_meta(self) -> PluginMeta:
-        ...
+    def plugin_meta(self) -> PluginMeta: ...
 
     def check_dbc(self, data: Any) -> list[RuleResult]:
         """Run DBC validation rules. Override to add custom rules."""

@@ -5,15 +5,13 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any
 
 import cantools
 
+from core.parsers.base import BaseParser, ParseResult  # noqa: E402
+from core.parsers.dbc_parser import DBCData  # noqa: E402
+
 _SPN_PATTERN = re.compile(r"SPN[:\s]+(\d+)", re.IGNORECASE)
-
-from core.parsers.base import BaseParser, ParseResult
-from core.parsers.dbc_parser import DBCData, MessageDef, SignalDef
-
 
 # ── Data models ──────────────────────────────────────────────────────────────
 
@@ -21,6 +19,7 @@ from core.parsers.dbc_parser import DBCData, MessageDef, SignalDef
 @dataclass
 class J1939PGN:
     """J1939 Parameter Group Number."""
+
     pgn: int
     name: str
     description: str = ""
@@ -32,6 +31,7 @@ class J1939PGN:
 @dataclass
 class J1939SPN:
     """J1939 Suspect Parameter Number."""
+
     spn: int
     name: str
     description: str = ""
@@ -48,6 +48,7 @@ class J1939SPN:
 @dataclass
 class J1939DTC:
     """J1939 Diagnostic Trouble Code."""
+
     spn: int
     fmi: int
     occurrence: int = 0
@@ -58,6 +59,7 @@ class J1939DTC:
 @dataclass
 class J1939TPMessage:
     """Transport Protocol multi-frame message (BAM/RTS-CTS)."""
+
     pgn: int
     total_length: int
     data: bytes = b""
@@ -68,6 +70,7 @@ class J1939TPMessage:
 @dataclass
 class J1939Data:
     """Complete J1939-enriched data from a DBC file."""
+
     pgn_messages: list[J1939PGN] = field(default_factory=list)
     spn_signals: list[J1939SPN] = field(default_factory=list)
     source_addresses: dict[str, int] = field(default_factory=dict)  # node_name → SA
@@ -138,10 +141,7 @@ class J1939Parser(BaseParser):
                 if msg.is_extended_frame:
                     _, pgn, _, _ = extract_pgn(msg.frame_id)
                     if not is_pgn_in_range(pgn):
-                        errors.append(
-                            f"Message {msg.name} (0x{msg.frame_id:08X}): "
-                            f"PGN 0x{pgn:04X} out of J1939 range"
-                        )
+                        errors.append(f"Message {msg.name} (0x{msg.frame_id:08X}): PGN 0x{pgn:04X} out of J1939 range")
         except Exception as exc:
             errors.append(f"Parse error: {exc}")
         return errors
@@ -151,6 +151,7 @@ class J1939Parser(BaseParser):
     def _convert_dbc(self, db: cantools.database.Database, source: str) -> DBCData:
         """Convert cantools DB to VCU DevKit DBCData (reuse DBCParser logic)."""
         from core.parsers.dbc_parser import DBCParser
+
         parser = DBCParser()
         return parser.convert(db, source)
 
@@ -195,19 +196,21 @@ class J1939Parser(BaseParser):
             # Extract SPNs from signals
             for sig in msg.signals:
                 spn = self._extract_spn_number(sig)
-                j1939.spn_signals.append(J1939SPN(
-                    spn=spn,
-                    name=sig.name,
-                    description=sig.comment or "",
-                    pgn=pgn,
-                    start_bit=sig.start,
-                    bit_length=sig.length,
-                    factor=sig.scale,
-                    offset=sig.offset,
-                    min_value=sig.minimum or 0.0,
-                    max_value=sig.maximum or 0.0,
-                    unit=sig.unit or "",
-                ))
+                j1939.spn_signals.append(
+                    J1939SPN(
+                        spn=spn,
+                        name=sig.name,
+                        description=sig.comment or "",
+                        pgn=pgn,
+                        start_bit=sig.start,
+                        bit_length=sig.length,
+                        factor=sig.scale,
+                        offset=sig.offset,
+                        min_value=sig.minimum or 0.0,
+                        max_value=sig.maximum or 0.0,
+                        unit=sig.unit or "",
+                    )
+                )
 
         return j1939
 

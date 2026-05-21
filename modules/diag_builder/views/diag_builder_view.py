@@ -4,22 +4,32 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from PySide6.QtWidgets import (
-    QWidget, QVBoxLayout, QHBoxLayout, QSplitter,
-    QPushButton, QFileDialog, QLabel, QToolBar, QMessageBox,
-    QTabWidget, QHeaderView, QAbstractItemView,
-    QTableView, QStatusBar, QTextEdit,
-)
-from PySide6.QtCore import Qt, Signal, QAbstractTableModel, QModelIndex
+from PySide6.QtCore import QAbstractTableModel, QModelIndex, Qt
 from PySide6.QtGui import QAction
+from PySide6.QtWidgets import (
+    QAbstractItemView,
+    QFileDialog,
+    QHBoxLayout,
+    QHeaderView,
+    QLabel,
+    QMessageBox,
+    QPushButton,
+    QSplitter,
+    QStatusBar,
+    QTableView,
+    QTabWidget,
+    QTextEdit,
+    QToolBar,
+    QVBoxLayout,
+    QWidget,
+)
 
 from modules.diag_builder.controller import DiagBuilderController
 from modules.diag_builder.widgets.dtc_dialog import DTCDialog
 from modules.diag_builder.widgets.service_dialog import ServiceDialog
-from ui.widgets.tree_view import TreeView
+from ui.icons import icon_add, icon_export_json, icon_load, icon_open, icon_validate
 from ui.widgets.file_worker import FileWorker
-from ui.icons import icon_open, icon_save, icon_validate, icon_export_json, icon_add, icon_load
-
+from ui.widgets.tree_view import TreeView
 
 # ── Table models ─────────────────────────────────────────────────────────────
 
@@ -322,6 +332,7 @@ class DiagBuilderView(QWidget):
             obd_related=data["obd_related"],
         )
         from core.db.models import DTCDefinition
+
         dtc = DTCDefinition.get_by_id(db_id)
         dtc.set_snapshot_ids(data["snapshot_ids"])
         dtc.save()
@@ -350,6 +361,7 @@ class DiagBuilderView(QWidget):
             return
         try:
             import json
+
             data = json.loads(Path(path).read_text(encoding="utf-8"))
             if isinstance(data, list):
                 imported, skipped = self.controller.import_dtcs_from_list(data)
@@ -416,6 +428,7 @@ class DiagBuilderView(QWidget):
             enabled=data["enabled"],
         )
         from core.db.models import DiagService
+
         svc = DiagService.get_by_id(db_id)
         svc.set_sub_functions(data["sub_functions"])
         svc.set_nrc_list(data["nrc_list"])
@@ -440,7 +453,8 @@ class DiagBuilderView(QWidget):
     def _on_load_standard(self):
         """Load standard UDS services."""
         reply = QMessageBox.question(
-            self, "加载标准服务",
+            self,
+            "加载标准服务",
             "将加载13个标准UDS服务（0x10~0x85），已有服务不会重复添加。\n继续？",
         )
         if reply != QMessageBox.Yes:
@@ -463,9 +477,7 @@ class DiagBuilderView(QWidget):
     # ── Export / Import ─────────────────────────────────────────────────────
 
     def _on_export(self):
-        path, _ = QFileDialog.getSaveFileName(
-            self, "导出诊断配置", "", "JSON文件 (*.json);;所有文件 (*)"
-        )
+        path, _ = QFileDialog.getSaveFileName(self, "导出诊断配置", "", "JSON文件 (*.json);;所有文件 (*)")
         if not path:
             return
         ok, errs = self.controller.export_json(Path(path))
@@ -475,9 +487,7 @@ class DiagBuilderView(QWidget):
             QMessageBox.warning(self, "导出失败", "\n".join(errs))
 
     def _on_import_json(self):
-        path, _ = QFileDialog.getOpenFileName(
-            self, "导入诊断配置", "", "JSON文件 (*.json);;所有文件 (*)"
-        )
+        path, _ = QFileDialog.getOpenFileName(self, "导入诊断配置", "", "JSON文件 (*.json);;所有文件 (*)")
         if not path:
             return
         self._start_json_import(path)
@@ -492,8 +502,7 @@ class DiagBuilderView(QWidget):
 
     def _on_import_odx(self):
         path, _ = QFileDialog.getOpenFileName(
-            self, "导入ODX/CDD文件", "",
-            "ODX/CDD (*.odx *.odx-d *.odx-c *.cdd);;所有文件 (*)"
+            self, "导入ODX/CDD文件", "", "ODX/CDD (*.odx *.odx-d *.odx-c *.cdd);;所有文件 (*)"
         )
         if not path:
             return
@@ -503,9 +512,7 @@ class DiagBuilderView(QWidget):
         self.status_bar.showMessage("正在导入ODX文件...")
         self._odx_worker = FileWorker(self.controller.import_odx, Path(path))
         self._odx_worker.finished_ok.connect(self._on_odx_imported)
-        self._odx_worker.finished_err.connect(
-            lambda err: QMessageBox.warning(self, "导入失败", err)
-        )
+        self._odx_worker.finished_err.connect(lambda err: QMessageBox.warning(self, "导入失败", err))
         self._odx_worker.start()
 
     def load_file(self, path: str):
@@ -520,9 +527,7 @@ class DiagBuilderView(QWidget):
         self.status_bar.showMessage("正在导入诊断配置...")
         self._json_worker = FileWorker(self.controller.import_json, Path(path))
         self._json_worker.finished_ok.connect(self._on_json_imported)
-        self._json_worker.finished_err.connect(
-            lambda err: QMessageBox.warning(self, "导入失败", err)
-        )
+        self._json_worker.finished_err.connect(lambda err: QMessageBox.warning(self, "导入失败", err))
         self._json_worker.start()
 
     def _on_odx_imported(self, result: tuple):
@@ -573,14 +578,16 @@ class DiagBuilderView(QWidget):
         rows = []
         id_map = {}
         for i, dtc in enumerate(dtcs):
-            rows.append({
-                "dtc_code": dtc.dtc_code,
-                "description": dtc.description,
-                "severity": dtc.severity or "",
-                "debounce_strategy": dtc.debounce_strategy or "",
-                "obd_related": dtc.obd_related,
-                "snapshots": dtc.get_snapshot_ids(),
-            })
+            rows.append(
+                {
+                    "dtc_code": dtc.dtc_code,
+                    "description": dtc.description,
+                    "severity": dtc.severity or "",
+                    "debounce_strategy": dtc.debounce_strategy or "",
+                    "obd_related": dtc.obd_related,
+                    "snapshots": dtc.get_snapshot_ids(),
+                }
+            )
             id_map[i] = dtc.id
         self.dtc_model.load_data(rows, id_map)
 
@@ -589,14 +596,16 @@ class DiagBuilderView(QWidget):
         rows = []
         id_map = {}
         for i, svc in enumerate(svcs):
-            rows.append({
-                "sid": svc.sid,
-                "service_name": svc.service_name,
-                "security_level": svc.security_level,
-                "sub_functions": svc.get_sub_functions(),
-                "description": svc.description or "",
-                "enabled": svc.enabled,
-            })
+            rows.append(
+                {
+                    "sid": svc.sid,
+                    "service_name": svc.service_name,
+                    "security_level": svc.security_level,
+                    "sub_functions": svc.get_sub_functions(),
+                    "description": svc.description or "",
+                    "enabled": svc.enabled,
+                }
+            )
             id_map[i] = svc.id
         self.svc_model.load_data(rows, id_map)
 
@@ -617,9 +626,7 @@ class DiagBuilderView(QWidget):
         dtcs = self.controller.get_dtcs()
         svcs = self.controller.get_services()
         snaps = self.controller.get_snapshot_configs()
-        self.info_label.setText(
-            f"DTC: {len(dtcs)}  |  UDS服务: {len(svcs)}  |  快照DID: {len(snaps)}"
-        )
+        self.info_label.setText(f"DTC: {len(dtcs)}  |  UDS服务: {len(svcs)}  |  快照DID: {len(snaps)}")
 
     def filter(self, query: str) -> int:
         """Filter DTC and service tables by query. Returns match count."""

@@ -4,13 +4,11 @@ from __future__ import annotations
 
 import json
 import logging
-from datetime import datetime
 from pathlib import Path
-from typing import Any
 
-from core.db.models import Requirement, TraceabilityLink
-from core.db.manager import DatabaseManager
 from core.db.crud_mixin import CRUDMixin
+from core.db.manager import DatabaseManager
+from core.db.models import Requirement, TraceabilityLink
 
 logger = logging.getLogger(__name__)
 
@@ -71,13 +69,13 @@ class TraceMatrixController(CRUDMixin):
                 "status": req.status,
                 "links": [
                     {
-                        "type": l.link_type,
-                        "target": l.link_target,
-                        "target_id": l.link_target_id or "",
-                        "auto_matched": l.auto_matched,
-                        "verified": l.verified,
+                        "type": lnk.link_type,
+                        "target": lnk.link_target,
+                        "target_id": lnk.link_target_id or "",
+                        "auto_matched": lnk.auto_matched,
+                        "verified": lnk.verified,
                     }
-                    for l in links
+                    for lnk in links
                 ],
             }
         except Requirement.DoesNotExist:
@@ -112,18 +110,23 @@ class TraceMatrixController(CRUDMixin):
 
     # ── Link management ────────────────────────────────────────────────────
 
-    def add_link(self, req_id: str, link_type: str, link_target: str,
-                 link_target_id: str = "", auto: bool = False) -> bool:
+    def add_link(
+        self, req_id: str, link_type: str, link_target: str, link_target_id: str = "", auto: bool = False
+    ) -> bool:
         """Add a traceability link from requirement to artifact."""
         req = self.get_req_by_id(req_id)
         if req is None:
             return False
         # Check duplicate
-        existing = TraceabilityLink.select().where(
-            (TraceabilityLink.req == req) &
-            (TraceabilityLink.link_type == link_type) &
-            (TraceabilityLink.link_target == link_target)
-        ).first()
+        existing = (
+            TraceabilityLink.select()
+            .where(
+                (TraceabilityLink.req == req)
+                & (TraceabilityLink.link_type == link_type)
+                & (TraceabilityLink.link_target == link_target)
+            )
+            .first()
+        )
         if existing:
             return False
         TraceabilityLink.create(
@@ -159,14 +162,14 @@ class TraceMatrixController(CRUDMixin):
         links = list(TraceabilityLink.select().where(TraceabilityLink.req == req))
         return [
             {
-                "id": l.id,
-                "type": l.link_type,
-                "target": l.link_target,
-                "target_id": l.link_target_id or "",
-                "auto_matched": l.auto_matched,
-                "verified": l.verified,
+                "id": lnk.id,
+                "type": lnk.link_type,
+                "target": lnk.link_target,
+                "target_id": lnk.link_target_id or "",
+                "auto_matched": lnk.auto_matched,
+                "verified": lnk.verified,
             }
-            for l in links
+            for lnk in links
         ]
 
     # ── Auto-matching ──────────────────────────────────────────────────────
@@ -186,11 +189,15 @@ class TraceMatrixController(CRUDMixin):
                     target_keywords = self._extract_keywords(target)
                     if req_keywords & target_keywords:
                         # Check if link already exists
-                        existing = TraceabilityLink.select().where(
-                            (TraceabilityLink.req == req) &
-                            (TraceabilityLink.link_type == link_type) &
-                            (TraceabilityLink.link_target == target)
-                        ).first()
+                        existing = (
+                            TraceabilityLink.select()
+                            .where(
+                                (TraceabilityLink.req == req)
+                                & (TraceabilityLink.link_type == link_type)
+                                & (TraceabilityLink.link_target == target)
+                            )
+                            .first()
+                        )
                         if not existing:
                             TraceabilityLink.create(
                                 req=req,
@@ -205,15 +212,16 @@ class TraceMatrixController(CRUDMixin):
     def _extract_keywords(text: str) -> set[str]:
         """Extract meaningful keywords from a name/title."""
         import re
+
         # Split on common separators, keep tokens >= 3 chars
-        tokens = re.split(r'[_\s\-/.,;:()[\]{}]+', text)
+        tokens = re.split(r"[_\s\-/.,;:()[\]{}]+", text)
         keywords = set()
         for t in tokens:
             t = t.strip().lower()
             if len(t) >= 3:
                 keywords.add(t)
             # Also add camelCase segments
-            segments = re.findall(r'[A-Z][a-z]+|[a-z]+|[A-Z]+(?=[A-Z]|$)', t)
+            segments = re.findall(r"[A-Z][a-z]+|[a-z]+|[A-Z]+(?=[A-Z]|$)", t)
             for seg in segments:
                 seg = seg.lower()
                 if len(seg) >= 3:
@@ -230,11 +238,11 @@ class TraceMatrixController(CRUDMixin):
         from peewee import JOIN
 
         # Single query: all requirements LEFT JOIN their links
-        rows = (Requirement
-                .select(Requirement, TraceabilityLink)
-                .join(TraceabilityLink, JOIN.LEFT_OUTER,
-                      on=(TraceabilityLink.req == Requirement.id))
-                .dicts())
+        rows = (
+            Requirement.select(Requirement, TraceabilityLink)
+            .join(TraceabilityLink, JOIN.LEFT_OUTER, on=(TraceabilityLink.req == Requirement.id))
+            .dicts()
+        )
 
         # Python-side grouping
         matrix: dict[str, dict] = {}
@@ -261,21 +269,23 @@ class TraceMatrixController(CRUDMixin):
         """Get traceability statistics (4 queries instead of 6)."""
         # Query 1-2: requirement counts
         total_reqs = Requirement.select().count()
-        linked_reqs = Requirement.select().where(
-            Requirement.id.in_(
-                TraceabilityLink.select(TraceabilityLink.req).distinct()
-            )
-        ).count()
+        linked_reqs = (
+            Requirement.select()
+            .where(Requirement.id.in_(TraceabilityLink.select(TraceabilityLink.req).distinct()))
+            .count()
+        )
 
         # Query 3: link counts (total, verified, auto) — single pass
-        links = list(TraceabilityLink.select(
-            TraceabilityLink.link_type,
-            TraceabilityLink.verified,
-            TraceabilityLink.auto_matched,
-        ))
+        links = list(
+            TraceabilityLink.select(
+                TraceabilityLink.link_type,
+                TraceabilityLink.verified,
+                TraceabilityLink.auto_matched,
+            )
+        )
         total_links = len(links)
-        verified_links = sum(1 for l in links if l.verified)
-        auto_links = sum(1 for l in links if l.auto_matched)
+        verified_links = sum(1 for lnk in links if lnk.verified)
+        auto_links = sum(1 for lnk in links if lnk.auto_matched)
 
         # Type counts from the same data
         type_counts: dict[str, int] = {}
@@ -296,32 +306,29 @@ class TraceMatrixController(CRUDMixin):
 
     def get_unlinked_requirements(self) -> list[Requirement]:
         """Get requirements with no traceability links."""
-        linked_ids = set(
-            l.req_id for l in TraceabilityLink.select(TraceabilityLink.req).distinct()
-        )
-        return [
-            r for r in self.get_requirements()
-            if r.id not in linked_ids
-        ]
+        linked_ids = set(lnk.req_id for lnk in TraceabilityLink.select(TraceabilityLink.req).distinct())
+        return [r for r in self.get_requirements() if r.id not in linked_ids]
 
     def get_gaps(self) -> list[dict]:
         """Identify traceability gaps (requirements without full coverage)."""
         gaps = []
         for req in self.get_requirements():
             links = self.get_links_for_req(req.req_id)
-            link_types = {l["type"] for l in links}
+            link_types = {lnk["type"] for lnk in links}
             missing = []
             if "swc" not in link_types and "signal" not in link_types:
                 missing.append("implementation (SWC/Signal)")
             if "test_case" not in link_types:
                 missing.append("test case")
             if missing:
-                gaps.append({
-                    "req_id": req.req_id,
-                    "title": req.title,
-                    "missing": missing,
-                    "existing_types": list(link_types),
-                })
+                gaps.append(
+                    {
+                        "req_id": req.req_id,
+                        "title": req.title,
+                        "missing": missing,
+                        "existing_types": list(link_types),
+                    }
+                )
         return gaps
 
     # ── Import / Export ─────────────────────────────────────────────────────
@@ -329,16 +336,11 @@ class TraceMatrixController(CRUDMixin):
     def export_json(self, output_path: Path) -> tuple[bool, list[str]]:
         try:
             data = {
-                "requirements": [
-                    self.get_requirement_as_dict(r.id)
-                    for r in self.get_requirements()
-                ],
+                "requirements": [self.get_requirement_as_dict(r.id) for r in self.get_requirements()],
                 "statistics": self.get_statistics(),
                 "gaps": self.get_gaps(),
             }
-            output_path.write_text(
-                json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8"
-            )
+            output_path.write_text(json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8")
             return True, []
         except Exception as exc:
             return False, [str(exc)]
@@ -368,8 +370,9 @@ class TraceMatrixController(CRUDMixin):
         """Export traceability matrix to Excel."""
         try:
             from openpyxl import Workbook
-            from openpyxl.styles import PatternFill, Font
-            from core.utils.excel_utils import write_header_row, auto_width, THIN_BORDER
+            from openpyxl.styles import Font, PatternFill
+
+            from core.utils.excel_utils import THIN_BORDER, auto_width, write_header_row
 
             wb = Workbook()
 

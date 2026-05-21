@@ -7,12 +7,13 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from jinja2 import Environment, FileSystemLoader, select_autoescape, Template
+from jinja2 import Environment, FileSystemLoader, Template, select_autoescape
 
 
 @dataclass
 class GenerateResult:
     """Result of a code generation run."""
+
     success: bool
     output_files: list[Path] = field(default_factory=list)
     errors: list[str] = field(default_factory=list)

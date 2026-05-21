@@ -2,14 +2,21 @@
 
 from pathlib import Path
 
+from PySide6.QtCore import QSize, Qt, QTimer
+from PySide6.QtGui import QAction, QDragEnterEvent, QDropEvent, QKeySequence
 from PySide6.QtWidgets import (
-    QMainWindow, QWidget, QHBoxLayout, QVBoxLayout,
-    QStatusBar, QMenuBar, QMenu, QFileDialog, QMessageBox,
-    QLabel, QStackedWidget, QSplitter, QToolBar, QApplication,
+    QApplication,
+    QFileDialog,
+    QHBoxLayout,
     QLineEdit,
+    QMainWindow,
+    QMenu,
+    QMessageBox,
+    QSplitter,
+    QStackedWidget,
+    QToolBar,
+    QWidget,
 )
-from PySide6.QtCore import Qt, QSize, QMimeData, QTimer
-from PySide6.QtGui import QAction, QKeySequence, QDragEnterEvent, QDropEvent
 
 from config.settings import AppSettings
 from ui.sidebar import Sidebar
@@ -228,6 +235,7 @@ class MainWindow(QMainWindow):
 
     def _create_dashboard_view(self):
         from ui.widgets.dashboard import DashboardWidget
+
         dashboard = DashboardWidget(settings=self.settings)
         dashboard.module_requested.connect(self._on_module_selected)
         dashboard.open_file_requested.connect(self._on_open_recent)
@@ -235,26 +243,32 @@ class MainWindow(QMainWindow):
 
     def _create_can_view(self):
         from modules.can_builder.views.can_builder_view import CANBuilderView
+
         return CANBuilderView()
 
     def _create_swc_view(self):
         from modules.swc_designer.views.swc_designer_view import SWCDesignerView
+
         return SWCDesignerView()
 
     def _create_diag_view(self):
         from modules.diag_builder.views.diag_builder_view import DiagBuilderView
+
         return DiagBuilderView()
 
     def _create_calib_view(self):
         from modules.calib_manager.views.calib_manager_view import CalibManagerView
+
         return CalibManagerView()
 
     def _create_test_view(self):
         from modules.test_generator.views.test_generator_view import TestGeneratorView
+
         return TestGeneratorView()
 
     def _create_trace_view(self):
         from modules.trace_matrix.views.trace_matrix_view import TraceMatrixView
+
         return TraceMatrixView()
 
     def _create_status_bar(self):
@@ -275,9 +289,7 @@ class MainWindow(QMainWindow):
 
     def _on_open_project(self):
         """Open a project directory."""
-        dir_path = QFileDialog.getExistingDirectory(
-            self, "选择项目目录", self.settings.last_project_dir
-        )
+        dir_path = QFileDialog.getExistingDirectory(self, "选择项目目录", self.settings.last_project_dir)
         if dir_path:
             self.settings.last_project_dir = dir_path
             self._update_title()
@@ -298,23 +310,17 @@ class MainWindow(QMainWindow):
                 controller.save_dbc()
                 self.statusBar().showMessage("DBC 文件已保存", 3000)
             elif hasattr(controller, "export_arxml"):
-                path, _ = QFileDialog.getSaveFileName(
-                    self, "保存 ARXML", "", "ARXML 文件 (*.arxml)"
-                )
+                path, _ = QFileDialog.getSaveFileName(self, "保存 ARXML", "", "ARXML 文件 (*.arxml)")
                 if path:
                     controller.export_arxml(path)
                     self.statusBar().showMessage(f"已保存: {path}", 3000)
             elif hasattr(controller, "export_json"):
-                path, _ = QFileDialog.getSaveFileName(
-                    self, "保存 JSON", "", "JSON 文件 (*.json)"
-                )
+                path, _ = QFileDialog.getSaveFileName(self, "保存 JSON", "", "JSON 文件 (*.json)")
                 if path:
                     controller.export_json(path)
                     self.statusBar().showMessage(f"已保存: {path}", 3000)
             elif hasattr(controller, "export_excel"):
-                path, _ = QFileDialog.getSaveFileName(
-                    self, "保存 Excel", "", "Excel 文件 (*.xlsx)"
-                )
+                path, _ = QFileDialog.getSaveFileName(self, "保存 Excel", "", "Excel 文件 (*.xlsx)")
                 if path:
                     controller.export_excel(path)
                     self.statusBar().showMessage(f"已保存: {path}", 3000)
@@ -340,15 +346,11 @@ class MainWindow(QMainWindow):
                 if errors == 0 and warnings == 0:
                     self.statusBar().showMessage(f"校验通过 ({info} 条提示)", 3000)
                 else:
-                    self.statusBar().showMessage(
-                        f"校验完成: {errors} 个错误, {warnings} 个警告, {info} 条提示", 5000
-                    )
+                    self.statusBar().showMessage(f"校验完成: {errors} 个错误, {warnings} 个警告, {info} 条提示", 5000)
             elif isinstance(result, list) and len(result) > 0 and isinstance(result[0], dict):
                 errors = sum(1 for r in result if r.get("type") == "error")
                 warnings = sum(1 for r in result if r.get("type") == "warning")
-                self.statusBar().showMessage(
-                    f"校验完成: {errors} 个错误, {warnings} 个警告", 5000
-                )
+                self.statusBar().showMessage(f"校验完成: {errors} 个错误, {warnings} 个警告", 5000)
             elif isinstance(result, list):
                 self.statusBar().showMessage("校验通过，无错误和警告", 3000)
             elif isinstance(result, dict):
@@ -357,9 +359,7 @@ class MainWindow(QMainWindow):
                 if errors == 0 and warnings == 0:
                     self.statusBar().showMessage("校验通过，无错误和警告", 3000)
                 else:
-                    self.statusBar().showMessage(
-                        f"校验完成: {errors} 个错误, {warnings} 个警告", 5000
-                    )
+                    self.statusBar().showMessage(f"校验完成: {errors} 个错误, {warnings} 个警告", 5000)
             else:
                 self.statusBar().showMessage(f"校验完成: {result}", 5000)
         except Exception as e:
@@ -376,37 +376,27 @@ class MainWindow(QMainWindow):
         try:
             if hasattr(controller, "generate_code"):
                 # CAN Builder: generate C code
-                output_dir = QFileDialog.getExistingDirectory(
-                    self, "选择代码输出目录"
-                )
+                output_dir = QFileDialog.getExistingDirectory(self, "选择代码输出目录")
                 if output_dir:
                     controller.generate_code(output_dir)
                     self.statusBar().showMessage(f"代码已生成到: {output_dir}", 5000)
             elif hasattr(controller, "export_arxml"):
-                path, _ = QFileDialog.getSaveFileName(
-                    self, "导出 ARXML", "", "ARXML 文件 (*.arxml)"
-                )
+                path, _ = QFileDialog.getSaveFileName(self, "导出 ARXML", "", "ARXML 文件 (*.arxml)")
                 if path:
                     controller.export_arxml(path)
                     self.statusBar().showMessage(f"已导出: {path}", 5000)
             elif hasattr(controller, "export_json"):
-                path, _ = QFileDialog.getSaveFileName(
-                    self, "导出 JSON", "", "JSON 文件 (*.json)"
-                )
+                path, _ = QFileDialog.getSaveFileName(self, "导出 JSON", "", "JSON 文件 (*.json)")
                 if path:
                     controller.export_json(path)
                     self.statusBar().showMessage(f"已导出: {path}", 5000)
             elif hasattr(controller, "export_excel"):
-                path, _ = QFileDialog.getSaveFileName(
-                    self, "导出 Excel", "", "Excel 文件 (*.xlsx)"
-                )
+                path, _ = QFileDialog.getSaveFileName(self, "导出 Excel", "", "Excel 文件 (*.xlsx)")
                 if path:
                     controller.export_excel(path)
                     self.statusBar().showMessage(f"已导出: {path}", 5000)
             elif hasattr(controller, "export_a2l"):
-                path, _ = QFileDialog.getSaveFileName(
-                    self, "导出 A2L", "", "A2L 文件 (*.a2l)"
-                )
+                path, _ = QFileDialog.getSaveFileName(self, "导出 A2L", "", "A2L 文件 (*.a2l)")
                 if path:
                     controller.export_a2l(path)
                     self.statusBar().showMessage(f"已导出: {path}", 5000)
@@ -451,9 +441,9 @@ class MainWindow(QMainWindow):
             return
 
         # Show menu at the export button position
-        action = menu.exec(self._export_btn.parentWidget().mapToGlobal(
-            self._export_btn.parentWidget().rect().bottomLeft()
-        ))
+        action = menu.exec(
+            self._export_btn.parentWidget().mapToGlobal(self._export_btn.parentWidget().rect().bottomLeft())
+        )
         if action is None:
             return
 
@@ -463,19 +453,13 @@ class MainWindow(QMainWindow):
                 try:
                     if method_name == "generate_code":
                         # Code generation uses a directory chooser
-                        output_dir = QFileDialog.getExistingDirectory(
-                            self, f"选择 {label} 输出目录"
-                        )
+                        output_dir = QFileDialog.getExistingDirectory(self, f"选择 {label} 输出目录")
                         if output_dir:
                             getattr(controller, method_name)(output_dir)
-                            self.statusBar().showMessage(
-                                f"{label} 已导出到: {output_dir}", 5000
-                            )
+                            self.statusBar().showMessage(f"{label} 已导出到: {output_dir}", 5000)
                     else:
                         # File export uses a save file dialog
-                        path, _ = QFileDialog.getSaveFileName(
-                            self, f"导出 {label}", "", filter_str
-                        )
+                        path, _ = QFileDialog.getSaveFileName(self, f"导出 {label}", "", filter_str)
                         if path:
                             getattr(controller, method_name)(path)
                             self.statusBar().showMessage(f"已导出: {path}", 5000)
@@ -534,8 +518,12 @@ class MainWindow(QMainWindow):
         """Load a file into the appropriate module view."""
         ext = Path(file_path).suffix.lower()
         ext_module_map = {
-            ".dbc": 0, ".arxml": 1,
-            ".odx": 2, ".odx-d": 2, ".odx-c": 2, ".cdd": 2,
+            ".dbc": 0,
+            ".arxml": 1,
+            ".odx": 2,
+            ".odx-d": 2,
+            ".odx-c": 2,
+            ".cdd": 2,
             ".a2l": 3,
         }
         module_index = ext_module_map.get(ext)

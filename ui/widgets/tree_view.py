@@ -1,10 +1,15 @@
 """Tree view widget with filtering support."""
 
+from PySide6.QtCore import QSortFilterProxyModel, Qt, Signal
+from PySide6.QtGui import QStandardItem, QStandardItemModel
 from PySide6.QtWidgets import (
-    QWidget, QVBoxLayout, QHBoxLayout, QTreeView, QLineEdit, QPushButton,
+    QHBoxLayout,
+    QLineEdit,
+    QPushButton,
+    QTreeView,
+    QVBoxLayout,
+    QWidget,
 )
-from PySide6.QtCore import Qt, Signal, QSortFilterProxyModel
-from PySide6.QtGui import QStandardItemModel, QStandardItem
 
 
 class FilterProxyModel(QSortFilterProxyModel):

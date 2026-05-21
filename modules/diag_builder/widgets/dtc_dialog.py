@@ -3,11 +3,20 @@
 from __future__ import annotations
 
 from PySide6.QtWidgets import (
-    QDialog, QVBoxLayout, QFormLayout, QLineEdit, QComboBox,
-    QDialogButtonBox, QSpinBox, QCheckBox, QLabel,
-    QHBoxLayout, QListWidget, QPushButton, QMessageBox,
+    QCheckBox,
+    QComboBox,
+    QDialog,
+    QDialogButtonBox,
+    QFormLayout,
+    QHBoxLayout,
+    QLabel,
+    QLineEdit,
+    QListWidget,
+    QMessageBox,
+    QPushButton,
+    QSpinBox,
+    QVBoxLayout,
 )
-from PySide6.QtCore import Qt
 
 
 class DTCDialog(QDialog):
@@ -117,10 +126,7 @@ class DTCDialog(QDialog):
         self.accept()
 
     def get_data(self) -> dict:
-        snapshots = [
-            self.snapshot_list.item(i).text()
-            for i in range(self.snapshot_list.count())
-        ]
+        snapshots = [self.snapshot_list.item(i).text() for i in range(self.snapshot_list.count())]
         return {
             "dtc_code": self.code_input.text().strip(),
             "description": self.desc_input.text().strip(),

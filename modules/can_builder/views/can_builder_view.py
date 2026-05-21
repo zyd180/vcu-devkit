@@ -4,36 +4,61 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from PySide6.QtCore import Qt
+from PySide6.QtGui import QAction
 from PySide6.QtWidgets import (
-    QWidget, QVBoxLayout, QHBoxLayout, QSplitter,
-    QPushButton, QFileDialog, QLabel, QToolBar, QMessageBox,
-    QCheckBox, QGroupBox, QFormLayout, QLineEdit, QComboBox,
-    QSpinBox, QDoubleSpinBox, QHeaderView, QAbstractItemView,
-    QTableView, QStatusBar,
+    QAbstractItemView,
+    QFileDialog,
+    QHBoxLayout,
+    QHeaderView,
+    QLabel,
+    QMessageBox,
+    QSplitter,
+    QStatusBar,
+    QTableView,
+    QToolBar,
+    QVBoxLayout,
+    QWidget,
 )
-from PySide6.QtCore import Qt, Signal, QAbstractTableModel, QModelIndex
-from PySide6.QtGui import QColor, QFont, QAction
 
-from modules.can_builder.controller import CANBuilderController
-from ui.widgets.tree_view import TreeView
-from ui.widgets.table_editor import DataTableModel
-from ui.widgets.property_panel import PropertyPanel
-from ui.widgets.file_worker import FileWorker
-from ui.widgets.signal_bitmap import SignalBitmapWidget
-from ui.icons import icon_open, icon_save, icon_diff, icon_validate, icon_generate, icon_add
 from core.commands.command import CommandHistory, UpdateFieldCommand
+from modules.can_builder.controller import CANBuilderController
+from ui.icons import icon_add, icon_diff, icon_generate, icon_open, icon_save, icon_validate
+from ui.widgets.file_worker import FileWorker
+from ui.widgets.property_panel import PropertyPanel
+from ui.widgets.signal_bitmap import SignalBitmapWidget
+from ui.widgets.table_editor import DataTableModel
+from ui.widgets.tree_view import TreeView
 
 
 class SignalTableModel(DataTableModel):
     """Table model for CAN signals."""
 
     HEADERS = [
-        "信号名", "起始位", "位长", "字节序", "值类型",
-        "Factor", "Offset", "最小值", "最大值", "单位", "接收方",
+        "信号名",
+        "起始位",
+        "位长",
+        "字节序",
+        "值类型",
+        "Factor",
+        "Offset",
+        "最小值",
+        "最大值",
+        "单位",
+        "接收方",
     ]
     KEYS = [
-        "name", "start_bit", "bit_length", "byte_order", "value_type",
-        "factor", "offset", "minimum", "maximum", "unit", "receivers",
+        "name",
+        "start_bit",
+        "bit_length",
+        "byte_order",
+        "value_type",
+        "factor",
+        "offset",
+        "minimum",
+        "maximum",
+        "unit",
+        "receivers",
     ]
 
     def __init__(self, parent=None):
@@ -162,9 +187,7 @@ class CANBuilderView(QWidget):
     # ── Slots ────────────────────────────────────────────────────────────
 
     def _on_open_dbc(self):
-        path, _ = QFileDialog.getOpenFileName(
-            self, "打开DBC文件", "", "DBC文件 (*.dbc);;所有文件 (*)"
-        )
+        path, _ = QFileDialog.getOpenFileName(self, "打开DBC文件", "", "DBC文件 (*.dbc);;所有文件 (*)")
         if not path:
             return
         self.load_file(path)
@@ -197,9 +220,7 @@ class CANBuilderView(QWidget):
     def _on_save(self):
         if self.controller.current_dbc is None:
             return
-        path, selected_filter = QFileDialog.getSaveFileName(
-            self, "保存DBC", "", "DBC文件 (*.dbc);;JSON快照 (*.json)"
-        )
+        path, selected_filter = QFileDialog.getSaveFileName(self, "保存DBC", "", "DBC文件 (*.dbc);;JSON快照 (*.json)")
         if not path:
             return
         target = Path(path)
@@ -220,9 +241,7 @@ class CANBuilderView(QWidget):
         if self.controller.current_dbc is None:
             QMessageBox.information(self, "提示", "请先加载DBC文件")
             return
-        path, _ = QFileDialog.getOpenFileName(
-            self, "选择要对比的DBC文件", "", "DBC文件 (*.dbc);;所有文件 (*)"
-        )
+        path, _ = QFileDialog.getOpenFileName(self, "选择要对比的DBC文件", "", "DBC文件 (*.dbc);;所有文件 (*)")
         if not path:
             return
         diff = self.controller.compare_with(Path(path))
@@ -249,7 +268,10 @@ class CANBuilderView(QWidget):
             QMessageBox.information(self, "提示", "请先加载DBC文件")
             return
         from modules.can_builder.widgets.generate_dialog import GenerateDialog
-        dialog = GenerateDialog(self, current_dir=str(self.controller.current_path.parent) if self.controller.current_path else "")
+
+        dialog = GenerateDialog(
+            self, current_dir=str(self.controller.current_path.parent) if self.controller.current_path else ""
+        )
         if dialog.exec() != GenerateDialog.Accepted:
             return
         config = dialog.get_config()
@@ -266,6 +288,7 @@ class CANBuilderView(QWidget):
         # CAPL
         if config.generate_capl:
             from core.generators.capl_generator import CAPLGenerator
+
             capl_gen = CAPLGenerator()
             result = capl_gen.generate(self.controller.current_dbc, output_dir)
             if result.success:
@@ -293,6 +316,7 @@ class CANBuilderView(QWidget):
                 signal_names.append(name)
 
         from modules.can_builder.widgets.batch_edit_dialog import BatchEditDialog
+
         dialog = BatchEditDialog(signal_names, self)
         if dialog.exec() == BatchEditDialog.Accepted:
             changes = dialog.get_changes()
@@ -391,7 +415,6 @@ class CANBuilderView(QWidget):
         for sender, messages in sorted(sender_groups.items()):
             parent = self.msg_tree.add_top_level_item(f"{sender} ({len(messages)})")
             for msg in messages:
-                label = f"0x{msg.id:03X} {msg.name} [{len(msg.signals)}]"
                 self.msg_tree.add_child_item(parent, msg.name)
         self.msg_tree.tree.expandAll()
 
@@ -399,19 +422,21 @@ class CANBuilderView(QWidget):
         signals = self.controller.get_signals_for_message(msg_name)
         rows = []
         for sig in signals:
-            rows.append({
-                "name": sig.name,
-                "start_bit": sig.start_bit,
-                "bit_length": sig.bit_length,
-                "byte_order": sig.byte_order,
-                "value_type": sig.value_type,
-                "factor": sig.factor,
-                "offset": sig.offset,
-                "minimum": sig.minimum,
-                "maximum": sig.maximum,
-                "unit": sig.unit,
-                "receivers": ", ".join(sig.receivers),
-            })
+            rows.append(
+                {
+                    "name": sig.name,
+                    "start_bit": sig.start_bit,
+                    "bit_length": sig.bit_length,
+                    "byte_order": sig.byte_order,
+                    "value_type": sig.value_type,
+                    "factor": sig.factor,
+                    "offset": sig.offset,
+                    "minimum": sig.minimum,
+                    "maximum": sig.maximum,
+                    "unit": sig.unit,
+                    "receivers": ", ".join(sig.receivers),
+                }
+            )
         self.signal_model.load_data(rows)
         # Update bitmap
         msg = self.controller.get_message_by_name(msg_name)
@@ -440,20 +465,72 @@ class CANBuilderView(QWidget):
             f"{msg_name}.{sig_name}",
             [
                 {"name": "name", "label": "信号名", "type": "text", "value": props["name"]},
-                {"name": "start_bit", "label": "起始位", "type": "int", "value": props["start_bit"], "min": 0, "max": 511},
-                {"name": "bit_length", "label": "位长", "type": "int", "value": props["bit_length"], "min": 1, "max": 64},
-                {"name": "byte_order", "label": "字节序", "type": "combo", "value": props["byte_order"],
-                 "options": ["little_endian", "big_endian"]},
-                {"name": "value_type", "label": "值类型", "type": "combo", "value": props["value_type"],
-                 "options": ["unsigned", "signed"]},
-                {"name": "factor", "label": "Factor", "type": "float", "value": props["factor"],
-                 "min": -1e6, "max": 1e6, "decimals": 6},
-                {"name": "offset", "label": "Offset", "type": "float", "value": props["offset"],
-                 "min": -1e6, "max": 1e6, "decimals": 6},
-                {"name": "minimum", "label": "最小值", "type": "float", "value": props["minimum"],
-                 "min": -1e6, "max": 1e6, "decimals": 6},
-                {"name": "maximum", "label": "最大值", "type": "float", "value": props["maximum"],
-                 "min": -1e6, "max": 1e6, "decimals": 6},
+                {
+                    "name": "start_bit",
+                    "label": "起始位",
+                    "type": "int",
+                    "value": props["start_bit"],
+                    "min": 0,
+                    "max": 511,
+                },
+                {
+                    "name": "bit_length",
+                    "label": "位长",
+                    "type": "int",
+                    "value": props["bit_length"],
+                    "min": 1,
+                    "max": 64,
+                },
+                {
+                    "name": "byte_order",
+                    "label": "字节序",
+                    "type": "combo",
+                    "value": props["byte_order"],
+                    "options": ["little_endian", "big_endian"],
+                },
+                {
+                    "name": "value_type",
+                    "label": "值类型",
+                    "type": "combo",
+                    "value": props["value_type"],
+                    "options": ["unsigned", "signed"],
+                },
+                {
+                    "name": "factor",
+                    "label": "Factor",
+                    "type": "float",
+                    "value": props["factor"],
+                    "min": -1e6,
+                    "max": 1e6,
+                    "decimals": 6,
+                },
+                {
+                    "name": "offset",
+                    "label": "Offset",
+                    "type": "float",
+                    "value": props["offset"],
+                    "min": -1e6,
+                    "max": 1e6,
+                    "decimals": 6,
+                },
+                {
+                    "name": "minimum",
+                    "label": "最小值",
+                    "type": "float",
+                    "value": props["minimum"],
+                    "min": -1e6,
+                    "max": 1e6,
+                    "decimals": 6,
+                },
+                {
+                    "name": "maximum",
+                    "label": "最大值",
+                    "type": "float",
+                    "value": props["maximum"],
+                    "min": -1e6,
+                    "max": 1e6,
+                    "decimals": 6,
+                },
                 {"name": "unit", "label": "单位", "type": "text", "value": props["unit"]},
                 {"name": "comment", "label": "备注", "type": "text", "value": props["comment"]},
                 {"name": "receivers", "label": "接收方", "type": "text", "value": props["receivers"]},
@@ -462,8 +539,9 @@ class CANBuilderView(QWidget):
 
     def _show_diff_result(self, diff):
         """Display diff results in a dialog."""
-        from ui.widgets.diff_viewer import DiffViewer
         from PySide6.QtWidgets import QDialog, QVBoxLayout
+
+        from ui.widgets.diff_viewer import DiffViewer
 
         dialog = QDialog(self)
         dialog.setWindowTitle("DBC版本对比")

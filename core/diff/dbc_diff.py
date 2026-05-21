@@ -20,6 +20,7 @@ class DiffType(Enum):
 @dataclass
 class SignalDiff:
     """Diff result for a single signal."""
+
     signal_name: str
     diff_type: DiffType
     changes: dict[str, tuple[Any, Any]] = field(default_factory=dict)
@@ -29,6 +30,7 @@ class SignalDiff:
 @dataclass
 class MessageDiff:
     """Diff result for a single message."""
+
     message_name: str
     diff_type: DiffType
     id: int = 0
@@ -39,6 +41,7 @@ class MessageDiff:
 @dataclass
 class DBCDiffResult:
     """Complete DBC diff result."""
+
     old_version: str
     new_version: str
     message_diffs: list[MessageDiff] = field(default_factory=list)
@@ -50,8 +53,16 @@ class DBCDiffResult:
 # ── Fields to compare on signals ─────────────────────────────────────────────
 
 SIGNAL_COMPARE_FIELDS = [
-    "start_bit", "bit_length", "byte_order", "value_type",
-    "factor", "offset", "minimum", "maximum", "unit", "comment",
+    "start_bit",
+    "bit_length",
+    "byte_order",
+    "value_type",
+    "factor",
+    "offset",
+    "minimum",
+    "maximum",
+    "unit",
+    "comment",
 ]
 
 
@@ -82,12 +93,14 @@ class DBCDiffEngine:
                     )
                     for s in new_msg.signals
                 ]
-                message_diffs.append(MessageDiff(
-                    message_name=name,
-                    diff_type=DiffType.ADDED,
-                    id=new_msg.id,
-                    signal_diffs=sdiffs,
-                ))
+                message_diffs.append(
+                    MessageDiff(
+                        message_name=name,
+                        diff_type=DiffType.ADDED,
+                        id=new_msg.id,
+                        signal_diffs=sdiffs,
+                    )
+                )
             elif old_msg is not None and new_msg is None:
                 # Entire message removed
                 removed_messages.append(name)
@@ -99,25 +112,29 @@ class DBCDiffEngine:
                     )
                     for s in old_msg.signals
                 ]
-                message_diffs.append(MessageDiff(
-                    message_name=name,
-                    diff_type=DiffType.REMOVED,
-                    id=old_msg.id,
-                    signal_diffs=sdiffs,
-                ))
+                message_diffs.append(
+                    MessageDiff(
+                        message_name=name,
+                        diff_type=DiffType.REMOVED,
+                        id=old_msg.id,
+                        signal_diffs=sdiffs,
+                    )
+                )
             else:
                 # Both exist — compare signals
                 sd = self._compare_signals(old_msg, new_msg)
                 msg_changes = self._compare_message_fields(old_msg, new_msg)
                 diff_type = DiffType.MODIFIED if sd or msg_changes else DiffType.UNCHANGED
                 if diff_type != DiffType.UNCHANGED:
-                    message_diffs.append(MessageDiff(
-                        message_name=name,
-                        diff_type=diff_type,
-                        id=new_msg.id,
-                        signal_diffs=sd,
-                        changes=msg_changes,
-                    ))
+                    message_diffs.append(
+                        MessageDiff(
+                            message_name=name,
+                            diff_type=diff_type,
+                            id=new_msg.id,
+                            signal_diffs=sd,
+                            changes=msg_changes,
+                        )
+                    )
 
         added_count = sum(1 for md in message_diffs if md.diff_type == DiffType.ADDED)
         removed_count = sum(1 for md in message_diffs if md.diff_type == DiffType.REMOVED)
@@ -153,26 +170,32 @@ class DBCDiffEngine:
             new_sig = new_sigs.get(name)
 
             if old_sig is None and new_sig is not None:
-                result.append(SignalDiff(
-                    signal_name=name,
-                    diff_type=DiffType.ADDED,
-                    message_name=new_msg.name,
-                ))
+                result.append(
+                    SignalDiff(
+                        signal_name=name,
+                        diff_type=DiffType.ADDED,
+                        message_name=new_msg.name,
+                    )
+                )
             elif old_sig is not None and new_sig is None:
-                result.append(SignalDiff(
-                    signal_name=name,
-                    diff_type=DiffType.REMOVED,
-                    message_name=old_msg.name,
-                ))
+                result.append(
+                    SignalDiff(
+                        signal_name=name,
+                        diff_type=DiffType.REMOVED,
+                        message_name=old_msg.name,
+                    )
+                )
             else:
                 changes = self._compare_signal_fields(old_sig, new_sig)
                 if changes:
-                    result.append(SignalDiff(
-                        signal_name=name,
-                        diff_type=DiffType.MODIFIED,
-                        changes=changes,
-                        message_name=new_msg.name,
-                    ))
+                    result.append(
+                        SignalDiff(
+                            signal_name=name,
+                            diff_type=DiffType.MODIFIED,
+                            changes=changes,
+                            message_name=new_msg.name,
+                        )
+                    )
 
         return result
 
@@ -206,18 +229,18 @@ class DBCDiffEngine:
     def generate_text_report(self, diff: DBCDiffResult) -> str:
         """Generate a human-readable text diff report."""
         lines = [
-            f"DBC Diff Report",
+            "DBC Diff Report",
             f"Old: {diff.old_version}",
             f"New: {diff.new_version}",
-            f"",
-            f"Summary:",
+            "",
+            "Summary:",
             f"  Messages added:    {diff.summary.get('messages_added', 0)}",
             f"  Messages removed:  {diff.summary.get('messages_removed', 0)}",
             f"  Messages modified: {diff.summary.get('messages_modified', 0)}",
             f"  Signals added:     {diff.summary.get('signals_added', 0)}",
             f"  Signals removed:   {diff.summary.get('signals_removed', 0)}",
             f"  Signals modified:  {diff.summary.get('signals_modified', 0)}",
-            f"",
+            "",
         ]
 
         for md in diff.message_diffs:
@@ -234,7 +257,7 @@ class DBCDiffEngine:
     def export_excel_report(self, diff: DBCDiffResult, output_path: Path):
         """Export diff report to Excel."""
         from openpyxl import Workbook
-        from openpyxl.styles import PatternFill, Font
+        from openpyxl.styles import Font, PatternFill
 
         wb = Workbook()
         ws = wb.active
@@ -263,7 +286,9 @@ class DBCDiffEngine:
                             ws.cell(row=row, column=5, value=field_name)
                             ws.cell(row=row, column=6, value=str(old))
                             ws.cell(row=row, column=7, value=str(new))
-                            fill = {"added": green_fill, "removed": red_fill, "modified": yellow_fill}.get(sd.diff_type.value)
+                            fill = {"added": green_fill, "removed": red_fill, "modified": yellow_fill}.get(
+                                sd.diff_type.value
+                            )
                             if fill:
                                 for c in range(1, 8):
                                     ws.cell(row=row, column=c).fill = fill

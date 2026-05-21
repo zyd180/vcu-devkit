@@ -1,12 +1,13 @@
 """Controller integration tests — covers data access, edit, save, export paths."""
 
-import pytest
 from pathlib import Path
 
-from core.parsers.dbc_parser import DBCData, MessageDef, SignalDef, DBCParser
+import pytest
 
+from core.parsers.dbc_parser import DBCParser, SignalDef
 
 # ── Helper to build DBCData from sample ──────────────────────────────────────
+
 
 @pytest.fixture
 def sample_dbc_data(sample_dbc_file):
@@ -18,6 +19,7 @@ def sample_dbc_data(sample_dbc_file):
 @pytest.fixture
 def can_ctrl(sample_dbc_file, sample_dbc_data):
     from modules.can_builder.controller import CANBuilderController
+
     ctrl = CANBuilderController()
     ctrl.current_dbc = sample_dbc_data
     ctrl.current_path = sample_dbc_file
@@ -27,12 +29,14 @@ def can_ctrl(sample_dbc_file, sample_dbc_data):
 @pytest.fixture
 def calib_ctrl(db_manager):
     from modules.calib_manager.controller import CalibManagerController
+
     return CalibManagerController(db_manager=db_manager)
 
 
 @pytest.fixture
 def test_gen_ctrl(sample_dbc_file, sample_dbc_data):
     from modules.test_generator.controller import TestGeneratorController
+
     ctrl = TestGeneratorController()
     ctrl.current_dbc = sample_dbc_data
     return ctrl
@@ -40,8 +44,8 @@ def test_gen_ctrl(sample_dbc_file, sample_dbc_data):
 
 # ── CAN Builder Controller ───────────────────────────────────────────────────
 
-class TestCANBuilderController:
 
+class TestCANBuilderController:
     def test_get_messages(self, can_ctrl):
         msgs = can_ctrl.get_messages()
         assert len(msgs) == 3
@@ -90,29 +94,59 @@ class TestCANBuilderController:
 
     def test_add_signal(self, can_ctrl):
         new_sig = SignalDef(
-            name="NewSignal", start_bit=32, bit_length=8,
-            byte_order="little_endian", value_type="unsigned",
-            factor=1.0, offset=0.0, minimum=0.0, maximum=255.0,
-            unit="", comment="", receivers=[], value_descriptions={}, mux=None,
+            name="NewSignal",
+            start_bit=32,
+            bit_length=8,
+            byte_order="little_endian",
+            value_type="unsigned",
+            factor=1.0,
+            offset=0.0,
+            minimum=0.0,
+            maximum=255.0,
+            unit="",
+            comment="",
+            receivers=[],
+            value_descriptions={},
+            mux=None,
         )
         assert can_ctrl.add_signal("VCU_Status", new_sig)
         assert can_ctrl.get_signal_as_dict("VCU_Status", "NewSignal") is not None
 
     def test_add_signal_duplicate_name(self, can_ctrl):
         dup = SignalDef(
-            name="VCU_PowerMode", start_bit=48, bit_length=8,
-            byte_order="little_endian", value_type="unsigned",
-            factor=1.0, offset=0.0, minimum=0.0, maximum=255.0,
-            unit="", comment="", receivers=[], value_descriptions={}, mux=None,
+            name="VCU_PowerMode",
+            start_bit=48,
+            bit_length=8,
+            byte_order="little_endian",
+            value_type="unsigned",
+            factor=1.0,
+            offset=0.0,
+            minimum=0.0,
+            maximum=255.0,
+            unit="",
+            comment="",
+            receivers=[],
+            value_descriptions={},
+            mux=None,
         )
         assert not can_ctrl.add_signal("VCU_Status", dup)
 
     def test_add_signal_missing_msg(self, can_ctrl):
         sig = SignalDef(
-            name="X", start_bit=0, bit_length=8, byte_order="little_endian",
-            value_type="unsigned", factor=1.0, offset=0.0, minimum=0.0,
-            maximum=255.0, unit="", comment="", receivers=[],
-            value_descriptions={}, mux=None,
+            name="X",
+            start_bit=0,
+            bit_length=8,
+            byte_order="little_endian",
+            value_type="unsigned",
+            factor=1.0,
+            offset=0.0,
+            minimum=0.0,
+            maximum=255.0,
+            unit="",
+            comment="",
+            receivers=[],
+            value_descriptions={},
+            mux=None,
         )
         assert not can_ctrl.add_signal("NonExistent", sig)
 
@@ -132,6 +166,7 @@ class TestCANBuilderController:
 
     def test_validate_no_data(self):
         from modules.can_builder.controller import CANBuilderController
+
         ctrl = CANBuilderController()
         assert ctrl.validate() == []
 
@@ -149,6 +184,7 @@ class TestCANBuilderController:
 
     def test_save_dbc_no_data(self):
         from modules.can_builder.controller import CANBuilderController
+
         ctrl = CANBuilderController()
         success, errors = ctrl.save_dbc(Path("x.dbc"))
         assert not success
@@ -167,6 +203,7 @@ class TestCANBuilderController:
 
     def test_save_json_snapshot_no_data(self):
         from modules.can_builder.controller import CANBuilderController
+
         ctrl = CANBuilderController()
         success, errors = ctrl.save_json_snapshot(Path("x.json"))
         assert not success
@@ -178,6 +215,7 @@ class TestCANBuilderController:
 
     def test_compare_with_no_data(self):
         from modules.can_builder.controller import CANBuilderController
+
         ctrl = CANBuilderController()
         assert ctrl.compare_with(Path("x.dbc")) is None
 
@@ -188,12 +226,14 @@ class TestCANBuilderController:
 
     def test_generate_code_no_data(self):
         from modules.can_builder.controller import CANBuilderController
+
         ctrl = CANBuilderController()
         success, errors = ctrl.generate_code(Path("x"))
         assert not success
 
     def test_load_dbc(self, sample_dbc_file):
         from modules.can_builder.controller import CANBuilderController
+
         ctrl = CANBuilderController()
         success, errors = ctrl.load_dbc(sample_dbc_file)
         assert success
@@ -201,6 +241,7 @@ class TestCANBuilderController:
 
     def test_load_dbc_nonexistent(self):
         from modules.can_builder.controller import CANBuilderController
+
         ctrl = CANBuilderController()
         success, errors = ctrl.load_dbc(Path("nonexistent.dbc"))
         assert not success
@@ -208,8 +249,8 @@ class TestCANBuilderController:
 
 # ── Calib Manager Controller ─────────────────────────────────────────────────
 
-class TestCalibManagerController:
 
+class TestCalibManagerController:
     def test_get_params_empty(self, calib_ctrl):
         params = calib_ctrl.get_params()
         assert params == []
@@ -257,8 +298,8 @@ class TestCalibManagerController:
 
 # ── Test Generator Controller ────────────────────────────────────────────────
 
-class TestTestGeneratorController:
 
+class TestTestGeneratorController:
     def test_get_test_cases_empty(self, test_gen_ctrl):
         assert test_gen_ctrl.get_test_cases() == []
 

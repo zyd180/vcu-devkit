@@ -2,27 +2,23 @@
 
 from __future__ import annotations
 
-import struct
-from pathlib import Path
-
-import pytest
-
+from core.generators.j1939_c_generator import J1939CodeGenerator
+from core.parsers.dbc_parser import DBCData, MessageDef
+from core.parsers.j1939_diag import J1939Diagnostics
 from core.parsers.j1939_parser import (
-    J1939Data, J1939DTC, J1939PGN, J1939SPN, J1939TPMessage,
-    J1939Parser, extract_pgn, is_pgn_in_range,
+    J1939PGN,
+    J1939SPN,
+    J1939Data,
+    extract_pgn,
+    is_pgn_in_range,
 )
 from core.parsers.j1939_tp import J1939TransportProtocol, TPControl
-from core.parsers.j1939_diag import J1939Diagnostics, DTCLamp
-from core.generators.j1939_c_generator import J1939CodeGenerator
-from core.rules.engine import RuleEngine, Severity
-from core.parsers.dbc_parser import DBCData, MessageDef, SignalDef
-
+from core.rules.engine import RuleEngine
 
 # ── PGN extraction tests ────────────────────────────────────────────────────
 
 
 class TestPGNExtraction:
-
     def test_pdu2_format(self):
         """PDU2: PF >= 240, PS is group extension, part of PGN."""
         # EEC1: PGN 0xF004, priority 6, SA 0x00
@@ -91,32 +87,41 @@ class TestPGNExtraction:
 
 
 class TestTransportProtocol:
-
     def _make_bam_cm(self, sa: int, total_length: int, max_packets: int, pgn: int) -> bytes:
         """Build a BAM TP.CM frame."""
-        return bytes([
-            TPControl.BAM,
-            total_length & 0xFF, (total_length >> 8) & 0xFF,
-            max_packets,
-            0xFF,  # reserved
-            pgn & 0xFF, (pgn >> 8) & 0xFF, (pgn >> 16) & 0xFF,
-        ])
+        return bytes(
+            [
+                TPControl.BAM,
+                total_length & 0xFF,
+                (total_length >> 8) & 0xFF,
+                max_packets,
+                0xFF,  # reserved
+                pgn & 0xFF,
+                (pgn >> 8) & 0xFF,
+                (pgn >> 16) & 0xFF,
+            ]
+        )
 
     def _make_rts(self, sa: int, total_length: int, max_packets: int, pgn: int) -> bytes:
         """Build an RTS TP.CM frame."""
-        return bytes([
-            TPControl.RTS,
-            total_length & 0xFF, (total_length >> 8) & 0xFF,
-            max_packets,
-            max_packets,  # max packets per CTS
-            pgn & 0xFF, (pgn >> 8) & 0xFF, (pgn >> 16) & 0xFF,
-        ])
+        return bytes(
+            [
+                TPControl.RTS,
+                total_length & 0xFF,
+                (total_length >> 8) & 0xFF,
+                max_packets,
+                max_packets,  # max packets per CTS
+                pgn & 0xFF,
+                (pgn >> 8) & 0xFF,
+                (pgn >> 16) & 0xFF,
+            ]
+        )
 
     def _make_dt(self, sa: int, seq: int, payload: bytes) -> bytes:
         """Build a TP.DT frame."""
         data = bytes([seq]) + payload
         # Pad to 8 bytes
-        return data.ljust(8, b'\xFF')
+        return data.ljust(8, b"\xff")
 
     def test_bam_single_transfer(self):
         """BAM: single multi-frame transfer completes after all packets."""
@@ -133,13 +138,13 @@ class TestTransportProtocol:
         assert result is None  # Not complete yet
 
         # Send TP.DT packet 1
-        dt1 = self._make_dt(sa, 1, b'\x01\x02\x03\x04\x05\x06\x07')
+        dt1 = self._make_dt(sa, 1, b"\x01\x02\x03\x04\x05\x06\x07")
         dt_id = (6 << 26) | (0xEB00 << 8) | sa
         result = tp.process_frame(dt_id, dt1)
         assert result is None
 
         # Send TP.DT packet 2
-        dt2 = self._make_dt(sa, 2, b'\x08\x09\x0A\x0B\x0C')
+        dt2 = self._make_dt(sa, 2, b"\x08\x09\x0a\x0b\x0c")
         result = tp.process_frame(dt_id, dt2)
         assert result is not None
         assert result.pgn == pgn
@@ -187,7 +192,7 @@ class TestTransportProtocol:
         tp = J1939TransportProtocol()
         # Regular message, not TP.CM or TP.DT
         can_id = (6 << 26) | (0xF004 << 8) | 0x00
-        result = tp.process_frame(can_id, b'\x00' * 8)
+        result = tp.process_frame(can_id, b"\x00" * 8)
         assert result is None
         assert tp.active_sessions == 0
 
@@ -195,11 +200,16 @@ class TestTransportProtocol:
         """Expired sessions are cleaned up."""
         tp = J1939TransportProtocol()
         # Manually add an expired session
-        from core.parsers.j1939_tp import _TPSession
         import time
+
+        from core.parsers.j1939_tp import _TPSession
+
         session = _TPSession(
-            pgn=0xF004, total_length=10, max_packets=2,
-            source_address=0x01, tp_type="BAM",
+            pgn=0xF004,
+            total_length=10,
+            max_packets=2,
+            source_address=0x01,
+            tp_type="BAM",
             last_activity=time.monotonic() - 10.0,
         )
         tp._sessions[(0xF004, 0x01)] = session
@@ -217,19 +227,18 @@ class TestTransportProtocol:
         dt_id = (6 << 26) | (0xEB00 << 8) | sa
 
         tp.process_frame(cm_id, self._make_bam_cm(sa, 14, 2, pgn))
-        tp.process_frame(dt_id, self._make_dt(sa, 1, b'\xAA' * 7))
+        tp.process_frame(dt_id, self._make_dt(sa, 1, b"\xaa" * 7))
         # Overwrite packet 1
-        tp.process_frame(dt_id, self._make_dt(sa, 1, b'\xBB' * 7))
-        result = tp.process_frame(dt_id, self._make_dt(sa, 2, b'\xCC' * 7))
+        tp.process_frame(dt_id, self._make_dt(sa, 1, b"\xbb" * 7))
+        result = tp.process_frame(dt_id, self._make_dt(sa, 2, b"\xcc" * 7))
         assert result is not None
-        assert result.data[:7] == b'\xBB' * 7
+        assert result.data[:7] == b"\xbb" * 7
 
 
 # ── DM1/DM2 diagnostic tests ───────────────────────────────────────────────
 
 
 class TestDiagnostics:
-
     def test_parse_single_dtc(self):
         """Parse a single DTC from DM1 payload."""
         diag = J1939Diagnostics()
@@ -275,7 +284,7 @@ class TestDiagnostics:
         """Empty DM1 returns no DTCs."""
         diag = J1939Diagnostics()
         assert diag.parse_dm1(b"") == []
-        assert diag.parse_dm1(b'\x00') == []
+        assert diag.parse_dm1(b"\x00") == []
 
     def test_lamp_status(self):
         """Extract lamp status from DM1 header."""
@@ -312,7 +321,7 @@ class TestDiagnostics:
         """Non-DM frames return None."""
         diag = J1939Diagnostics()
         can_id = (6 << 26) | (0xF004 << 8) | 0x00
-        result = diag.process_frame(can_id, b'\x00' * 8)
+        result = diag.process_frame(can_id, b"\x00" * 8)
         assert result is None
 
 
@@ -320,7 +329,6 @@ class TestDiagnostics:
 
 
 class TestJ1939CodeGenerator:
-
     def _make_j1939_data(self) -> J1939Data:
         return J1939Data(
             is_j1939=True,
@@ -335,8 +343,12 @@ class TestJ1939CodeGenerator:
             ],
             source_addresses={"ECU1": 0x00, "ECU2": 0x10},
             dbc_data=DBCData(
-                version="", messages=[], nodes=[],
-                value_tables={}, comments={}, attributes={},
+                version="",
+                messages=[],
+                nodes=[],
+                value_tables={},
+                comments={},
+                attributes={},
                 source_path="<test>",
             ),
         )
@@ -400,7 +412,6 @@ class TestJ1939CodeGenerator:
 
 
 class TestJ1939Rules:
-
     def _make_j1939_data(self) -> J1939Data:
         return J1939Data(
             is_j1939=True,
@@ -414,8 +425,12 @@ class TestJ1939Rules:
             ],
             source_addresses={"ECU1": 0x00, "ECU2": 0x00},  # Conflict!
             dbc_data=DBCData(
-                version="", messages=[], nodes=[],
-                value_tables={}, comments={}, attributes={},
+                version="",
+                messages=[],
+                nodes=[],
+                value_tables={},
+                comments={},
+                attributes={},
                 source_path="<test>",
             ),
         )
@@ -452,10 +467,14 @@ class TestJ1939Rules:
             spn_signals=[],
             source_addresses={},
             dbc_data=DBCData(
-                version="", messages=[
+                version="",
+                messages=[
                     MessageDef(id=0x18F00400, name="EEC1", dlc=6, signals=[], sender="ECU1", comment=""),
-                ], nodes=[],
-                value_tables={}, comments={}, attributes={},
+                ],
+                nodes=[],
+                value_tables={},
+                comments={},
+                attributes={},
                 source_path="<test>",
             ),
         )
@@ -472,10 +491,14 @@ class TestJ1939Rules:
             spn_signals=[J1939SPN(spn=190, name="EngineSpeed", pgn=0xF004)],
             source_addresses={"ECU1": 0x00},
             dbc_data=DBCData(
-                version="", messages=[
+                version="",
+                messages=[
                     MessageDef(id=0x18F00400, name="EEC1", dlc=8, signals=[], sender="ECU1", comment=""),
-                ], nodes=[],
-                value_tables={}, comments={}, attributes={},
+                ],
+                nodes=[],
+                value_tables={},
+                comments={},
+                attributes={},
                 source_path="<test>",
             ),
         )

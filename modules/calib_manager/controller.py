@@ -7,13 +7,13 @@ import logging
 import re
 from pathlib import Path
 
-from core.db.models import CalibrationParameter, CalibrationChange, CalibrationPage
-from core.db.manager import DatabaseManager
 from core.db.crud_mixin import CRUDMixin
-from core.parsers.a2l_parser import A2LParser, A2LData, a2l_data_to_dict
-from core.parsers.dcm_parser import DCMParser, DCMData
+from core.db.manager import DatabaseManager
+from core.db.models import CalibrationChange, CalibrationPage, CalibrationParameter
 from core.generators.a2l_generator import A2LGenerator
 from core.generators.dcm_generator import DCMGenerator
+from core.parsers.a2l_parser import A2LData, A2LParser
+from core.parsers.dcm_parser import DCMData, DCMParser
 
 logger = logging.getLogger(__name__)
 
@@ -50,8 +50,9 @@ class CalibManagerController(CRUDMixin):
         # Collect existing names for current page in one query
         existing_names = set(
             row.name
-            for row in CalibrationParameter.select(CalibrationParameter.name)
-            .where(CalibrationParameter.calibration_page == self.current_page)
+            for row in CalibrationParameter.select(CalibrationParameter.name).where(
+                CalibrationParameter.calibration_page == self.current_page
+            )
         )
 
         rows = []
@@ -61,24 +62,26 @@ class CalibManagerController(CRUDMixin):
                 skipped += 1
                 continue
             existing_names.add(char.name)
-            rows.append({
-                "name": char.name,
-                "calibration_page": self.current_page,
-                "data_type": char.type,
-                "default_value": char.lower_limit,
-                "min_value": char.lower_limit,
-                "max_value": char.upper_limit,
-                "unit": char.unit,
-                "description": char.description or char.long_identifier,
-                "source": "a2l",
-                "source_file": self.current_a2l.source_path,
-            })
+            rows.append(
+                {
+                    "name": char.name,
+                    "calibration_page": self.current_page,
+                    "data_type": char.type,
+                    "default_value": char.lower_limit,
+                    "min_value": char.lower_limit,
+                    "max_value": char.upper_limit,
+                    "unit": char.unit,
+                    "description": char.description or char.long_identifier,
+                    "source": "a2l",
+                    "source_file": self.current_a2l.source_path,
+                }
+            )
 
         # Batch insert
         if rows:
             batch_size = 500
             for i in range(0, len(rows), batch_size):
-                CalibrationParameter.insert_many(rows[i:i + batch_size]).execute()
+                CalibrationParameter.insert_many(rows[i : i + batch_size]).execute()
 
         return len(rows), skipped
 
@@ -106,9 +109,7 @@ class CalibManagerController(CRUDMixin):
 
         # Build name→param lookup for current page
         db_params: dict[str, CalibrationParameter] = {}
-        for p in CalibrationParameter.select().where(
-            CalibrationParameter.calibration_page == self.current_page
-        ):
+        for p in CalibrationParameter.select().where(CalibrationParameter.calibration_page == self.current_page):
             db_params[p.name] = p
 
         matched = updated = not_found = 0
@@ -143,8 +144,9 @@ class CalibManagerController(CRUDMixin):
 
         existing_names = set(
             row.name
-            for row in CalibrationParameter.select(CalibrationParameter.name)
-            .where(CalibrationParameter.calibration_page == self.current_page)
+            for row in CalibrationParameter.select(CalibrationParameter.name).where(
+                CalibrationParameter.calibration_page == self.current_page
+            )
         )
 
         rows = []
@@ -154,23 +156,25 @@ class CalibManagerController(CRUDMixin):
                 skipped += 1
                 continue
             existing_names.add(char.name)
-            rows.append({
-                "name": char.name,
-                "calibration_page": self.current_page,
-                "data_type": "VALUE",
-                "default_value": char.value if char.value is not None else 0.0,
-                "min_value": char.lower_limit,
-                "max_value": char.upper_limit,
-                "unit": char.unit,
-                "description": char.description or char.name,
-                "source": "dcm",
-                "source_file": self.current_dcm.source_path,
-            })
+            rows.append(
+                {
+                    "name": char.name,
+                    "calibration_page": self.current_page,
+                    "data_type": "VALUE",
+                    "default_value": char.value if char.value is not None else 0.0,
+                    "min_value": char.lower_limit,
+                    "max_value": char.upper_limit,
+                    "unit": char.unit,
+                    "description": char.description or char.name,
+                    "source": "dcm",
+                    "source_file": self.current_dcm.source_path,
+                }
+            )
 
         if rows:
             batch_size = 500
             for i in range(0, len(rows), batch_size):
-                CalibrationParameter.insert_many(rows[i:i + batch_size]).execute()
+                CalibrationParameter.insert_many(rows[i : i + batch_size]).execute()
 
         return len(rows), skipped
 
@@ -220,11 +224,7 @@ class CalibManagerController(CRUDMixin):
         """Delete a calibration page and all its parameters."""
         if name == "default":
             return False, "不能删除 default 页面"
-        count = (
-            CalibrationParameter.delete()
-            .where(CalibrationParameter.calibration_page == name)
-            .execute()
-        )
+        count = CalibrationParameter.delete().where(CalibrationParameter.calibration_page == name).execute()
         CalibrationPage.delete().where(CalibrationPage.name == name).execute()
         if self.current_page == name:
             self.current_page = "default"
@@ -246,9 +246,7 @@ class CalibManagerController(CRUDMixin):
     # ── Parameter CRUD ─────────────────────────────────────────────────────
 
     def get_params(self, group: str | None = None) -> list[CalibrationParameter]:
-        query = CalibrationParameter.select().where(
-            CalibrationParameter.calibration_page == self.current_page
-        )
+        query = CalibrationParameter.select().where(CalibrationParameter.calibration_page == self.current_page)
         if group:
             query = query.where(CalibrationParameter.group_name == group)
         return list(query)
@@ -256,8 +254,7 @@ class CalibManagerController(CRUDMixin):
     def get_param_by_name(self, name: str) -> CalibrationParameter | None:
         try:
             return CalibrationParameter.get(
-                (CalibrationParameter.name == name)
-                & (CalibrationParameter.calibration_page == self.current_page)
+                (CalibrationParameter.name == name) & (CalibrationParameter.calibration_page == self.current_page)
             )
         except CalibrationParameter.DoesNotExist:
             return None
@@ -338,10 +335,7 @@ class CalibManagerController(CRUDMixin):
         return list(
             CalibrationParameter.select().where(
                 (CalibrationParameter.calibration_page == self.current_page)
-                & (
-                    (CalibrationParameter.name ** keyword_lower)
-                    | (CalibrationParameter.description ** keyword_lower)
-                )
+                & ((CalibrationParameter.name**keyword_lower) | (CalibrationParameter.description**keyword_lower))
             )
         )
 
@@ -364,15 +358,11 @@ class CalibManagerController(CRUDMixin):
         try:
             data = {
                 "page": self.current_page,
-                "parameters": [
-                    self.get_param_as_dict(p.id) for p in self.get_params()
-                ],
+                "parameters": [self.get_param_as_dict(p.id) for p in self.get_params()],
                 "groups": self.get_groups(),
                 "swcs": self.get_swcs(),
             }
-            output_path.write_text(
-                json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8"
-            )
+            output_path.write_text(json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8")
             return True, []
         except Exception as exc:
             return False, [str(exc)]
@@ -380,7 +370,7 @@ class CalibManagerController(CRUDMixin):
     def export_a2l_summary(self, output_path: Path) -> tuple[bool, list[str]]:
         """Export a simplified A2L-like text summary."""
         try:
-            lines = ["* Calibration Parameter Summary", f"* Generated by VCU DevKit", ""]
+            lines = ["* Calibration Parameter Summary", "* Generated by VCU DevKit", ""]
             for group_name, params in sorted(self.get_params_by_group().items()):
                 lines.append(f"/* Group: {group_name} ({len(params)} params) */")
                 for p in params:
@@ -459,7 +449,7 @@ class CalibManagerController(CRUDMixin):
 
         # Replace each CHARACTERISTIC block
         block_re = re.compile(
-            r'(/begin\s+CHARACTERISTIC\s+)(.*?)(/end\s+CHARACTERISTIC)',
+            r"(/begin\s+CHARACTERISTIC\s+)(.*?)(/end\s+CHARACTERISTIC)",
             re.DOTALL | re.IGNORECASE,
         )
 
@@ -469,7 +459,7 @@ class CalibManagerController(CRUDMixin):
             suffix = match.group(3)
 
             # Find the characteristic name from the body
-            name_match = re.search(r'(\S+)', body.strip())
+            name_match = re.search(r"(\S+)", body.strip())
             if not name_match:
                 return match.group(0)
             name = name_match.group(1)
@@ -480,23 +470,21 @@ class CalibManagerController(CRUDMixin):
             vals = db_params[name]
             new_lower = self._fmt_val(vals["min_value"])
             new_upper = self._fmt_val(vals["max_value"])
-            new_default = self._fmt_val(vals["default_value"])
 
             # Strategy 1: Replace limits in the header line
             # Header has: name "id" type addr layout max_diff conversion lower upper
             # The lower and upper are the 8th and 9th tokens after quoted string
-            lines = body.split('\n')
+            lines = body.split("\n")
             new_lines = []
-            header_tokens_done = 0
             in_sub_block = 0
 
             for line in lines:
                 stripped = line.strip()
 
                 # Track nested blocks
-                if re.match(r'/begin\s+', stripped, re.IGNORECASE):
+                if re.match(r"/begin\s+", stripped, re.IGNORECASE):
                     in_sub_block += 1
-                if re.match(r'/end\s+', stripped, re.IGNORECASE):
+                if re.match(r"/end\s+", stripped, re.IGNORECASE):
                     in_sub_block -= 1
 
                 if in_sub_block > 0:
@@ -504,46 +492,47 @@ class CalibManagerController(CRUDMixin):
                     continue
 
                 # Replace LOWER_LIMIT / UPPER_LIMIT sub-keys
-                if re.match(r'\s*LOWER_LIMIT\s+', stripped, re.IGNORECASE):
-                    new_lines.append(re.sub(
-                        r'(LOWER_LIMIT\s+)[\d\.\-\+eE]+',
-                        rf'\g<1>{new_lower}',
-                        line, flags=re.IGNORECASE,
-                    ))
+                if re.match(r"\s*LOWER_LIMIT\s+", stripped, re.IGNORECASE):
+                    new_lines.append(
+                        re.sub(
+                            r"(LOWER_LIMIT\s+)[\d\.\-\+eE]+",
+                            rf"\g<1>{new_lower}",
+                            line,
+                            flags=re.IGNORECASE,
+                        )
+                    )
                     continue
-                if re.match(r'\s*UPPER_LIMIT\s+', stripped, re.IGNORECASE):
-                    new_lines.append(re.sub(
-                        r'(UPPER_LIMIT\s+)[\d\.\-\+eE]+',
-                        rf'\g<1>{new_upper}',
-                        line, flags=re.IGNORECASE,
-                    ))
+                if re.match(r"\s*UPPER_LIMIT\s+", stripped, re.IGNORECASE):
+                    new_lines.append(
+                        re.sub(
+                            r"(UPPER_LIMIT\s+)[\d\.\-\+eE]+",
+                            rf"\g<1>{new_upper}",
+                            line,
+                            flags=re.IGNORECASE,
+                        )
+                    )
                     continue
 
                 new_lines.append(line)
 
-            new_body = '\n'.join(new_lines)
+            new_body = "\n".join(new_lines)
 
             # Replace header limits: find the lower/upper values in the header
             # Header tokens (after quoted string): type addr layout max_diff conv lower upper
             # We replace the 7th and 8th numeric tokens after the name
             header_lower_upper_re = re.compile(
-                r'("([^"]*)"'          # quoted string
-                r'\s+\S+'              # type
-                r'\s+\S+'              # address
-                r'\s+\S+'              # layout
-                r'\s+\S+'              # max_diff
-                r'\s+\S+'              # conversion
-                r'\s+)[\d\.\-\+eE]+'   # lower_limit
-                r'(\s+)[\d\.\-\+eE]+', # upper_limit
+                r'("([^"]*)"'  # quoted string
+                r"\s+\S+"  # type
+                r"\s+\S+"  # address
+                r"\s+\S+"  # layout
+                r"\s+\S+"  # max_diff
+                r"\s+\S+"  # conversion
+                r"\s+)[\d\.\-\+eE]+"  # lower_limit
+                r"(\s+)[\d\.\-\+eE]+",  # upper_limit
             )
             m = header_lower_upper_re.search(new_body)
             if m:
-                new_body = (
-                    new_body[:m.start()] +
-                    m.group(1) + new_lower +
-                    m.group(3) + new_upper +
-                    new_body[m.end():]
-                )
+                new_body = new_body[: m.start()] + m.group(1) + new_lower + m.group(3) + new_upper + new_body[m.end() :]
 
             return prefix + new_body + suffix
 
@@ -573,40 +562,50 @@ class CalibManagerController(CRUDMixin):
         issues: list[dict] = []
         for p in self.get_params():
             if not p.description:
-                issues.append({
-                    "type": "warning",
-                    "rule": "CAL_NO_DESC",
-                    "location": p.name,
-                    "message": f"Parameter '{p.name}' has no description",
-                })
+                issues.append(
+                    {
+                        "type": "warning",
+                        "rule": "CAL_NO_DESC",
+                        "location": p.name,
+                        "message": f"Parameter '{p.name}' has no description",
+                    }
+                )
             if p.min_value is not None and p.max_value is not None:
                 if p.min_value > p.max_value:
-                    issues.append({
-                        "type": "error",
-                        "rule": "CAL_RANGE_INVALID",
-                        "location": p.name,
-                        "message": f"Parameter '{p.name}' min ({p.min_value}) > max ({p.max_value})",
-                    })
+                    issues.append(
+                        {
+                            "type": "error",
+                            "rule": "CAL_RANGE_INVALID",
+                            "location": p.name,
+                            "message": f"Parameter '{p.name}' min ({p.min_value}) > max ({p.max_value})",
+                        }
+                    )
             if p.default_value is not None:
                 if p.min_value is not None and p.default_value < p.min_value:
-                    issues.append({
-                        "type": "warning",
-                        "rule": "CAL_DEFAULT_BELOW_MIN",
-                        "location": p.name,
-                        "message": f"Default value ({p.default_value}) below min ({p.min_value})",
-                    })
+                    issues.append(
+                        {
+                            "type": "warning",
+                            "rule": "CAL_DEFAULT_BELOW_MIN",
+                            "location": p.name,
+                            "message": f"Default value ({p.default_value}) below min ({p.min_value})",
+                        }
+                    )
                 if p.max_value is not None and p.default_value > p.max_value:
-                    issues.append({
-                        "type": "warning",
-                        "rule": "CAL_DEFAULT_ABOVE_MAX",
-                        "location": p.name,
-                        "message": f"Default value ({p.default_value}) above max ({p.max_value})",
-                    })
+                    issues.append(
+                        {
+                            "type": "warning",
+                            "rule": "CAL_DEFAULT_ABOVE_MAX",
+                            "location": p.name,
+                            "message": f"Default value ({p.default_value}) above max ({p.max_value})",
+                        }
+                    )
             if not p.group_name:
-                issues.append({
-                    "type": "info",
-                    "rule": "CAL_NO_GROUP",
-                    "location": p.name,
-                    "message": f"Parameter '{p.name}' is not assigned to a group",
-                })
+                issues.append(
+                    {
+                        "type": "info",
+                        "rule": "CAL_NO_GROUP",
+                        "location": p.name,
+                        "message": f"Parameter '{p.name}' is not assigned to a group",
+                    }
+                )
         return issues

@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import logging
 import re
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
 
 from core.parsers.base import BaseParser, ParseResult
@@ -22,6 +22,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class DCMCharacteristic:
     """Calibration parameter with its actual value from a DCM file."""
+
     name: str
     description: str = ""
     value: float | None = None
@@ -33,6 +34,7 @@ class DCMCharacteristic:
 @dataclass
 class DCMData:
     """Parsed DCM file data."""
+
     characteristics: list[DCMCharacteristic]
     source_path: str
 
@@ -79,7 +81,7 @@ class DCMParser(BaseParser):
         """Extract all CHARACTERISTIC blocks from DCM content."""
         results = []
         pattern = re.compile(
-            r'/begin\s+CHARACTERISTIC\s+(.*?)/end\s+CHARACTERISTIC',
+            r"/begin\s+CHARACTERISTIC\s+(.*?)/end\s+CHARACTERISTIC",
             re.DOTALL | re.IGNORECASE,
         )
         for match in pattern.finditer(content):
@@ -97,7 +99,7 @@ class DCMParser(BaseParser):
         if not block:
             return None
 
-        lines = block.split('\n')
+        lines = block.split("\n")
 
         # Extract header tokens (name, description, type, address, ...)
         header_tokens: list[str] = []
@@ -113,7 +115,7 @@ class DCMParser(BaseParser):
                 continue
 
             # VALUE = xxx (actual calibration value)
-            value_match = re.match(r'VALUE\s*=\s*([\d\.\-\+eE]+)', stripped, re.IGNORECASE)
+            value_match = re.match(r"VALUE\s*=\s*([\d\.\-\+eE]+)", stripped, re.IGNORECASE)
             if value_match:
                 try:
                     value = float(value_match.group(1))
@@ -122,7 +124,7 @@ class DCMParser(BaseParser):
                 continue
 
             # LOWER_LIMIT / UPPER_LIMIT
-            ll_match = re.match(r'LOWER_LIMIT\s+([\d\.\-\+eE]+)', stripped, re.IGNORECASE)
+            ll_match = re.match(r"LOWER_LIMIT\s+([\d\.\-\+eE]+)", stripped, re.IGNORECASE)
             if ll_match:
                 try:
                     lower_limit = float(ll_match.group(1))
@@ -130,7 +132,7 @@ class DCMParser(BaseParser):
                     pass
                 continue
 
-            ul_match = re.match(r'UPPER_LIMIT\s+([\d\.\-\+eE]+)', stripped, re.IGNORECASE)
+            ul_match = re.match(r"UPPER_LIMIT\s+([\d\.\-\+eE]+)", stripped, re.IGNORECASE)
             if ul_match:
                 try:
                     upper_limit = float(ul_match.group(1))
@@ -146,10 +148,21 @@ class DCMParser(BaseParser):
 
             # Skip sub-keywords
             first_tok = stripped.split()[0].upper() if stripped.split() else ""
-            if first_tok in ("COMPU_METHOD", "FORMAT", "NUMBER", "BIT_MASK",
-                             "READ_ONLY", "DISPLAY_IDENTIFIER", "MATRIX_DIM",
-                             "ECU_ADDRESS", "ECU_ADDRESS_EXTENSION", "ANNOTATION",
-                             "FUNCTION_LIST", "EXTENDED_LIMITS", "LONG-NAME"):
+            if first_tok in (
+                "COMPU_METHOD",
+                "FORMAT",
+                "NUMBER",
+                "BIT_MASK",
+                "READ_ONLY",
+                "DISPLAY_IDENTIFIER",
+                "MATRIX_DIM",
+                "ECU_ADDRESS",
+                "ECU_ADDRESS_EXTENSION",
+                "ANNOTATION",
+                "FUNCTION_LIST",
+                "EXTENDED_LIMITS",
+                "LONG-NAME",
+            ):
                 continue
 
             # Header line: name "description" type addr layout ...
@@ -157,8 +170,8 @@ class DCMParser(BaseParser):
                 q = re.search(r'"([^"]*)"', line)
                 if q:
                     description = q.group(1)
-                    before = line[:q.start()].strip().split()
-                    after = line[q.end():].strip().split()
+                    before = line[: q.start()].strip().split()
+                    after = line[q.end() :].strip().split()
                     header_tokens = before + after
                 else:
                     header_tokens = stripped.split()

@@ -4,12 +4,12 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any
 
 
 @dataclass
 class BatchResult:
     """Result of a batch operation."""
+
     success: bool
     files_processed: int = 0
     files_succeeded: int = 0
@@ -84,14 +84,17 @@ class BatchProcessor:
                 errors: list[str] = []
                 if ext == ".dbc":
                     from core.parsers.dbc_parser import DBCParser
+
                     parser = DBCParser()
                     errors = parser.validate(inp)
                 elif ext == ".arxml":
                     from core.parsers.arxml_parser import ARXMLParser
+
                     parser = ARXMLParser()
                     errors = parser.validate(inp)
                 elif ext == ".a2l":
                     from core.parsers.a2l_parser import A2LParser
+
                     parser = A2LParser()
                     errors = parser.validate(inp)
                 else:
@@ -114,8 +117,8 @@ class BatchProcessor:
 
     def diff(self, old: Path, new: Path, output: Path | None = None) -> BatchResult:
         """Compare two DBC files and produce a diff report."""
-        from core.parsers.dbc_parser import DBCParser
         from core.diff.dbc_diff import DBCDiffEngine
+        from core.parsers.dbc_parser import DBCParser
 
         result = BatchResult(success=True, files_processed=2)
         try:
@@ -157,6 +160,7 @@ class BatchProcessor:
 
     def _process_dbc(self, inp: Path, formats: list[str], output_dir: Path, result: BatchResult):
         from core.parsers.dbc_parser import DBCParser
+
         parser = DBCParser()
         parse_result = parser.parse(inp)
         if not parse_result.success:
@@ -168,14 +172,17 @@ class BatchProcessor:
         for fmt in formats:
             if fmt == "c":
                 from core.generators.c_generator import CANCodeGenerator
+
                 gen = CANCodeGenerator()
                 r = gen.generate(data, subdir)
             elif fmt == "capl":
                 from core.generators.capl_generator import CAPLGenerator
+
                 gen = CAPLGenerator()
                 r = gen.generate(data, subdir)
             elif fmt in ("excel", "signal_matrix"):
                 from core.generators.report_generator import ReportGenerator
+
                 gen = ReportGenerator()
                 r = gen.generate_signal_matrix(data, subdir / f"{inp.stem}_signals.xlsx")
             elif fmt == "arxml":
@@ -191,6 +198,7 @@ class BatchProcessor:
 
     def _process_arxml(self, inp: Path, formats: list[str], output_dir: Path, result: BatchResult):
         from core.parsers.arxml_parser import ARXMLParser
+
         parser = ARXMLParser()
         parse_result = parser.parse(inp)
         if not parse_result.success:
@@ -202,16 +210,19 @@ class BatchProcessor:
         for fmt in formats:
             if fmt == "arxml":
                 from core.generators.arxml_generator import ARXMLGenerator
+
                 gen = ARXMLGenerator()
                 out_path = subdir / f"{inp.stem}_export.arxml"
                 r = gen.generate(data, out_path)
             elif fmt == "a2l":
                 from core.generators.a2l_generator import A2LGenerator
+
                 gen = A2LGenerator()
                 out_path = subdir / f"{inp.stem}.a2l"
                 r = gen.generate(data, out_path)
             elif fmt == "rte":
                 from core.generators.rte_generator import RTEGenerator
+
                 gen = RTEGenerator()
                 r = gen.generate(data, subdir)
             else:
@@ -225,6 +236,7 @@ class BatchProcessor:
 
     def _process_a2l(self, inp: Path, formats: list[str], output_dir: Path, result: BatchResult):
         from core.parsers.a2l_parser import A2LParser
+
         parser = A2LParser()
         parse_result = parser.parse(inp)
         if not parse_result.success:
@@ -235,8 +247,10 @@ class BatchProcessor:
         for fmt in formats:
             if fmt == "a2l":
                 # Round-trip: parse → serialize back
-                from core.parsers.a2l_parser import a2l_data_to_dict
                 import json
+
+                from core.parsers.a2l_parser import a2l_data_to_dict
+
                 d = a2l_data_to_dict(parse_result.data)
                 out_path = subdir / f"{inp.stem}_export.json"
                 out_path.write_text(json.dumps(d, indent=2, ensure_ascii=False), encoding="utf-8")

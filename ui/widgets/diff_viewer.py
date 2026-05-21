@@ -2,11 +2,14 @@
 
 import re
 
+from PySide6.QtGui import QColor, QFont, QSyntaxHighlighter, QTextCharFormat
 from PySide6.QtWidgets import (
-    QWidget, QVBoxLayout, QHBoxLayout, QTextEdit, QLabel, QPushButton,
+    QHBoxLayout,
+    QLabel,
+    QTextEdit,
+    QVBoxLayout,
+    QWidget,
 )
-from PySide6.QtCore import Qt
-from PySide6.QtGui import QColor, QTextCharFormat, QFont, QSyntaxHighlighter
 
 
 class DiffHighlighter(QSyntaxHighlighter):

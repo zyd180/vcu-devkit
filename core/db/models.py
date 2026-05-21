@@ -4,9 +4,16 @@ import json
 from datetime import datetime
 
 from peewee import (
-    Model, AutoField, CharField, TextField, FloatField,
-    BooleanField, DateTimeField, ForeignKeyField, IntegerField,
+    AutoField,
+    BooleanField,
+    CharField,
+    DateTimeField,
+    FloatField,
+    ForeignKeyField,
+    IntegerField,
+    Model,
     SqliteDatabase,
+    TextField,
 )
 
 # Database instance — initialised by db.manager
@@ -23,6 +30,7 @@ class BaseModel(Model):
 
 class CalibrationPage(BaseModel):
     """Named calibration page (version/snapshot)."""
+
     id = AutoField()
     name = CharField(unique=True, max_length=128)
     created_at = DateTimeField(default=datetime.now)
@@ -30,6 +38,7 @@ class CalibrationPage(BaseModel):
 
 class CalibrationParameter(BaseModel):
     """Calibration (标定) parameter definition."""
+
     id = AutoField()
     name = CharField(max_length=128)
     calibration_page = CharField(max_length=128, default="default")
@@ -49,6 +58,7 @@ class CalibrationParameter(BaseModel):
 
 class CalibrationChange(BaseModel):
     """Audit trail for calibration parameter changes."""
+
     id = AutoField()
     param = ForeignKeyField(CalibrationParameter, backref="changes")
     old_value = FloatField(null=True)
@@ -63,11 +73,12 @@ class CalibrationChange(BaseModel):
 
 class DTCDefinition(BaseModel):
     """Diagnostic Trouble Code definition."""
+
     id = AutoField()
     dtc_code = CharField(unique=True, max_length=16)  # e.g. 0xD001
     description = TextField()
-    severity = CharField(max_length=16, null=True)     # warning / critical / fault
-    snapshot_ids = TextField(null=True)                # JSON array
+    severity = CharField(max_length=16, null=True)  # warning / critical / fault
+    snapshot_ids = TextField(null=True)  # JSON array
     debounce_strategy = CharField(max_length=64, null=True)
     debounce_counter = IntegerField(null=True)
     debounce_time_ms = IntegerField(null=True)
@@ -87,12 +98,13 @@ class DTCDefinition(BaseModel):
 
 class DiagService(BaseModel):
     """UDS diagnostic service definition."""
+
     id = AutoField()
-    sid = CharField(max_length=8)                       # e.g. 0x19
+    sid = CharField(max_length=8)  # e.g. 0x19
     service_name = CharField(max_length=128)
-    sub_functions = TextField(null=True)                # JSON array
+    sub_functions = TextField(null=True)  # JSON array
     security_level = CharField(default="default", max_length=32)
-    nrc_list = TextField(null=True)                     # JSON array
+    nrc_list = TextField(null=True)  # JSON array
     description = TextField(null=True)
     enabled = BooleanField(default=True)
 
@@ -118,6 +130,7 @@ class DiagService(BaseModel):
 
 class Requirement(BaseModel):
     """Requirement from external source (飞书多维表格 / Excel)."""
+
     id = AutoField()
     req_id = CharField(unique=True, max_length=64)
     title = CharField(max_length=256)
@@ -132,9 +145,10 @@ class Requirement(BaseModel):
 
 class TraceabilityLink(BaseModel):
     """Link between requirement and implementation/test artifact."""
+
     id = AutoField()
     req = ForeignKeyField(Requirement, backref="links")
-    link_type = CharField(max_length=32)        # swc / test_case / signal / dtc
+    link_type = CharField(max_length=32)  # swc / test_case / signal / dtc
     link_target = CharField(max_length=256)
     link_target_id = CharField(max_length=128, null=True)
     auto_matched = BooleanField(default=False)
@@ -147,6 +161,7 @@ class TraceabilityLink(BaseModel):
 
 class ProjectConfig(BaseModel):
     """Key-value project configuration."""
+
     id = AutoField()
     key = CharField(unique=True, max_length=128)
     value = TextField()
@@ -156,6 +171,7 @@ class ProjectConfig(BaseModel):
 
 class FileVersion(BaseModel):
     """Version snapshot of a managed file (DBC/ARXML/A2L/ODX)."""
+
     id = AutoField()
     file_path = CharField(max_length=512)
     file_type = CharField(max_length=16)

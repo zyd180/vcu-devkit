@@ -3,11 +3,19 @@
 from __future__ import annotations
 
 from PySide6.QtWidgets import (
-    QDialog, QVBoxLayout, QHBoxLayout, QFormLayout,
-    QPushButton, QLabel, QCheckBox, QDoubleSpinBox,
-    QComboBox, QLineEdit, QGroupBox, QSpinBox,
+    QCheckBox,
+    QComboBox,
+    QDialog,
+    QDoubleSpinBox,
+    QFormLayout,
+    QGroupBox,
+    QHBoxLayout,
+    QLabel,
+    QLineEdit,
+    QPushButton,
+    QSpinBox,
+    QVBoxLayout,
 )
-from PySide6.QtCore import Qt
 
 
 class BatchEditDialog(QDialog):
@@ -27,8 +35,10 @@ class BatchEditDialog(QDialog):
         layout = QVBoxLayout(self)
 
         # Info
-        info = QLabel(f"选中的信号: {', '.join(self.signal_names[:8])}"
-                       + (f" ... 等{len(self.signal_names)}个" if len(self.signal_names) > 8 else ""))
+        info = QLabel(
+            f"选中的信号: {', '.join(self.signal_names[:8])}"
+            + (f" ... 等{len(self.signal_names)}个" if len(self.signal_names) > 8 else "")
+        )
         info.setWordWrap(True)
         layout.addWidget(info)
 

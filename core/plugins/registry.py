@@ -9,7 +9,9 @@ from pathlib import Path
 from typing import Any
 
 from core.plugins.base import (
-    GeneratorPlugin, ParserPlugin, PluginMeta, RulePlugin,
+    GeneratorPlugin,
+    ParserPlugin,
+    RulePlugin,
 )
 
 logger = logging.getLogger(__name__)
@@ -19,7 +21,7 @@ class PluginRegistry:
     """Central registry for all VCU DevKit plugins."""
 
     def __init__(self):
-        self.parsers: dict[str, ParserPlugin] = {}       # ext → plugin
+        self.parsers: dict[str, ParserPlugin] = {}  # ext → plugin
         self.generators: dict[str, GeneratorPlugin] = {}  # name → plugin
         self.rules: list[RulePlugin] = []
         self._discovered_modules: list[Any] = []
@@ -95,7 +97,9 @@ class PluginRegistry:
             if existing is not None:
                 logger.warning(
                     "Parser plugin '%s' overrides '%s' for extension '%s'",
-                    plugin.plugin_meta.name, existing.plugin_meta.name, ext,
+                    plugin.plugin_meta.name,
+                    existing.plugin_meta.name,
+                    ext,
                 )
             self.parsers[ext] = plugin
             logger.info("Registered parser '%s' for %s", plugin.plugin_meta.name, ext)

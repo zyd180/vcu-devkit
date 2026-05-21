@@ -1,16 +1,19 @@
 """Tests for core.utils.excel_utils — shared Excel formatting."""
 
-import pytest
 from openpyxl import Workbook
 
 from core.utils.excel_utils import (
-    HEADER_FILL, HEADER_FONT, THIN_BORDER, CENTER_ALIGN,
-    write_header_row, auto_width, apply_border,
+    CENTER_ALIGN,
+    HEADER_FILL,
+    HEADER_FONT,
+    THIN_BORDER,
+    apply_border,
+    auto_width,
+    write_header_row,
 )
 
 
 class TestExcelUtils:
-
     def test_write_header_row(self):
         wb = Workbook()
         ws = wb.active
@@ -33,7 +36,7 @@ class TestExcelUtils:
         wb = Workbook()
         ws = wb.active
         ws.cell(1, 1).value = "Short"
-        ws.cell(2, 1). value = "A much longer value"
+        ws.cell(2, 1).value = "A much longer value"
         auto_width(ws)
         width = ws.column_dimensions["A"].width
         assert width >= len("A much longer value") + 3

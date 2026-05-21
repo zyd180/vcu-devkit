@@ -7,14 +7,14 @@ data models used across the XCP codec, mapping, and session layers.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
-
+from dataclasses import dataclass
 
 # ── XCP Command Codes (CAN transport) ──────────────────────────────────────
 
 
 class XcpCmd:
     """XCP command codes (byte 0 of CTO packet)."""
+
     CONNECT = 0xFF
     DISCONNECT = 0xFE
     GET_STATUS = 0xFD
@@ -75,6 +75,7 @@ class XcpCmd:
 
 class XcpError:
     """XCP negative response error codes."""
+
     ERR_CMD_SYNCH = 0x00
     ERR_CMD_BUSY = 0x10
     ERR_DAQ_ACTIVE = 0x11
@@ -95,12 +96,24 @@ class XcpError:
     ERR_VERIFY = 0x32
 
     _NAMES = {
-        0x00: "CMD_SYNCH", 0x10: "CMD_BUSY", 0x11: "DAQ_ACTIVE",
-        0x12: "PGM_ACTIVE", 0x20: "CMD_UNKNOWN", 0x21: "CMD_SYNTAX",
-        0x22: "OUT_OF_RANGE", 0x23: "WRITE_PROTECTED", 0x24: "ACCESS_DENIED",
-        0x25: "ACCESS_LOCKED", 0x26: "PAGE_NOT_VALID", 0x27: "MODE_NOT_VALID",
-        0x28: "SEGMENT_NOT_VALID", 0x29: "SEQUENCE", 0x2A: "DAQ_CONFIG",
-        0x30: "MEMORY_OVERFLOW", 0x31: "GENERIC", 0x32: "VERIFY",
+        0x00: "CMD_SYNCH",
+        0x10: "CMD_BUSY",
+        0x11: "DAQ_ACTIVE",
+        0x12: "PGM_ACTIVE",
+        0x20: "CMD_UNKNOWN",
+        0x21: "CMD_SYNTAX",
+        0x22: "OUT_OF_RANGE",
+        0x23: "WRITE_PROTECTED",
+        0x24: "ACCESS_DENIED",
+        0x25: "ACCESS_LOCKED",
+        0x26: "PAGE_NOT_VALID",
+        0x27: "MODE_NOT_VALID",
+        0x28: "SEGMENT_NOT_VALID",
+        0x29: "SEQUENCE",
+        0x2A: "DAQ_CONFIG",
+        0x30: "MEMORY_OVERFLOW",
+        0x31: "GENERIC",
+        0x32: "VERIFY",
     }
 
     @classmethod
@@ -113,10 +126,11 @@ class XcpError:
 
 class XcpPid:
     """XCP response packet IDs."""
+
     RES_POSITIVE = 0xFF
     RES_NEGATIVE = 0xFE
     RES_ERROR = 0xFE  # Alias
-    RES_SERV = 0xFD   # Service request (e.g., EV_DAQ, EV_CAL)
+    RES_SERV = 0xFD  # Service request (e.g., EV_DAQ, EV_CAL)
     EV_CMD = 0xFC
 
 
@@ -126,6 +140,7 @@ class XcpPid:
 @dataclass
 class XcpResponse:
     """Decoded XCP response."""
+
     pid: int
     data: bytes
     error_code: int = 0
@@ -142,6 +157,7 @@ class XcpResponse:
 @dataclass
 class XcpMessage:
     """XCP CAN frame."""
+
     can_id: int
     data: bytes
     direction: str = "cmd"  # "cmd" (master→slave) or "res" (slave→master)
@@ -150,6 +166,7 @@ class XcpMessage:
 @dataclass
 class XcpConnection:
     """XCP connection state after CONNECT."""
+
     resource: int = 0
     comm_mode: int = 0
     max_cto: int = 8
@@ -160,6 +177,7 @@ class XcpConnection:
 @dataclass
 class XcpDaqEntry:
     """Single DAQ list entry — maps an ECU address to a measurement."""
+
     address: int
     size: int
     byte_order: str = "little_endian"
@@ -170,6 +188,7 @@ class XcpDaqEntry:
 @dataclass
 class XcpAddressMapping:
     """A2L → XCP address mapping for a single parameter."""
+
     name: str
     address: int
     size: int

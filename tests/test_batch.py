@@ -1,10 +1,10 @@
 """Tests for core.batch — batch processing engine."""
 
-import pytest
 from pathlib import Path
 
-from core.batch import BatchProcessor, BatchResult
+import pytest
 
+from core.batch import BatchProcessor, BatchResult
 
 SAMPLE_DBC = """\
 VERSION ""
@@ -37,7 +37,6 @@ def sample_dbc(tmp_path):
 
 
 class TestBatchResult:
-
     def test_summary_success(self):
         r = BatchResult(success=True, files_processed=3, files_succeeded=3)
         assert "OK" in r.summary
@@ -49,7 +48,6 @@ class TestBatchResult:
 
 
 class TestBatchGenerate:
-
     def test_generate_c(self, processor, sample_dbc, tmp_path):
         result = processor.generate([sample_dbc], ["c"], tmp_path / "out")
         assert result.success
@@ -93,7 +91,6 @@ class TestBatchGenerate:
 
 
 class TestBatchValidate:
-
     def test_validate_valid_dbc(self, processor, sample_dbc):
         result = processor.validate([sample_dbc])
         assert result.success
@@ -114,7 +111,6 @@ class TestBatchValidate:
 
 
 class TestBatchDiff:
-
     def test_diff_identical(self, processor, sample_dbc, tmp_path):
         result = processor.diff(sample_dbc, sample_dbc, tmp_path / "diff.txt")
         assert result.success
@@ -152,30 +148,38 @@ class TestBatchDiff:
 
 
 class TestCLI:
-
     def test_cli_help(self):
         import subprocess
+
         r = subprocess.run(
             ["python", "cli.py", "--help"],
-            capture_output=True, text=True, cwd=Path(__file__).parent.parent,
+            capture_output=True,
+            text=True,
+            cwd=Path(__file__).parent.parent,
         )
         assert r.returncode == 0
         assert "generate" in r.stdout
 
     def test_cli_generate(self, sample_dbc, tmp_path):
         import subprocess
+
         out = tmp_path / "cli_out"
         r = subprocess.run(
             ["python", "cli.py", "generate", "-i", str(sample_dbc), "-f", "c", "-o", str(out)],
-            capture_output=True, text=True, cwd=Path(__file__).parent.parent,
+            capture_output=True,
+            text=True,
+            cwd=Path(__file__).parent.parent,
         )
         assert r.returncode == 0
         assert "OK" in r.stdout
 
     def test_cli_validate(self, sample_dbc):
         import subprocess
+
         r = subprocess.run(
             ["python", "cli.py", "validate", "-i", str(sample_dbc)],
-            capture_output=True, text=True, cwd=Path(__file__).parent.parent,
+            capture_output=True,
+            text=True,
+            cwd=Path(__file__).parent.parent,
         )
         assert r.returncode == 0

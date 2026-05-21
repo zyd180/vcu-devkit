@@ -1,13 +1,13 @@
 """Tests for DBC parser."""
 
 import pytest
-from pathlib import Path
 
 from core.parsers.dbc_parser import (
-    DBCParser, DBCData, MessageDef, SignalDef,
-    dbc_data_to_dict, dbc_data_from_dict,
+    DBCData,
+    DBCParser,
+    dbc_data_from_dict,
+    dbc_data_to_dict,
 )
-
 
 # ── Sample DBC content ──────────────────────────────────────────────────────
 
@@ -53,7 +53,6 @@ def sample_dbc_file(tmp_path):
 
 
 class TestDBCParser:
-
     def test_supported_extensions(self, dbc_parser):
         assert dbc_parser.supported_extensions() == [".dbc"]
 
@@ -145,7 +144,6 @@ class TestDBCParser:
 
 
 class TestDBCDataSerialisation:
-
     def test_roundtrip(self, dbc_parser):
         original = dbc_parser.parse_string(SAMPLE_DBC).data
         as_dict = dbc_data_to_dict(original)
@@ -172,7 +170,6 @@ class TestDBCDataSerialisation:
 
 
 class TestDBCParserValidation:
-
     def test_validate_overlap_detected(self, dbc_parser, tmp_path):
         """Overlapping signals should be flagged."""
         content = """\
@@ -233,7 +230,6 @@ BO_ 256 Msg2: 8 VCU
 
 
 class TestDBCParserSignalFeatures:
-
     def test_big_endian_signal(self, dbc_parser):
         """Big endian (Motorola byte order) signal should parse correctly."""
         content = """\
@@ -365,6 +361,7 @@ BO_ 256 FDMsg: 64 VCU
         """Signal with empty receivers should parse with empty list."""
         # cantools requires at least one receiver, so we test via _convert_signal
         from unittest.mock import MagicMock
+
         mock_sig = MagicMock()
         mock_sig.name = "SigA"
         mock_sig.start = 0

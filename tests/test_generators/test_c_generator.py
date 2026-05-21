@@ -1,41 +1,67 @@
 """Tests for core.generators.c_generator — C code generation."""
 
-import pytest
-from pathlib import Path
-
-from core.parsers.dbc_parser import DBCData, MessageDef, SignalDef
 from core.generators.c_generator import CANCodeGenerator
+from core.parsers.dbc_parser import DBCData, MessageDef, SignalDef
 
 
-def _sig(name, start_bit=0, bit_length=8, byte_order="little_endian",
-         value_type="unsigned", factor=1.0, offset=0.0, minimum=0.0,
-         maximum=255.0, unit="", comment="", receivers=None,
-         value_descriptions=None):
+def _sig(
+    name,
+    start_bit=0,
+    bit_length=8,
+    byte_order="little_endian",
+    value_type="unsigned",
+    factor=1.0,
+    offset=0.0,
+    minimum=0.0,
+    maximum=255.0,
+    unit="",
+    comment="",
+    receivers=None,
+    value_descriptions=None,
+):
     return SignalDef(
-        name=name, start_bit=start_bit, bit_length=bit_length,
-        byte_order=byte_order, value_type=value_type,
-        factor=factor, offset=offset, minimum=minimum, maximum=maximum,
-        unit=unit, comment=comment, receivers=receivers or [],
-        value_descriptions=value_descriptions or {}, mux=None,
+        name=name,
+        start_bit=start_bit,
+        bit_length=bit_length,
+        byte_order=byte_order,
+        value_type=value_type,
+        factor=factor,
+        offset=offset,
+        minimum=minimum,
+        maximum=maximum,
+        unit=unit,
+        comment=comment,
+        receivers=receivers or [],
+        value_descriptions=value_descriptions or {},
+        mux=None,
     )
 
 
 def _msg(name, msg_id=0x100, dlc=8, sender="VCU", signals=None):
     return MessageDef(
-        id=msg_id, name=name, dlc=dlc, sender=sender,
-        signals=signals or [], comment="", is_extended=False,
+        id=msg_id,
+        name=name,
+        dlc=dlc,
+        sender=sender,
+        signals=signals or [],
+        comment="",
+        is_extended=False,
     )
 
 
 def _dbc(messages):
     return DBCData(
-        version="v1", messages=messages, nodes=[],
-        value_tables={}, comments={}, attributes={}, source_path="<test>",
+        version="v1",
+        messages=messages,
+        nodes=[],
+        value_tables={},
+        comments={},
+        attributes={},
+        source_path="<test>",
     )
 
 
 class TestCANCodeGenerator:
-
     def setup_method(self):
         self.gen = CANCodeGenerator()
 
@@ -90,10 +116,12 @@ class TestCANCodeGenerator:
         assert result.success
 
     def test_multiple_messages(self, tmp_path):
-        data = _dbc([
-            _msg("M1", signals=[_sig("S1")]),
-            _msg("M2", signals=[_sig("S2", bit_length=16)]),
-        ])
+        data = _dbc(
+            [
+                _msg("M1", signals=[_sig("S1")]),
+                _msg("M2", signals=[_sig("S2", bit_length=16)]),
+            ]
+        )
         result = self.gen.generate(data, tmp_path)
         assert result.success
 
@@ -147,8 +175,7 @@ class TestCANCodeGenerator:
 
     def test_big_endian_16bit_pack(self, tmp_path):
         """16-bit big endian signal: MSB at byte 1 bit 7."""
-        sig = _sig("BE16", start_bit=15, bit_length=16, byte_order="big_endian",
-                    value_type="unsigned", maximum=65535.0)
+        sig = _sig("BE16", start_bit=15, bit_length=16, byte_order="big_endian", value_type="unsigned", maximum=65535.0)
         data = _dbc([_msg("M1", signals=[sig])])
         result = self.gen.generate(data, tmp_path)
         header = [f for f in result.output_files if f.suffix == ".h"][0]
@@ -162,8 +189,7 @@ class TestCANCodeGenerator:
 
     def test_signed_16bit_has_sign_extension(self, tmp_path):
         """Signed 16-bit unpack must include sign extension logic."""
-        sig = _sig("Signed16", bit_length=16, value_type="signed",
-                    factor=0.1, offset=-40, minimum=-40, maximum=215.0)
+        sig = _sig("Signed16", bit_length=16, value_type="signed", factor=0.1, offset=-40, minimum=-40, maximum=215.0)
         data = _dbc([_msg("M1", signals=[sig])])
         result = self.gen.generate(data, tmp_path)
         header = [f for f in result.output_files if f.suffix == ".h"][0]
@@ -175,8 +201,7 @@ class TestCANCodeGenerator:
 
     def test_signed_8bit_has_sign_extension(self, tmp_path):
         """Signed 8-bit unpack must include sign extension."""
-        sig = _sig("Signed8", bit_length=8, value_type="signed",
-                    minimum=-128, maximum=127)
+        sig = _sig("Signed8", bit_length=8, value_type="signed", minimum=-128, maximum=127)
         data = _dbc([_msg("M1", signals=[sig])])
         result = self.gen.generate(data, tmp_path)
         header = [f for f in result.output_files if f.suffix == ".h"][0]
@@ -198,9 +223,17 @@ class TestCANCodeGenerator:
 
     def test_big_endian_signed_combo(self, tmp_path):
         """Big endian + signed: must have both Motorola logic and sign extension."""
-        sig = _sig("BE_Signed", start_bit=23, bit_length=16, byte_order="big_endian",
-                    value_type="signed", factor=0.01, offset=-100,
-                    minimum=-100, maximum=555.35)
+        sig = _sig(
+            "BE_Signed",
+            start_bit=23,
+            bit_length=16,
+            byte_order="big_endian",
+            value_type="signed",
+            factor=0.01,
+            offset=-100,
+            minimum=-100,
+            maximum=555.35,
+        )
         data = _dbc([_msg("M1", signals=[sig])])
         result = self.gen.generate(data, tmp_path)
         header = [f for f in result.output_files if f.suffix == ".h"][0]
@@ -215,8 +248,12 @@ class TestCANCodeGenerator:
 
     def test_enum_typedef_generated(self, tmp_path):
         """Signal with value_descriptions must generate enum typedef."""
-        sig = _sig("GearPos", bit_length=8, value_type="unsigned",
-                    value_descriptions={0: "Park", 1: "Reverse", 2: "Neutral", 3: "Drive"})
+        sig = _sig(
+            "GearPos",
+            bit_length=8,
+            value_type="unsigned",
+            value_descriptions={0: "Park", 1: "Reverse", 2: "Neutral", 3: "Drive"},
+        )
         data = _dbc([_msg("M1", signals=[sig])])
         result = self.gen.generate(data, tmp_path)
         header = [f for f in result.output_files if f.suffix == ".h"][0]

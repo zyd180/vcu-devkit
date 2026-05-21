@@ -5,11 +5,10 @@ from __future__ import annotations
 import json
 import logging
 from pathlib import Path
-from typing import Any
 
-from core.db.models import DTCDefinition, DiagService, db
-from core.db.manager import DatabaseManager
 from core.db.crud_mixin import CRUDMixin
+from core.db.manager import DatabaseManager
+from core.db.models import DiagService, DTCDefinition
 from core.parsers.odx_parser import ODXParser
 
 logger = logging.getLogger(__name__)
@@ -38,9 +37,7 @@ class DiagBuilderController(CRUDMixin):
 
     def add_dtc(self, dtc_code: str, description: str, **kwargs) -> DTCDefinition | None:
         try:
-            return self.db.add_dtc(
-                dtc_code=dtc_code, description=description, **kwargs
-            )
+            return self.db.add_dtc(dtc_code=dtc_code, description=description, **kwargs)
         except Exception as exc:
             logger.error("Failed to add DTC %s: %s", dtc_code, exc)
             return None
@@ -118,9 +115,7 @@ class DiagBuilderController(CRUDMixin):
 
     def add_service(self, sid: str, service_name: str, **kwargs) -> DiagService | None:
         try:
-            return self.db.add_diag_service(
-                sid=sid, service_name=service_name, **kwargs
-            )
+            return self.db.add_diag_service(sid=sid, service_name=service_name, **kwargs)
         except Exception as exc:
             logger.error("Failed to add service %s: %s", sid, exc)
             return None
@@ -166,32 +161,54 @@ class DiagBuilderController(CRUDMixin):
     def get_standard_services() -> list[dict]:
         """Return standard UDS service definitions."""
         return [
-            {"sid": "0x10", "name": "DiagnosticSessionControl", "sub": ["0x01 Default", "0x02 Programming", "0x03 Extended"],
-             "desc": "切换诊断会话"},
-            {"sid": "0x11", "name": "ECUReset", "sub": ["0x01 HardReset", "0x02 KeyOffOnReset", "0x03 SoftReset"],
-             "desc": "ECU复位"},
-            {"sid": "0x14", "name": "ClearDiagnosticInformation", "sub": [],
-             "desc": "清除DTC信息"},
-            {"sid": "0x19", "name": "ReadDTCInformation", "sub": ["0x01 reportNumberOfDTCByStatusMask", "0x02 reportDTCByStatusMask", "0x04 reportDTCSnapshotRecord", "0x06 reportDTCExtDataRecord"],
-             "desc": "读取DTC信息"},
-            {"sid": "0x22", "name": "ReadDataByIdentifier", "sub": [],
-             "desc": "按DID读取数据"},
-            {"sid": "0x27", "name": "SecurityAccess", "sub": ["0x01 requestSeed (Level 1)", "0x02 sendKey (Level 1)", "0x03 requestSeed (Level 2)", "0x04 sendKey (Level 2)"],
-             "desc": "安全访问"},
-            {"sid": "0x2E", "name": "WriteDataByIdentifier", "sub": [],
-             "desc": "按DID写入数据"},
-            {"sid": "0x31", "name": "RoutineControl", "sub": ["0x01 startRoutine", "0x02 stopRoutine", "0x03 requestRoutineResults"],
-             "desc": "例程控制"},
-            {"sid": "0x34", "name": "RequestDownload", "sub": [],
-             "desc": "请求下载"},
-            {"sid": "0x36", "name": "TransferData", "sub": [],
-             "desc": "数据传输"},
-            {"sid": "0x37", "name": "RequestTransferExit", "sub": [],
-             "desc": "请求传输退出"},
-            {"sid": "0x3E", "name": "TesterPresent", "sub": ["0x00 suppressPositiveResponse"],
-             "desc": "测试器在线"},
-            {"sid": "0x85", "name": "ControlDTCSetting", "sub": ["0x01 on", "0x02 off"],
-             "desc": "DTC设置控制"},
+            {
+                "sid": "0x10",
+                "name": "DiagnosticSessionControl",
+                "sub": ["0x01 Default", "0x02 Programming", "0x03 Extended"],
+                "desc": "切换诊断会话",
+            },
+            {
+                "sid": "0x11",
+                "name": "ECUReset",
+                "sub": ["0x01 HardReset", "0x02 KeyOffOnReset", "0x03 SoftReset"],
+                "desc": "ECU复位",
+            },
+            {"sid": "0x14", "name": "ClearDiagnosticInformation", "sub": [], "desc": "清除DTC信息"},
+            {
+                "sid": "0x19",
+                "name": "ReadDTCInformation",
+                "sub": [
+                    "0x01 reportNumberOfDTCByStatusMask",
+                    "0x02 reportDTCByStatusMask",
+                    "0x04 reportDTCSnapshotRecord",
+                    "0x06 reportDTCExtDataRecord",
+                ],
+                "desc": "读取DTC信息",
+            },
+            {"sid": "0x22", "name": "ReadDataByIdentifier", "sub": [], "desc": "按DID读取数据"},
+            {
+                "sid": "0x27",
+                "name": "SecurityAccess",
+                "sub": [
+                    "0x01 requestSeed (Level 1)",
+                    "0x02 sendKey (Level 1)",
+                    "0x03 requestSeed (Level 2)",
+                    "0x04 sendKey (Level 2)",
+                ],
+                "desc": "安全访问",
+            },
+            {"sid": "0x2E", "name": "WriteDataByIdentifier", "sub": [], "desc": "按DID写入数据"},
+            {
+                "sid": "0x31",
+                "name": "RoutineControl",
+                "sub": ["0x01 startRoutine", "0x02 stopRoutine", "0x03 requestRoutineResults"],
+                "desc": "例程控制",
+            },
+            {"sid": "0x34", "name": "RequestDownload", "sub": [], "desc": "请求下载"},
+            {"sid": "0x36", "name": "TransferData", "sub": [], "desc": "数据传输"},
+            {"sid": "0x37", "name": "RequestTransferExit", "sub": [], "desc": "请求传输退出"},
+            {"sid": "0x3E", "name": "TesterPresent", "sub": ["0x00 suppressPositiveResponse"], "desc": "测试器在线"},
+            {"sid": "0x85", "name": "ControlDTCSetting", "sub": ["0x01 on", "0x02 off"], "desc": "DTC设置控制"},
         ]
 
     # ── Snapshot / Freeze Frame ────────────────────────────────────────────
@@ -216,30 +233,36 @@ class DiagBuilderController(CRUDMixin):
         # Check for DTCs with no severity
         for dtc in self.get_dtcs():
             if not dtc.severity:
-                issues.append({
-                    "type": "warning",
-                    "rule": "DIAG_NO_SEVERITY",
-                    "location": dtc.dtc_code,
-                    "message": f"DTC '{dtc.dtc_code}' has no severity assigned",
-                })
+                issues.append(
+                    {
+                        "type": "warning",
+                        "rule": "DIAG_NO_SEVERITY",
+                        "location": dtc.dtc_code,
+                        "message": f"DTC '{dtc.dtc_code}' has no severity assigned",
+                    }
+                )
             if not dtc.description.strip():
-                issues.append({
-                    "type": "error",
-                    "rule": "DIAG_NO_DESC",
-                    "location": dtc.dtc_code,
-                    "message": f"DTC '{dtc.dtc_code}' has no description",
-                })
+                issues.append(
+                    {
+                        "type": "error",
+                        "rule": "DIAG_NO_DESC",
+                        "location": dtc.dtc_code,
+                        "message": f"DTC '{dtc.dtc_code}' has no description",
+                    }
+                )
 
         # Check for duplicate SID
         seen_sids: dict[str, str] = {}
         for svc in self.get_services():
             if svc.sid in seen_sids:
-                issues.append({
-                    "type": "error",
-                    "rule": "DIAG_DUP_SID",
-                    "location": svc.service_name,
-                    "message": f"Duplicate SID {svc.sid}: '{svc.service_name}' and '{seen_sids[svc.sid]}'",
-                })
+                issues.append(
+                    {
+                        "type": "error",
+                        "rule": "DIAG_DUP_SID",
+                        "location": svc.service_name,
+                        "message": f"Duplicate SID {svc.sid}: '{svc.service_name}' and '{seen_sids[svc.sid]}'",
+                    }
+                )
             else:
                 seen_sids[svc.sid] = svc.service_name
 
@@ -247,12 +270,14 @@ class DiagBuilderController(CRUDMixin):
         sub_expected = {"0x10", "0x11", "0x19", "0x27", "0x31", "0x85"}
         for svc in self.get_services():
             if svc.sid in sub_expected and not svc.get_sub_functions():
-                issues.append({
-                    "type": "warning",
-                    "rule": "DIAG_NO_SUBFUNC",
-                    "location": svc.service_name,
-                    "message": f"Service '{svc.service_name}' (SID {svc.sid}) typically requires sub-functions",
-                })
+                issues.append(
+                    {
+                        "type": "warning",
+                        "rule": "DIAG_NO_SUBFUNC",
+                        "location": svc.service_name,
+                        "message": f"Service '{svc.service_name}' (SID {svc.sid}) typically requires sub-functions",
+                    }
+                )
 
         return issues
 
@@ -262,17 +287,11 @@ class DiagBuilderController(CRUDMixin):
         """Export full diagnostic config to JSON."""
         try:
             data = {
-                "dtcs": [
-                    self.get_dtc_as_dict(d.id) for d in self.get_dtcs()
-                ],
-                "services": [
-                    self.get_service_as_dict(s.id) for s in self.get_services()
-                ],
+                "dtcs": [self.get_dtc_as_dict(d.id) for d in self.get_dtcs()],
+                "services": [self.get_service_as_dict(s.id) for s in self.get_services()],
                 "snapshot_configs": self.get_snapshot_configs(),
             }
-            output_path.write_text(
-                json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8"
-            )
+            output_path.write_text(json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8")
             return True, []
         except Exception as exc:
             return False, [str(exc)]
@@ -368,8 +387,7 @@ class DiagBuilderController(CRUDMixin):
                     skipped_svcs += 1
 
             return True, [
-                f"导入完成: {imported_dtcs} DTC, {imported_svcs} 服务 "
-                f"(跳过 {skipped_dtcs} DTC, {skipped_svcs} 服务)"
+                f"导入完成: {imported_dtcs} DTC, {imported_svcs} 服务 (跳过 {skipped_dtcs} DTC, {skipped_svcs} 服务)"
             ]
         except Exception as exc:
             return False, [str(exc)]

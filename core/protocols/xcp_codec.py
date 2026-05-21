@@ -5,7 +5,10 @@ from __future__ import annotations
 import struct
 
 from core.protocols.xcp import (
-    XcpCmd, XcpConnection, XcpError, XcpPid, XcpResponse,
+    XcpCmd,
+    XcpConnection,
+    XcpPid,
+    XcpResponse,
 )
 
 
@@ -94,15 +97,18 @@ class XcpCodec:
             address: 32-bit ECU memory address.
             ext: Address extension (usually 0).
         """
-        return bytes([
-            XcpCmd.SET_MTA,
-            0x00, 0x00,  # reserved
-            ext,
-            address & 0xFF,
-            (address >> 8) & 0xFF,
-            (address >> 16) & 0xFF,
-            (address >> 24) & 0xFF,
-        ])
+        return bytes(
+            [
+                XcpCmd.SET_MTA,
+                0x00,
+                0x00,  # reserved
+                ext,
+                address & 0xFF,
+                (address >> 8) & 0xFF,
+                (address >> 16) & 0xFF,
+                (address >> 24) & 0xFF,
+            ]
+        )
 
     # ── SHORT_UPLOAD ───────────────────────────────────────────────────────
 
@@ -115,16 +121,18 @@ class XcpCodec:
             size: Number of bytes to upload (max = max_cto - 4).
             ext: Address extension.
         """
-        return bytes([
-            XcpCmd.SHORT_UPLOAD,
-            size,
-            0x00,  # reserved
-            ext,
-            address & 0xFF,
-            (address >> 8) & 0xFF,
-            (address >> 16) & 0xFF,
-            (address >> 24) & 0xFF,
-        ])
+        return bytes(
+            [
+                XcpCmd.SHORT_UPLOAD,
+                size,
+                0x00,  # reserved
+                ext,
+                address & 0xFF,
+                (address >> 8) & 0xFF,
+                (address >> 16) & 0xFF,
+                (address >> 24) & 0xFF,
+            ]
+        )
 
     # ── UPLOAD ─────────────────────────────────────────────────────────────
 
@@ -157,54 +165,65 @@ class XcpCodec:
     @staticmethod
     def encode_short_download(data: bytes, address: int, ext: int = 0) -> bytes:
         """SHORT_DOWNLOAD: write data directly to address (no SET_MTA needed)."""
-        return bytes([
-            XcpCmd.SHORT_DOWNLOAD,
-            len(data),
-            0x00,  # reserved
-            ext,
-            address & 0xFF,
-            (address >> 8) & 0xFF,
-            (address >> 16) & 0xFF,
-            (address >> 24) & 0xFF,
-        ]) + data
+        return (
+            bytes(
+                [
+                    XcpCmd.SHORT_DOWNLOAD,
+                    len(data),
+                    0x00,  # reserved
+                    ext,
+                    address & 0xFF,
+                    (address >> 8) & 0xFF,
+                    (address >> 16) & 0xFF,
+                    (address >> 24) & 0xFF,
+                ]
+            )
+            + data
+        )
 
     # ── DAQ commands ───────────────────────────────────────────────────────
 
     @staticmethod
     def encode_set_daq_ptr(daq_list: int, odt: int, entry: int) -> bytes:
         """SET_DAQ_PTR: set pointer for DAQ list configuration."""
-        return bytes([
-            XcpCmd.SET_DAQ_PTR,
-            0x00,  # reserved
-            daq_list & 0xFF,
-            (daq_list >> 8) & 0xFF,
-            odt,
-            entry,
-        ])
+        return bytes(
+            [
+                XcpCmd.SET_DAQ_PTR,
+                0x00,  # reserved
+                daq_list & 0xFF,
+                (daq_list >> 8) & 0xFF,
+                odt,
+                entry,
+            ]
+        )
 
     @staticmethod
     def encode_write_daq(size: int, ext: int, address: int) -> bytes:
         """WRITE_DAQ: define a single DAQ entry."""
-        return bytes([
-            XcpCmd.WRITE_DAQ,
-            0xFF,  # bit_offset (0xFF = byte aligned)
-            size,
-            ext,
-            address & 0xFF,
-            (address >> 8) & 0xFF,
-            (address >> 16) & 0xFF,
-            (address >> 24) & 0xFF,
-        ])
+        return bytes(
+            [
+                XcpCmd.WRITE_DAQ,
+                0xFF,  # bit_offset (0xFF = byte aligned)
+                size,
+                ext,
+                address & 0xFF,
+                (address >> 8) & 0xFF,
+                (address >> 16) & 0xFF,
+                (address >> 24) & 0xFF,
+            ]
+        )
 
     @staticmethod
     def encode_start_stop_daq_list(mode: int, daq_list: int) -> bytes:
         """START_STOP_DAQ_LIST. mode: 0=stop, 1=start, 2=start_select."""
-        return bytes([
-            XcpCmd.START_STOP_DAQ_LIST,
-            mode,
-            daq_list & 0xFF,
-            (daq_list >> 8) & 0xFF,
-        ])
+        return bytes(
+            [
+                XcpCmd.START_STOP_DAQ_LIST,
+                mode,
+                daq_list & 0xFF,
+                (daq_list >> 8) & 0xFF,
+            ]
+        )
 
     @staticmethod
     def encode_start_stop_synch(mode: int) -> bytes:
@@ -233,14 +252,14 @@ class XcpCodec:
         """
         if len(data) < 1 or data[0] != XcpPid.RES_POSITIVE:
             return b""
-        return data[1:1 + expected_size]
+        return data[1 : 1 + expected_size]
 
     @staticmethod
     def decode_upload_response(data: bytes, expected_size: int) -> bytes:
         """Extract payload from UPLOAD positive response."""
         if len(data) < 1 or data[0] != XcpPid.RES_POSITIVE:
             return b""
-        return data[1:1 + expected_size]
+        return data[1 : 1 + expected_size]
 
     # ── Utility ────────────────────────────────────────────────────────────
 
@@ -248,10 +267,14 @@ class XcpCodec:
     def unpack_value(raw: bytes, data_type: str) -> float:
         """Unpack raw bytes to a numeric value based on A2L data type."""
         type_map = {
-            "UBYTE": ("B", 1), "SBYTE": ("b", 1),
-            "UWORD": ("<H", 2), "SWORD": ("<h", 2),
-            "ULONG": ("<I", 4), "SLONG": ("<i", 4),
-            "FLOAT32_IEEE": ("<f", 4), "FLOAT64_IEEE": ("<d", 8),
+            "UBYTE": ("B", 1),
+            "SBYTE": ("b", 1),
+            "UWORD": ("<H", 2),
+            "SWORD": ("<h", 2),
+            "ULONG": ("<I", 4),
+            "SLONG": ("<i", 4),
+            "FLOAT32_IEEE": ("<f", 4),
+            "FLOAT64_IEEE": ("<d", 8),
         }
         fmt_info = type_map.get(data_type)
         if fmt_info is None:
@@ -265,10 +288,14 @@ class XcpCodec:
     def pack_value(value: float, data_type: str) -> bytes:
         """Pack a numeric value to bytes based on A2L data type."""
         type_map = {
-            "UBYTE": ("B", 1), "SBYTE": ("b", 1),
-            "UWORD": ("<H", 2), "SWORD": ("<h", 2),
-            "ULONG": ("<I", 4), "SLONG": ("<i", 4),
-            "FLOAT32_IEEE": ("<f", 4), "FLOAT64_IEEE": ("<d", 8),
+            "UBYTE": ("B", 1),
+            "SBYTE": ("b", 1),
+            "UWORD": ("<H", 2),
+            "SWORD": ("<h", 2),
+            "ULONG": ("<I", 4),
+            "SLONG": ("<i", 4),
+            "FLOAT32_IEEE": ("<f", 4),
+            "FLOAT64_IEEE": ("<d", 8),
         }
         fmt_info = type_map.get(data_type)
         if fmt_info is None:
@@ -280,9 +307,13 @@ class XcpCodec:
     def data_type_size(data_type: str) -> int:
         """Return byte size for an A2L data type."""
         sizes = {
-            "UBYTE": 1, "SBYTE": 1,
-            "UWORD": 2, "SWORD": 2,
-            "ULONG": 4, "SLONG": 4,
-            "FLOAT32_IEEE": 4, "FLOAT64_IEEE": 8,
+            "UBYTE": 1,
+            "SBYTE": 1,
+            "UWORD": 2,
+            "SWORD": 2,
+            "ULONG": 4,
+            "SLONG": 4,
+            "FLOAT32_IEEE": 4,
+            "FLOAT64_IEEE": 8,
         }
         return sizes.get(data_type, 0)

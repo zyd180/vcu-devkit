@@ -9,9 +9,9 @@ from __future__ import annotations
 
 import logging
 from abc import ABC, abstractmethod
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
-from core.protocols.xcp import XcpAddressMapping, XcpConnection, XcpPid
+from core.protocols.xcp import XcpAddressMapping, XcpConnection
 from core.protocols.xcp_codec import XcpCodec
 from core.protocols.xcp_mapping import XcpAddressMapper
 
@@ -106,27 +106,38 @@ class LoopbackTransport(XcpTransport):
     def _handle_connect(self, cmd: bytes) -> bytes:
         self._connected = True
         # resource, comm_mode_basic, reserved, max_cto, max_dto(LE)
-        return self._positive_response(bytes([
-            0x05,  # resource: CAL_PAG | DAQ
-            0x00,  # comm_mode_basic
-            0x00,  # reserved
-            self._max_cto,
-            self._max_dto & 0xFF, (self._max_dto >> 8) & 0xFF,
-            0x00,  # reserved
-        ]))
+        return self._positive_response(
+            bytes(
+                [
+                    0x05,  # resource: CAL_PAG | DAQ
+                    0x00,  # comm_mode_basic
+                    0x00,  # reserved
+                    self._max_cto,
+                    self._max_dto & 0xFF,
+                    (self._max_dto >> 8) & 0xFF,
+                    0x00,  # reserved
+                ]
+            )
+        )
 
     def _handle_disconnect(self, cmd: bytes) -> bytes:
         self._connected = False
         return self._positive_response()
 
     def _handle_get_status(self, cmd: bytes) -> bytes:
-        return self._positive_response(bytes([
-            0x00,  # status
-            0x05,  # resource_protection
-            0x00, 0x00,  # session_config
-            0x00,  # reserved
-            0x00, 0x00,  # reserved
-        ]))
+        return self._positive_response(
+            bytes(
+                [
+                    0x00,  # status
+                    0x05,  # resource_protection
+                    0x00,
+                    0x00,  # session_config
+                    0x00,  # reserved
+                    0x00,
+                    0x00,  # reserved
+                ]
+            )
+        )
 
     def _handle_set_mta(self, cmd: bytes) -> bytes:
         if len(cmd) < 8:
@@ -141,7 +152,7 @@ class LoopbackTransport(XcpTransport):
         addr = cmd[4] | (cmd[5] << 8) | (cmd[6] << 16) | (cmd[7] << 24)
         if addr + size > len(self._memory):
             return self._negative_response(0x22)  # OUT_OF_RANGE
-        return self._positive_response(bytes(self._memory[addr:addr + size]))
+        return self._positive_response(bytes(self._memory[addr : addr + size]))
 
     def _handle_upload(self, cmd: bytes) -> bytes:
         if len(cmd) < 2:
@@ -149,7 +160,7 @@ class LoopbackTransport(XcpTransport):
         size = cmd[1]
         if self._mta + size > len(self._memory):
             return self._negative_response(0x22)
-        data = bytes(self._memory[self._mta:self._mta + size])
+        data = bytes(self._memory[self._mta : self._mta + size])
         self._mta += size
         return self._positive_response(data)
 
@@ -159,10 +170,10 @@ class LoopbackTransport(XcpTransport):
         size = cmd[1]
         if len(cmd) < 2 + size:
             return self._negative_response(0x21)
-        data = cmd[2:2 + size]
+        data = cmd[2 : 2 + size]
         if self._mta + size > len(self._memory):
             return self._negative_response(0x22)
-        self._memory[self._mta:self._mta + size] = data
+        self._memory[self._mta : self._mta + size] = data
         self._mta += size
         return self._positive_response()
 
@@ -174,10 +185,10 @@ class LoopbackTransport(XcpTransport):
             return self._negative_response(0x21)
         size = cmd[1]
         addr = cmd[4] | (cmd[5] << 8) | (cmd[6] << 16) | (cmd[7] << 24)
-        data = cmd[8:8 + size]
+        data = cmd[8 : 8 + size]
         if addr + size > len(self._memory):
             return self._negative_response(0x22)
-        self._memory[addr:addr + size] = data
+        self._memory[addr : addr + size] = data
         return self._positive_response()
 
     def _handle_set_daq_ptr(self, cmd: bytes) -> bytes:
@@ -192,7 +203,7 @@ class LoopbackTransport(XcpTransport):
     def _handle_write_daq(self, cmd: bytes) -> bytes:
         if len(cmd) < 8:
             return self._negative_response(0x21)
-        daq = getattr(self, '_current_daq', 0)
+        daq = getattr(self, "_current_daq", 0)
         entry = (
             cmd[2],  # size
             cmd[3],  # ext
@@ -228,6 +239,7 @@ class LoopbackTransport(XcpTransport):
 @dataclass
 class ReadResult:
     """Result of a parameter read operation."""
+
     success: bool
     raw_value: float = 0.0
     raw_bytes: bytes = b""
@@ -237,6 +249,7 @@ class ReadResult:
 @dataclass
 class WriteResult:
     """Result of a parameter write operation."""
+
     success: bool
     error: str = ""
 
@@ -337,7 +350,7 @@ class XcpSession:
             max_payload = self._connection.max_cto - 2
             offset = 0
             while offset < len(data):
-                chunk = data[offset:offset + max_payload]
+                chunk = data[offset : offset + max_payload]
                 if offset == 0:
                     cmd = self._codec.encode_download(chunk)
                 else:

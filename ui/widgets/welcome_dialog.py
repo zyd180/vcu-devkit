@@ -4,13 +4,20 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from PySide6.QtWidgets import (
-    QDialog, QVBoxLayout, QHBoxLayout, QLabel, QPushButton,
-    QStackedWidget, QFileDialog, QListWidget, QListWidgetItem,
-    QFrame, QWidget,
-)
-from PySide6.QtCore import Qt, Signal, QSize
+from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QFont
+from PySide6.QtWidgets import (
+    QDialog,
+    QFileDialog,
+    QHBoxLayout,
+    QLabel,
+    QListWidget,
+    QListWidgetItem,
+    QPushButton,
+    QStackedWidget,
+    QVBoxLayout,
+    QWidget,
+)
 
 from config.settings import __version__
 
@@ -29,10 +36,10 @@ class WelcomeDialog(QDialog):
     file_selected = Signal(str)
 
     MODULE_INFO = [
-        (".dbc",  "CAN开发",  "DBC 文件 → 信号浏览 → C/CAPL 代码生成"),
-        (".arxml", "SWC开发",  "AUTOSAR SWC 可视化与 ARXML 编辑"),
-        (".odx",  "诊断配置", "DTC 配置与 UDS 服务管理"),
-        (".a2l",  "标定管理", "标定参数管理与 A2L 导出"),
+        (".dbc", "CAN开发", "DBC 文件 → 信号浏览 → C/CAPL 代码生成"),
+        (".arxml", "SWC开发", "AUTOSAR SWC 可视化与 ARXML 编辑"),
+        (".odx", "诊断配置", "DTC 配置与 UDS 服务管理"),
+        (".a2l", "标定管理", "标定参数管理与 A2L 导出"),
     ]
 
     def __init__(self, recent_files: list[str] | None = None, parent=None):
@@ -179,8 +186,7 @@ class WelcomeDialog(QDialog):
 
     def _on_browse(self):
         path, _ = QFileDialog.getOpenFileName(
-            self, "选择文件", "",
-            "所有支持格式 (*.dbc *.arxml *.odx *.odx-d *.odx-c *.cdd *.a2l);;所有文件 (*)"
+            self, "选择文件", "", "所有支持格式 (*.dbc *.arxml *.odx *.odx-d *.odx-c *.cdd *.a2l);;所有文件 (*)"
         )
         if path:
             self._selected_file = path

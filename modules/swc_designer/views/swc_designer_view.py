@@ -4,30 +4,45 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from PySide6.QtCore import QModelIndex, Qt
+from PySide6.QtGui import QAction
 from PySide6.QtWidgets import (
-    QWidget, QVBoxLayout, QHBoxLayout, QSplitter,
-    QPushButton, QFileDialog, QLabel, QToolBar, QMessageBox,
-    QTabWidget, QHeaderView, QAbstractItemView,
-    QTableView, QStatusBar, QGroupBox, QFormLayout,
-    QLineEdit, QComboBox, QSpinBox, QCheckBox,
-    QDialog, QDialogButtonBox, QListWidget, QListWidgetItem,
+    QAbstractItemView,
+    QComboBox,
+    QDialog,
+    QDialogButtonBox,
+    QFileDialog,
+    QFormLayout,
+    QHBoxLayout,
+    QHeaderView,
+    QLabel,
+    QLineEdit,
+    QListWidget,
+    QListWidgetItem,
+    QMessageBox,
+    QPushButton,
+    QSplitter,
+    QStatusBar,
+    QTableView,
+    QTabWidget,
+    QToolBar,
+    QVBoxLayout,
+    QWidget,
 )
-from PySide6.QtCore import Qt, Signal, QModelIndex
-from PySide6.QtGui import QAction, QFont
 
-from modules.swc_designer.controller import SWCDesignerController
-from modules.swc_designer.widgets.port_dialog import PortDialog, InterfaceDialog
-from modules.swc_designer.widgets.runnable_dialog import RunnableDialog
 from core.parsers.arxml_parser import (
-    SWCDef, PortDef, RunnableDef, PortDirection,
-    SenderReceiverInterface, ClientServerInterface,
+    ClientServerInterface,
+    SenderReceiverInterface,
+    SWCDef,
 )
-from ui.widgets.tree_view import TreeView
+from modules.swc_designer.controller import SWCDesignerController
+from modules.swc_designer.widgets.port_dialog import InterfaceDialog, PortDialog
+from modules.swc_designer.widgets.runnable_dialog import RunnableDialog
+from ui.icons import icon_add, icon_export_arxml, icon_generate, icon_open, icon_remove, icon_save, icon_validate
+from ui.widgets.file_worker import FileWorker
 from ui.widgets.property_panel import PropertyPanel
 from ui.widgets.table_editor import DataTableModel
-from ui.widgets.file_worker import FileWorker
-from ui.icons import icon_open, icon_save, icon_validate, icon_export_arxml, icon_add, icon_remove, icon_generate
-
+from ui.widgets.tree_view import TreeView
 
 # ── Template dialog ──────────────────────────────────────────────────────────
 
@@ -84,7 +99,9 @@ class TemplateDialog(QDialog):
             for name in names:
                 tpl = self.controller.get_template(name)
                 if tpl:
-                    item = QListWidgetItem(f"[{cat}] {name} — {tpl.description.split('|')[-1].strip() if '|' in tpl.description else tpl.description}")
+                    item = QListWidgetItem(
+                        f"[{cat}] {name} — {tpl.description.split('|')[-1].strip() if '|' in tpl.description else tpl.description}"
+                    )
                     item.setData(Qt.UserRole, name)
                     self.template_list.addItem(item)
 
@@ -121,13 +138,15 @@ class AddSWCDialog(QDialog):
         form.addRow("SWC名称:", self.name_input)
 
         self.category_combo = QComboBox()
-        self.category_combo.addItems([
-            "ApplicationSoftwareComponent",
-            "ServiceComponent",
-            "ComplexDeviceDriver",
-            "SensorActuatorSoftwareComponent",
-            "EcuAbstractionSoftwareComponent",
-        ])
+        self.category_combo.addItems(
+            [
+                "ApplicationSoftwareComponent",
+                "ServiceComponent",
+                "ComplexDeviceDriver",
+                "SensorActuatorSoftwareComponent",
+                "EcuAbstractionSoftwareComponent",
+            ]
+        )
         form.addRow("组件类型:", self.category_combo)
 
         self.desc_input = QLineEdit()
@@ -148,7 +167,6 @@ class AddSWCDialog(QDialog):
             "category": self.category_combo.currentText(),
             "description": self.desc_input.text().strip(),
         }
-
 
 
 # ── Main view ────────────────────────────────────────────────────────────────
@@ -353,9 +371,7 @@ class SWCDesignerView(QWidget):
     # ── File operations ─────────────────────────────────────────────────────
 
     def _on_open_arxml(self):
-        path, _ = QFileDialog.getOpenFileName(
-            self, "打开ARXML文件", "", "ARXML文件 (*.arxml);;所有文件 (*)"
-        )
+        path, _ = QFileDialog.getOpenFileName(self, "打开ARXML文件", "", "ARXML文件 (*.arxml);;所有文件 (*)")
         if not path:
             return
         self.load_file(path)
@@ -390,9 +406,7 @@ class SWCDesignerView(QWidget):
     def _on_save(self):
         if self.controller.current_data is None:
             return
-        path, _ = QFileDialog.getSaveFileName(
-            self, "保存JSON", "", "JSON文件 (*.json);;所有文件 (*)"
-        )
+        path, _ = QFileDialog.getSaveFileName(self, "保存JSON", "", "JSON文件 (*.json);;所有文件 (*)")
         if path:
             success, errors = self.controller.save_json(Path(path))
             if success:
@@ -450,7 +464,8 @@ class SWCDesignerView(QWidget):
         if self._current_swc_name is None:
             return
         reply = QMessageBox.question(
-            self, "确认删除",
+            self,
+            "确认删除",
             f"确定要删除 SWC '{self._current_swc_name}' 吗？",
         )
         if reply != QMessageBox.Yes:
@@ -466,9 +481,7 @@ class SWCDesignerView(QWidget):
         if self.controller.current_data is None:
             QMessageBox.information(self, "提示", "请先新建项目或打开ARXML文件")
             return
-        path, _ = QFileDialog.getSaveFileName(
-            self, "导出ARXML", "", "ARXML文件 (*.arxml);;所有文件 (*)"
-        )
+        path, _ = QFileDialog.getSaveFileName(self, "导出ARXML", "", "ARXML文件 (*.arxml);;所有文件 (*)")
         if not path:
             return
         result = self.controller.save_arxml(Path(path))
@@ -501,31 +514,34 @@ class SWCDesignerView(QWidget):
 
     def _show_swc_detail(self, swc: SWCDef):
         self.swc_info_label.setText(
-            f"SWC: {swc.name}  |  类型: {swc.category}  |  "
-            f"端口: {len(swc.ports)}  |  Runnable: {len(swc.runnables)}"
+            f"SWC: {swc.name}  |  类型: {swc.category}  |  端口: {len(swc.ports)}  |  Runnable: {len(swc.runnables)}"
         )
 
         # Load ports
         port_rows = []
         for p in swc.ports:
-            port_rows.append({
-                "name": p.name,
-                "direction": p.direction.value,
-                "interface_ref": p.interface_ref,
-            })
+            port_rows.append(
+                {
+                    "name": p.name,
+                    "direction": p.direction.value,
+                    "interface_ref": p.interface_ref,
+                }
+            )
         self.port_model.load_data(port_rows)
 
         # Load runnables
         run_rows = []
         for r in swc.runnables:
-            run_rows.append({
-                "name": r.name,
-                "period_ms": str(r.period_ms) if r.period_ms is not None else "事件触发",
-                "trigger": "周期" if r.period_ms is not None else "事件",
-                "data_read": ", ".join(r.data_read_access) if r.data_read_access else "-",
-                "data_write": ", ".join(r.data_write_access) if r.data_write_access else "-",
-                "server_call": ", ".join(r.server_call_points) if r.server_call_points else "-",
-            })
+            run_rows.append(
+                {
+                    "name": r.name,
+                    "period_ms": str(r.period_ms) if r.period_ms is not None else "事件触发",
+                    "trigger": "周期" if r.period_ms is not None else "事件",
+                    "data_read": ", ".join(r.data_read_access) if r.data_read_access else "-",
+                    "data_write": ", ".join(r.data_write_access) if r.data_write_access else "-",
+                    "server_call": ", ".join(r.server_call_points) if r.server_call_points else "-",
+                }
+            )
         self.runnable_model.load_data(run_rows)
 
         # Load properties
@@ -534,12 +550,25 @@ class SWCDesignerView(QWidget):
             swc.name,
             [
                 {"name": "name", "label": "SWC名称", "type": "text", "value": swc.name},
-                {"name": "category", "label": "组件类型", "type": "combo", "value": swc.category,
-                 "options": ["ApplicationSoftwareComponent", "ServiceComponent",
-                             "ComplexDeviceDriver", "SensorActuatorSoftwareComponent",
-                             "EcuAbstractionSoftwareComponent"]},
-                {"name": "description", "label": "描述", "type": "text",
-                 "value": desc_parts[-1].strip() if len(desc_parts) > 1 else desc_parts[0].strip()},
+                {
+                    "name": "category",
+                    "label": "组件类型",
+                    "type": "combo",
+                    "value": swc.category,
+                    "options": [
+                        "ApplicationSoftwareComponent",
+                        "ServiceComponent",
+                        "ComplexDeviceDriver",
+                        "SensorActuatorSoftwareComponent",
+                        "EcuAbstractionSoftwareComponent",
+                    ],
+                },
+                {
+                    "name": "description",
+                    "label": "描述",
+                    "type": "text",
+                    "value": desc_parts[-1].strip() if len(desc_parts) > 1 else desc_parts[0].strip(),
+                },
             ],
         )
 
@@ -630,7 +659,6 @@ class SWCDesignerView(QWidget):
             return
         if field_name == "name" and value and value != swc.name:
             # Rename: remove old, add new
-            old_name = swc.name
             swc.name = value
             self._current_swc_name = value
             self._refresh_swc_tree()
@@ -778,9 +806,6 @@ class SWCDesignerView(QWidget):
         for cat, swcs in sorted(cat_groups.items()):
             parent = self.swc_tree.add_top_level_item(f"{cat} ({len(swcs)})")
             for swc in swcs:
-                port_count = len(swc.ports)
-                run_count = len(swc.runnables)
-                label = f"{swc.name}  [P:{port_count} R:{run_count}]"
                 self.swc_tree.add_child_item(parent, swc.name)
         self.swc_tree.tree.expandAll()
 
@@ -790,6 +815,5 @@ class SWCDesignerView(QWidget):
         total_ports = sum(len(s.ports) for s in swcs)
         total_runs = sum(len(s.runnables) for s in swcs)
         self.info_label.setText(
-            f"SWC: {len(swcs)}  |  端口: {total_ports}  |  "
-            f"Runnable: {total_runs}  |  接口: {len(ifaces)}"
+            f"SWC: {len(swcs)}  |  端口: {total_ports}  |  Runnable: {total_runs}  |  接口: {len(ifaces)}"
         )

@@ -1,9 +1,10 @@
 """Tests for core.parsers.a2l_parser — A2L parsing, including malformed input."""
 
-import pytest
 from pathlib import Path
 
-from core.parsers.a2l_parser import A2LParser, A2LData
+import pytest
+
+from core.parsers.a2l_parser import A2LParser
 
 
 @pytest.fixture
@@ -15,16 +16,15 @@ def parser():
 
 
 class TestA2LParserBasic:
-
     def test_parse_valid_characteristic(self, parser):
-        content = '''
+        content = """
 /begin CHARACTERISTIC
     EngSpeed "Engine Speed" VALUE 0x1000 RL_Speed 0.0 5000.0
     COMPU_METHOD "CM_Speed"
     UNIT "rpm"
     LOWER_LIMIT 0.0 UPPER_LIMIT 8000.0
 /end CHARACTERISTIC
-'''
+"""
         result = parser.parse_string(content)
         assert result.success
         data = result.data
@@ -37,11 +37,11 @@ class TestA2LParserBasic:
         assert char.upper_limit == 8000.0
 
     def test_parse_valid_measurement(self, parser):
-        content = '''
+        content = """
 /begin MEASUREMENT
     ThrottlePos "Throttle Position" UBYTE CM_Throttle 0 0.0 0.0 100.0
 /end MEASUREMENT
-'''
+"""
         result = parser.parse_string(content)
         assert result.success
         assert len(result.data.measurements) == 1
@@ -51,12 +51,12 @@ class TestA2LParserBasic:
         assert meas.upper_limit == 100.0
 
     def test_parse_valid_compu_method(self, parser):
-        content = '''
+        content = """
 /begin COMPU_METHOD
     CM_Speed "Speed conversion" RAT_FUNC "%8.2" "rpm"
     COEFFS 0 1 0 0 0 1
 /end COMPU_METHOD
-'''
+"""
         result = parser.parse_string(content)
         assert result.success
         assert len(result.data.compu_methods) == 1
@@ -73,14 +73,14 @@ class TestA2LParserBasic:
         assert len(result.data.measurements) == 0
 
     def test_parse_multiple_blocks(self, parser):
-        content = '''
+        content = """
 /begin CHARACTERISTIC Param1 "Param 1" VALUE 0x1000 RL1 0 100
 /end CHARACTERISTIC
 /begin CHARACTERISTIC Param2 "Param 2" VALUE 0x2000 RL2 0 200
 /end CHARACTERISTIC
 /begin MEASUREMENT Sig1 "Signal 1" UWORD CM1 0 0 0 65535
 /end MEASUREMENT
-'''
+"""
         result = parser.parse_string(content)
         assert result.success
         assert len(result.data.characteristics) == 2
@@ -91,32 +91,31 @@ class TestA2LParserBasic:
 
 
 class TestA2LParserMalformed:
-
     def test_characteristic_empty_block(self, parser):
         """Empty CHARACTERISTIC block should be skipped, not crash."""
-        content = '/begin CHARACTERISTIC\n/end CHARACTERISTIC'
+        content = "/begin CHARACTERISTIC\n/end CHARACTERISTIC"
         result = parser.parse_string(content)
         assert result.success
         assert len(result.data.characteristics) == 0
 
     def test_characteristic_insufficient_tokens(self, parser):
         """CHARACTERISTIC with only a name (no type) should be skipped."""
-        content = '''
+        content = """
 /begin CHARACTERISTIC
     OnlyName
 /end CHARACTERISTIC
-'''
+"""
         result = parser.parse_string(content)
         assert result.success
         assert len(result.data.characteristics) == 0
 
     def test_characteristic_missing_address(self, parser):
         """CHARACTERISTIC with missing address field should still parse (defaults to 0)."""
-        content = '''
+        content = """
 /begin CHARACTERISTIC
     Param1 "Description" VALUE
 /end CHARACTERISTIC
-'''
+"""
         result = parser.parse_string(content)
         assert result.success
         assert len(result.data.characteristics) == 1
@@ -126,47 +125,47 @@ class TestA2LParserMalformed:
 
     def test_measurement_empty_block(self, parser):
         """Empty MEASUREMENT block should be skipped."""
-        content = '/begin MEASUREMENT\n/end MEASUREMENT'
+        content = "/begin MEASUREMENT\n/end MEASUREMENT"
         result = parser.parse_string(content)
         assert result.success
         assert len(result.data.measurements) == 0
 
     def test_measurement_no_regex_match(self, parser):
         """MEASUREMENT with unparseable first line should be skipped."""
-        content = '''
+        content = """
 /begin MEASUREMENT
     garbage line with no quotes
 /end MEASUREMENT
-'''
+"""
         result = parser.parse_string(content)
         assert result.success
         assert len(result.data.measurements) == 0
 
     def test_compu_method_empty_block(self, parser):
         """Empty COMPU_METHOD block should be skipped."""
-        content = '/begin COMPU_METHOD\n/end COMPU_METHOD'
+        content = "/begin COMPU_METHOD\n/end COMPU_METHOD"
         result = parser.parse_string(content)
         assert result.success
         assert len(result.data.compu_methods) == 0
 
     def test_compu_method_no_regex_match(self, parser):
         """COMPU_METHOD with unparseable first line should be skipped."""
-        content = '''
+        content = """
 /begin COMPU_METHOD
     no_description_no_type
 /end COMPU_METHOD
-'''
+"""
         result = parser.parse_string(content)
         assert result.success
         assert len(result.data.compu_methods) == 0
 
     def test_compu_method_no_coeffs(self, parser):
         """COMPU_METHOD without COEFFS should parse with empty coeffs list."""
-        content = '''
+        content = """
 /begin COMPU_METHOD
     CM_Identical "Identity" IDENTICAL "%8.2" "rpm"
 /end COMPU_METHOD
-'''
+"""
         result = parser.parse_string(content)
         assert result.success
         cm = result.data.compu_methods[0]
@@ -175,12 +174,12 @@ class TestA2LParserMalformed:
 
     def test_compu_method_with_formula(self, parser):
         """COMPU_METHOD with FORMULA should parse formula correctly."""
-        content = '''
+        content = """
 /begin COMPU_METHOD
     CM_Formula "Formula" FORM "%8.2" "kPa"
     FORMULA "X1 * 2.5 + 100"
 /end COMPU_METHOD
-'''
+"""
         result = parser.parse_string(content)
         assert result.success
         cm = result.data.compu_methods[0]
@@ -188,7 +187,7 @@ class TestA2LParserMalformed:
 
     def test_mixed_valid_and_malformed(self, parser):
         """Valid and malformed blocks should coexist — valid ones still parsed."""
-        content = '''
+        content = """
 /begin CHARACTERISTIC
     /end CHARACTERISTIC
 /begin CHARACTERISTIC
@@ -200,7 +199,7 @@ class TestA2LParserMalformed:
 /begin MEASUREMENT
     GoodSig "Good Signal" UBYTE CM1 0 0 0 255
 /end MEASUREMENT
-'''
+"""
         result = parser.parse_string(content)
         assert result.success
         # First characteristic is empty (skipped), second is valid
@@ -221,7 +220,6 @@ class TestA2LParserMalformed:
 
 
 class TestA2LParserValidation:
-
     def test_validate_missing_begin(self, parser, tmp_path):
         f = tmp_path / "bad.a2l"
         f.write_text("no begin blocks here", encoding="utf-8")
@@ -230,7 +228,7 @@ class TestA2LParserValidation:
 
     def test_validate_valid_file(self, parser, tmp_path):
         f = tmp_path / "good.a2l"
-        f.write_text('/begin CHARACTERISTIC\n/end CHARACTERISTIC', encoding="utf-8")
+        f.write_text("/begin CHARACTERISTIC\n/end CHARACTERISTIC", encoding="utf-8")
         errors = parser.validate(f)
         assert len(errors) == 0
 
@@ -239,10 +237,10 @@ class TestA2LParserValidation:
 
 
 class TestA2LParserSerialisation:
-
     def test_to_dict_contains_all_fields(self, parser):
         from core.parsers.a2l_parser import a2l_data_to_dict
-        content = '''
+
+        content = """
 /begin CHARACTERISTIC
     EngSpeed "Engine Speed" VALUE 0x1000 RL_Speed 0.0 5000.0
     COMPU_METHOD "CM_Speed"
@@ -256,7 +254,7 @@ class TestA2LParserSerialisation:
     CM_Speed "Speed conversion" RAT_FUNC "%8.2" "rpm"
     COEFFS 0 1 0 0 0 1
 /end COMPU_METHOD
-'''
+"""
         result = parser.parse_string(content)
         assert result.success
         d = a2l_data_to_dict(result.data)

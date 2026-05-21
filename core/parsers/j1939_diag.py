@@ -5,11 +5,12 @@ from __future__ import annotations
 from core.parsers.j1939_parser import J1939DTC, extract_pgn
 from core.parsers.j1939_tp import J1939TransportProtocol
 
-
 # ── DTC Lamp Status ────────────────────────────────────────────────────────
+
 
 class DTCLamp:
     """DM1 lamp status byte positions."""
+
     MALFUNCTION_INDICATOR = 0x00
     RED_STOP = 0x01
     AMBER_WARNING = 0x02
@@ -25,6 +26,7 @@ LAMP_NAMES = {
 
 
 # ── Diagnostic message parser ──────────────────────────────────────────────
+
 
 class J1939Diagnostics:
     """Parse J1939 DM1/DM2 diagnostic messages.

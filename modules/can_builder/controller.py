@@ -4,12 +4,15 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from core.parsers.dbc_parser import (
-    DBCParser, DBCData, MessageDef, SignalDef,
-    dbc_data_to_dict, dbc_data_from_dict,
-)
-from core.generators.c_generator import CANCodeGenerator
 from core.diff.dbc_diff import DBCDiffEngine, DBCDiffResult
+from core.generators.c_generator import CANCodeGenerator
+from core.parsers.dbc_parser import (
+    DBCData,
+    DBCParser,
+    MessageDef,
+    SignalDef,
+    dbc_data_to_dict,
+)
 from core.rules.engine import RuleEngine, RuleResult
 
 
@@ -44,13 +47,16 @@ class CANBuilderController:
             return False, ["No output path specified"]
 
         try:
+            from collections import OrderedDict
+
             import cantools
             import cantools.database
             import cantools.database.can
             from cantools.database.conversion import (
-                IdentityConversion, LinearConversion, NamedSignalConversion,
+                IdentityConversion,
+                LinearConversion,
+                NamedSignalConversion,
             )
-            from collections import OrderedDict
 
             # Build cantools Message objects
             ct_messages: list[cantools.database.can.Message] = []
@@ -99,7 +105,7 @@ class CANBuilderController:
                         name=sig_def.name,
                         start=sig_def.start_bit,
                         length=sig_def.bit_length,
-                        byte_order='little_endian' if is_little_endian else 'big_endian',
+                        byte_order="little_endian" if is_little_endian else "big_endian",
                         is_signed=is_signed,
                         conversion=conversion,
                         minimum=sig_def.minimum if sig_def.minimum != 0.0 else None,
@@ -153,6 +159,7 @@ class CANBuilderController:
             return False, ["No output path specified"]
         try:
             import json
+
             data = dbc_data_to_dict(self.current_dbc)
             target.write_text(json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8")
             return True, []

@@ -14,12 +14,12 @@ from __future__ import annotations
 import struct
 from dataclasses import dataclass
 
-
 # ── CCP Command Codes ──────────────────────────────────────────────────────
 
 
 class CcpCmd:
     """CCP command codes."""
+
     CONNECT = 0x01
     DISCONNECT = 0x07
     SET_MTA = 0x02
@@ -50,6 +50,7 @@ class CcpCmd:
 
 class CcpError:
     """CCP return codes (byte 1 of positive/negative DTO)."""
+
     ACK = 0x00
     DAQ_OVERLOAD = 0x01
     CMD_UNKNOWN = 0x30
@@ -61,10 +62,15 @@ class CcpError:
     RESOURCE_BUSY = 0x21
 
     _NAMES = {
-        0x00: "ACK", 0x01: "DAQ_OVERLOAD",
-        0x30: "CMD_UNKNOWN", 0x31: "CMD_SYNTAX",
-        0x32: "PARAM_OUT_OF_RANGE", 0x33: "ACCESS_DENIED",
-        0x34: "OVERFLOW", 0x20: "NOT_CONNECTED", 0x21: "RESOURCE_BUSY",
+        0x00: "ACK",
+        0x01: "DAQ_OVERLOAD",
+        0x30: "CMD_UNKNOWN",
+        0x31: "CMD_SYNTAX",
+        0x32: "PARAM_OUT_OF_RANGE",
+        0x33: "ACCESS_DENIED",
+        0x34: "OVERFLOW",
+        0x20: "NOT_CONNECTED",
+        0x21: "RESOURCE_BUSY",
     }
 
     @classmethod
@@ -78,6 +84,7 @@ class CcpError:
 @dataclass
 class CcpResponse:
     """Decoded CCP DTO response."""
+
     return_code: int
     data: bytes
     counter: int = 0
@@ -113,22 +120,26 @@ class CcpCodec:
     @staticmethod
     def encode_connect(station_address: int = 0x0000) -> bytes:
         """CONNECT CRO. station_address is the ECU address."""
-        return bytes([
-            CcpCmd.CONNECT,
-            0x00,  # counter
-            station_address & 0xFF,
-            (station_address >> 8) & 0xFF,
-        ])
+        return bytes(
+            [
+                CcpCmd.CONNECT,
+                0x00,  # counter
+                station_address & 0xFF,
+                (station_address >> 8) & 0xFF,
+            ]
+        )
 
     @staticmethod
     def encode_test(station_address: int = 0x0000) -> bytes:
         """TEST CRO — check if ECU at station_address is available."""
-        return bytes([
-            CcpCmd.TEST,
-            0x00,
-            station_address & 0xFF,
-            (station_address >> 8) & 0xFF,
-        ])
+        return bytes(
+            [
+                CcpCmd.TEST,
+                0x00,
+                station_address & 0xFF,
+                (station_address >> 8) & 0xFF,
+            ]
+        )
 
     # ── DISCONNECT ─────────────────────────────────────────────────────────
 
@@ -169,16 +180,18 @@ class CcpCodec:
             addr_ext: Address extension (memory segment).
             mta_num: MTA number (0 or 1).
         """
-        return bytes([
-            CcpCmd.SET_MTA,
-            0x00,       # counter
-            mta_num,
-            addr_ext,
-            address & 0xFF,
-            (address >> 8) & 0xFF,
-            (address >> 16) & 0xFF,
-            (address >> 24) & 0xFF,
-        ])
+        return bytes(
+            [
+                CcpCmd.SET_MTA,
+                0x00,  # counter
+                mta_num,
+                addr_ext,
+                address & 0xFF,
+                (address >> 8) & 0xFF,
+                (address >> 16) & 0xFF,
+                (address >> 24) & 0xFF,
+            ]
+        )
 
     # ── UPLOAD ─────────────────────────────────────────────────────────────
 
@@ -192,16 +205,18 @@ class CcpCodec:
     @staticmethod
     def encode_short_upload(size: int, address: int, addr_ext: int = 0) -> bytes:
         """SHORT_UP CRO — read size bytes directly from address."""
-        return bytes([
-            CcpCmd.SHORT_UP,
-            0x00,
-            size,
-            addr_ext,
-            address & 0xFF,
-            (address >> 8) & 0xFF,
-            (address >> 16) & 0xFF,
-            (address >> 24) & 0xFF,
-        ])
+        return bytes(
+            [
+                CcpCmd.SHORT_UP,
+                0x00,
+                size,
+                addr_ext,
+                address & 0xFF,
+                (address >> 8) & 0xFF,
+                (address >> 16) & 0xFF,
+                (address >> 24) & 0xFF,
+            ]
+        )
 
     # ── DNLOAD ─────────────────────────────────────────────────────────────
 
@@ -253,44 +268,53 @@ class CcpCodec:
     @staticmethod
     def encode_set_daq_ptr(daq_list: int, odt: int, element: int) -> bytes:
         """SET_DAQ_PTR CRO — set pointer for DAQ configuration."""
-        return bytes([
-            CcpCmd.SET_DAQ_PTR,
-            0x00,
-            daq_list,
-            0x00,
-            odt,
-            element,
-        ])
+        return bytes(
+            [
+                CcpCmd.SET_DAQ_PTR,
+                0x00,
+                daq_list,
+                0x00,
+                odt,
+                element,
+            ]
+        )
 
     @staticmethod
     def encode_write_daq(size: int, addr_ext: int, address: int) -> bytes:
         """WRITE_DAQ CRO — define one DAQ entry."""
-        return bytes([
-            CcpCmd.WRITE_DAQ,
-            0x00,
-            size,
-            addr_ext,
-            address & 0xFF,
-            (address >> 8) & 0xFF,
-            (address >> 16) & 0xFF,
-            (address >> 24) & 0xFF,
-        ])
+        return bytes(
+            [
+                CcpCmd.WRITE_DAQ,
+                0x00,
+                size,
+                addr_ext,
+                address & 0xFF,
+                (address >> 8) & 0xFF,
+                (address >> 16) & 0xFF,
+                (address >> 24) & 0xFF,
+            ]
+        )
 
     @staticmethod
     def encode_start_stop(
-        daq_list: int, last_odt: int, event_channel: int, rate_prescaler: int = 0,
+        daq_list: int,
+        last_odt: int,
+        event_channel: int,
+        rate_prescaler: int = 0,
     ) -> bytes:
         """START_STOP CRO — start/stop a DAQ list."""
-        return bytes([
-            CcpCmd.START_STOP,
-            0x00,
-            0x01,  # start
-            daq_list,
-            last_odt,
-            event_channel & 0xFF,
-            (event_channel >> 8) & 0xFF,
-            rate_prescaler,
-        ])
+        return bytes(
+            [
+                CcpCmd.START_STOP,
+                0x00,
+                0x01,  # start
+                daq_list,
+                last_odt,
+                event_channel & 0xFF,
+                (event_channel >> 8) & 0xFF,
+                rate_prescaler,
+            ]
+        )
 
     # ── Utility ────────────────────────────────────────────────────────────
 
@@ -298,10 +322,14 @@ class CcpCodec:
     def data_type_size(data_type: str) -> int:
         """Return byte size for a CCP data type."""
         sizes = {
-            "UBYTE": 1, "SBYTE": 1,
-            "UWORD": 2, "SWORD": 2,
-            "ULONG": 4, "SLONG": 4,
-            "FLOAT32_IEEE": 4, "FLOAT64_IEEE": 8,
+            "UBYTE": 1,
+            "SBYTE": 1,
+            "UWORD": 2,
+            "SWORD": 2,
+            "ULONG": 4,
+            "SLONG": 4,
+            "FLOAT32_IEEE": 4,
+            "FLOAT64_IEEE": 8,
         }
         return sizes.get(data_type, 0)
 
@@ -309,10 +337,14 @@ class CcpCodec:
     def unpack_value(raw: bytes, data_type: str) -> float:
         """Unpack raw bytes to numeric value."""
         type_map = {
-            "UBYTE": ("B", 1), "SBYTE": ("b", 1),
-            "UWORD": ("<H", 2), "SWORD": ("<h", 2),
-            "ULONG": ("<I", 4), "SLONG": ("<i", 4),
-            "FLOAT32_IEEE": ("<f", 4), "FLOAT64_IEEE": ("<d", 8),
+            "UBYTE": ("B", 1),
+            "SBYTE": ("b", 1),
+            "UWORD": ("<H", 2),
+            "SWORD": ("<h", 2),
+            "ULONG": ("<I", 4),
+            "SLONG": ("<i", 4),
+            "FLOAT32_IEEE": ("<f", 4),
+            "FLOAT64_IEEE": ("<d", 8),
         }
         fmt_info = type_map.get(data_type)
         if fmt_info is None:
@@ -326,10 +358,14 @@ class CcpCodec:
     def pack_value(value: float, data_type: str) -> bytes:
         """Pack numeric value to bytes."""
         type_map = {
-            "UBYTE": ("B", 1), "SBYTE": ("b", 1),
-            "UWORD": ("<H", 2), "SWORD": ("<h", 2),
-            "ULONG": ("<I", 4), "SLONG": ("<i", 4),
-            "FLOAT32_IEEE": ("<f", 4), "FLOAT64_IEEE": ("<d", 8),
+            "UBYTE": ("B", 1),
+            "SBYTE": ("b", 1),
+            "UWORD": ("<H", 2),
+            "SWORD": ("<h", 2),
+            "ULONG": ("<I", 4),
+            "SLONG": ("<i", 4),
+            "FLOAT32_IEEE": ("<f", 4),
+            "FLOAT64_IEEE": ("<d", 8),
         }
         fmt_info = type_map.get(data_type)
         if fmt_info is None:

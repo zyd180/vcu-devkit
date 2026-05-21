@@ -1,7 +1,6 @@
 """Tests for A2L (ASAP2) file generator."""
 
 import re
-from pathlib import Path
 
 import pytest
 
@@ -110,10 +109,12 @@ class TestA2LGenerator:
 
     def test_import(self):
         from core.generators.a2l_generator import A2LGenerator
+
         assert A2LGenerator is not None
 
     def test_generate_string_returns_str(self, sample_a2l_data):
         from core.generators.a2l_generator import A2LGenerator
+
         gen = A2LGenerator()
         result = gen.generate_string(sample_a2l_data)
         assert isinstance(result, str)
@@ -122,6 +123,7 @@ class TestA2LGenerator:
     def test_project_structure(self, sample_a2l_data):
         """Output must contain /begin PROJECT ... /end PROJECT wrapping everything."""
         from core.generators.a2l_generator import A2LGenerator
+
         text = A2LGenerator().generate_string(sample_a2l_data)
         assert "/begin PROJECT" in text
         assert "/end PROJECT" in text
@@ -132,14 +134,16 @@ class TestA2LGenerator:
 
     def test_compu_methods_emitted(self, sample_a2l_data):
         from core.generators.a2l_generator import A2LGenerator
+
         text = A2LGenerator().generate_string(sample_a2l_data)
         for cm in sample_a2l_data.compu_methods:
             assert f"/begin COMPU_METHOD {cm.name}" in text
-            assert f"/end COMPU_METHOD" in text
+            assert "/end COMPU_METHOD" in text
 
     def test_linear_compu_method_coeffs(self, sample_a2l_data):
         """LINEAR type must emit COEFFS line."""
         from core.generators.a2l_generator import A2LGenerator
+
         text = A2LGenerator().generate_string(sample_a2l_data)
         assert "CM_Linear" in text
         # COEFFS 0 1 0 0 1 0
@@ -148,35 +152,33 @@ class TestA2LGenerator:
     def test_identical_compu_method(self, sample_a2l_data):
         """IDENTICAL type must NOT contain COEFFS."""
         from core.generators.a2l_generator import A2LGenerator
+
         text = A2LGenerator().generate_string(sample_a2l_data)
         # Find the IDENTICAL block — it should not have COEFFS
-        ident_block = re.search(
-            r"/begin COMPU_METHOD CM_Identical.*?/end COMPU_METHOD", text, re.DOTALL
-        )
+        ident_block = re.search(r"/begin COMPU_METHOD CM_Identical.*?/end COMPU_METHOD", text, re.DOTALL)
         assert ident_block is not None
         assert "COEFFS" not in ident_block.group()
 
     def test_rat_func_compu_method_coeffs(self, sample_a2l_data):
         from core.generators.a2l_generator import A2LGenerator
+
         text = A2LGenerator().generate_string(sample_a2l_data)
-        rat_block = re.search(
-            r"/begin COMPU_METHOD CM_RatFunc.*?/end COMPU_METHOD", text, re.DOTALL
-        )
+        rat_block = re.search(r"/begin COMPU_METHOD CM_RatFunc.*?/end COMPU_METHOD", text, re.DOTALL)
         assert rat_block is not None
         assert "RAT_FUNC" in rat_block.group()
         assert "COEFFS" in rat_block.group()
 
     def test_form_compu_method_formula(self, sample_a2l_data):
         from core.generators.a2l_generator import A2LGenerator
+
         text = A2LGenerator().generate_string(sample_a2l_data)
-        form_block = re.search(
-            r"/begin COMPU_METHOD CM_Formula.*?/end COMPU_METHOD", text, re.DOTALL
-        )
+        form_block = re.search(r"/begin COMPU_METHOD CM_Formula.*?/end COMPU_METHOD", text, re.DOTALL)
         assert form_block is not None
         assert "FORMULA" in form_block.group()
 
     def test_characteristics_emitted(self, sample_a2l_data):
         from core.generators.a2l_generator import A2LGenerator
+
         text = A2LGenerator().generate_string(sample_a2l_data)
         assert "MotorMaxTorque" in text
         assert "BattMaxCurrent" in text
@@ -185,18 +187,21 @@ class TestA2LGenerator:
 
     def test_characteristic_address_hex(self, sample_a2l_data):
         from core.generators.a2l_generator import A2LGenerator
+
         text = A2LGenerator().generate_string(sample_a2l_data)
         assert "0x00001000" in text
         assert "0x00001004" in text
 
     def test_characteristic_unit(self, sample_a2l_data):
         from core.generators.a2l_generator import A2LGenerator
+
         text = A2LGenerator().generate_string(sample_a2l_data)
         assert 'UNIT "Nm"' in text
         assert 'UNIT "A"' in text
 
     def test_measurements_emitted(self, sample_a2l_data):
         from core.generators.a2l_generator import A2LGenerator
+
         text = A2LGenerator().generate_string(sample_a2l_data)
         assert "MotorSpeed" in text
         assert "BattVoltage" in text
@@ -205,12 +210,14 @@ class TestA2LGenerator:
 
     def test_measurement_unit(self, sample_a2l_data):
         from core.generators.a2l_generator import A2LGenerator
+
         text = A2LGenerator().generate_string(sample_a2l_data)
         assert 'UNIT "RPM"' in text
         assert 'UNIT "V"' in text
 
     def test_measurement_data_type(self, sample_a2l_data):
         from core.generators.a2l_generator import A2LGenerator
+
         text = A2LGenerator().generate_string(sample_a2l_data)
         # UWORD should appear in MEASUREMENT lines
         assert "UWORD" in text
@@ -218,6 +225,7 @@ class TestA2LGenerator:
     def test_empty_data(self):
         """Generator handles empty data gracefully."""
         from core.generators.a2l_generator import A2LGenerator
+
         data = A2LData(
             characteristics=[],
             measurements=[],
@@ -233,6 +241,7 @@ class TestA2LGenerator:
     def test_roundtrip_parse(self, sample_a2l_data):
         """Generated A2L can be parsed back by A2LParser."""
         from core.generators.a2l_generator import A2LGenerator
+
         gen = A2LGenerator()
         text = gen.generate_string(sample_a2l_data)
 
@@ -243,6 +252,7 @@ class TestA2LGenerator:
 
     def test_roundtrip_preserves_characteristics(self, sample_a2l_data):
         from core.generators.a2l_generator import A2LGenerator
+
         text = A2LGenerator().generate_string(sample_a2l_data)
 
         parser = A2LParser()
@@ -253,6 +263,7 @@ class TestA2LGenerator:
 
     def test_roundtrip_preserves_measurements(self, sample_a2l_data):
         from core.generators.a2l_generator import A2LGenerator
+
         text = A2LGenerator().generate_string(sample_a2l_data)
 
         parser = A2LParser()
@@ -263,6 +274,7 @@ class TestA2LGenerator:
 
     def test_roundtrip_preserves_compu_methods(self, sample_a2l_data):
         from core.generators.a2l_generator import A2LGenerator
+
         text = A2LGenerator().generate_string(sample_a2l_data)
 
         parser = A2LParser()
@@ -278,6 +290,7 @@ class TestA2LGeneratorFile:
 
     def test_generate_to_file(self, tmp_path, sample_a2l_data):
         from core.generators.a2l_generator import A2LGenerator
+
         gen = A2LGenerator()
         out_file = tmp_path / "output.a2l"
         result = gen.generate(sample_a2l_data, out_file)
@@ -287,6 +300,7 @@ class TestA2LGeneratorFile:
 
     def test_generated_file_content(self, tmp_path, sample_a2l_data):
         from core.generators.a2l_generator import A2LGenerator
+
         gen = A2LGenerator()
         out_file = tmp_path / "output.a2l"
         gen.generate(sample_a2l_data, out_file)
@@ -297,6 +311,7 @@ class TestA2LGeneratorFile:
 
     def test_generate_creates_parent_dirs(self, tmp_path, sample_a2l_data):
         from core.generators.a2l_generator import A2LGenerator
+
         gen = A2LGenerator()
         out_file = tmp_path / "nested" / "dir" / "output.a2l"
         result = gen.generate(sample_a2l_data, out_file)
@@ -306,6 +321,7 @@ class TestA2LGeneratorFile:
     def test_generate_file_is_valid_a2l(self, tmp_path, sample_a2l_data):
         """Written file passes A2LParser validation."""
         from core.generators.a2l_generator import A2LGenerator
+
         gen = A2LGenerator()
         out_file = tmp_path / "output.a2l"
         gen.generate(sample_a2l_data, out_file)
@@ -317,6 +333,7 @@ class TestA2LGeneratorFile:
     def test_generate_roundtrip_file(self, tmp_path, sample_a2l_data):
         """Written file can be parsed back and preserves data."""
         from core.generators.a2l_generator import A2LGenerator
+
         gen = A2LGenerator()
         out_file = tmp_path / "output.a2l"
         gen.generate(sample_a2l_data, out_file)
@@ -356,8 +373,9 @@ class TestCalibManagerExportA2L:
 
     def test_export_a2l_no_data(self, tmp_path):
         """export_a2l returns error when no A2L is loaded."""
-        from modules.calib_manager.controller import CalibManagerController
         from core.db.manager import DatabaseManager
+        from modules.calib_manager.controller import CalibManagerController
+
         db_mgr = DatabaseManager(tmp_path / "test.db")
         ctrl = CalibManagerController(db_manager=db_mgr)
         ok, errors = ctrl.export_a2l(tmp_path / "out.a2l")
@@ -367,8 +385,9 @@ class TestCalibManagerExportA2L:
 
     def test_export_a2l_success(self, tmp_path):
         """export_a2l writes a valid file after loading A2L data."""
-        from modules.calib_manager.controller import CalibManagerController
         from core.db.manager import DatabaseManager
+        from modules.calib_manager.controller import CalibManagerController
+
         db_mgr = DatabaseManager(tmp_path / "test.db")
         ctrl = CalibManagerController(db_manager=db_mgr)
 
@@ -394,9 +413,10 @@ class TestCalibManagerExportA2L:
 
     def test_export_a2l_is_parseable(self, tmp_path):
         """Exported A2L can be parsed back by A2LParser."""
-        from modules.calib_manager.controller import CalibManagerController
         from core.db.manager import DatabaseManager
         from core.parsers.a2l_parser import A2LParser
+        from modules.calib_manager.controller import CalibManagerController
+
         db_mgr = DatabaseManager(tmp_path / "test.db")
         ctrl = CalibManagerController(db_manager=db_mgr)
 

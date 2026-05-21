@@ -80,14 +80,16 @@ class CANCodeGenerator(BaseGenerator):
         enum_name = f"{sig.name}_e"
 
         lines: list[str] = []
-        lines.append(f"/* {sig.name}: start={sig.start_bit}, len={sig.bit_length}, "
-                      f"factor={sig.factor}, offset={sig.offset}, "
-                      f"range=[{sig.minimum},{sig.maximum}]"
-                      f"{' ' + sig.unit if sig.unit else ''} */")
+        lines.append(
+            f"/* {sig.name}: start={sig.start_bit}, len={sig.bit_length}, "
+            f"factor={sig.factor}, offset={sig.offset}, "
+            f"range=[{sig.minimum},{sig.maximum}]"
+            f"{' ' + sig.unit if sig.unit else ''} */"
+        )
 
         # Enum typedef
         if has_enum:
-            lines.append(f"typedef enum {{")
+            lines.append("typedef enum {")
             for val, desc in sorted(sig.value_descriptions.items(), key=lambda x: x[0]):
                 lines.append(f"    {sig.name}_{self._safe_ident(desc)} = {val},")
             lines.append(f"}} {enum_name};")
@@ -115,15 +117,18 @@ class CANCodeGenerator(BaseGenerator):
 
         # ToPhysical (raw → physical)
         lines.append(f"static inline {phys_type} CAN_{sig.name}_ToPhysical({c_type} raw) {{")
-        lines.append(f"    return ({phys_type})raw * ({phys_type}){self._f(sig.factor)}f "
-                      f"+ ({phys_type}){self._f(sig.offset)}f;")
+        lines.append(
+            f"    return ({phys_type})raw * ({phys_type}){self._f(sig.factor)}f + ({phys_type}){self._f(sig.offset)}f;"
+        )
         lines.append("}")
         lines.append("")
 
         # FromPhysical (physical → raw)
         lines.append(f"static inline {c_type} CAN_{sig.name}_FromPhysical({phys_type} phys) {{")
-        lines.append(f"    return ({c_type})((phys - ({phys_type}){self._f(sig.offset)}f) "
-                      f"/ ({phys_type}){self._f(sig.factor)}f);")
+        lines.append(
+            f"    return ({c_type})((phys - ({phys_type}){self._f(sig.offset)}f) "
+            f"/ ({phys_type}){self._f(sig.factor)}f);"
+        )
         lines.append("}")
         lines.append("")
         return lines
@@ -134,51 +139,51 @@ class CANCodeGenerator(BaseGenerator):
         """Generate pack code for multi-bit signals."""
         lines: list[str] = []
         if sig.byte_order == "little_endian":
-            lines.append(f"    uint32_t raw = (uint32_t)val;")
+            lines.append("    uint32_t raw = (uint32_t)val;")
             lines.append(f"    unsigned start_byte = {sig.start_bit // 8}u;")
             lines.append(f"    unsigned start_bit  = {sig.start_bit % 8}u;")
             lines.append(f"    unsigned remaining  = {sig.bit_length}u;")
-            lines.append(f"    unsigned bit_pos    = 0;")
-            lines.append(f"    while (remaining > 0) {{")
-            lines.append(f"        unsigned bits_in_byte = 8u - start_bit;")
-            lines.append(f"        if (bits_in_byte > remaining) bits_in_byte = remaining;")
-            lines.append(f"        uint8_t mask = (uint8_t)(((1u << bits_in_byte) - 1u) << start_bit);")
-            lines.append(f"        uint8_t bits = (uint8_t)((raw >> bit_pos) << start_bit);")
-            lines.append(f"        buf[start_byte] = (buf[start_byte] & ~mask) | (bits & mask);")
-            lines.append(f"        bit_pos    += bits_in_byte;")
-            lines.append(f"        remaining  -= bits_in_byte;")
-            lines.append(f"        start_byte += 1u;")
-            lines.append(f"        start_bit   = 0u;")
-            lines.append(f"    }}")
+            lines.append("    unsigned bit_pos    = 0;")
+            lines.append("    while (remaining > 0) {")
+            lines.append("        unsigned bits_in_byte = 8u - start_bit;")
+            lines.append("        if (bits_in_byte > remaining) bits_in_byte = remaining;")
+            lines.append("        uint8_t mask = (uint8_t)(((1u << bits_in_byte) - 1u) << start_bit);")
+            lines.append("        uint8_t bits = (uint8_t)((raw >> bit_pos) << start_bit);")
+            lines.append("        buf[start_byte] = (buf[start_byte] & ~mask) | (bits & mask);")
+            lines.append("        bit_pos    += bits_in_byte;")
+            lines.append("        remaining  -= bits_in_byte;")
+            lines.append("        start_byte += 1u;")
+            lines.append("        start_bit   = 0u;")
+            lines.append("    }")
         else:
             # Big Endian (Motorola) — start_bit is MSB position
             msb_byte = sig.start_bit // 8
             msb_bit = sig.start_bit % 8
-            lines.append(f"    uint32_t raw = (uint32_t)val;")
+            lines.append("    uint32_t raw = (uint32_t)val;")
             lines.append(f"    unsigned cur_byte = {msb_byte}u;")
             lines.append(f"    unsigned cur_bit  = {msb_bit}u;")
             lines.append(f"    unsigned remaining = {sig.bit_length}u;")
             lines.append(f"    unsigned shift     = {sig.bit_length - 1}u;")
-            lines.append(f"    while (remaining > 0) {{")
-            lines.append(f"        unsigned bits_here = cur_bit + 1;")
-            lines.append(f"        if (bits_here > remaining) bits_here = remaining;")
-            lines.append(f"        for (unsigned i = 0; i < bits_here; i++) {{")
-            lines.append(f"            uint8_t bit_val = (raw >> shift) & 1u;")
-            lines.append(f"            uint8_t mask = 1u << (cur_bit - i);")
-            lines.append(f"            buf[cur_byte] = (buf[cur_byte] & ~mask) | (bit_val << (cur_bit - i));")
-            lines.append(f"            if (shift > 0) shift--;")
-            lines.append(f"        }}")
-            lines.append(f"        remaining -= bits_here;")
-            lines.append(f"        cur_byte += 1;")
-            lines.append(f"        cur_bit   = 7;")
-            lines.append(f"    }}")
+            lines.append("    while (remaining > 0) {")
+            lines.append("        unsigned bits_here = cur_bit + 1;")
+            lines.append("        if (bits_here > remaining) bits_here = remaining;")
+            lines.append("        for (unsigned i = 0; i < bits_here; i++) {")
+            lines.append("            uint8_t bit_val = (raw >> shift) & 1u;")
+            lines.append("            uint8_t mask = 1u << (cur_bit - i);")
+            lines.append("            buf[cur_byte] = (buf[cur_byte] & ~mask) | (bit_val << (cur_bit - i));")
+            lines.append("            if (shift > 0) shift--;")
+            lines.append("        }")
+            lines.append("        remaining -= bits_here;")
+            lines.append("        cur_byte += 1;")
+            lines.append("        cur_bit   = 7;")
+            lines.append("    }")
         return lines
 
     def _pack_single_bit(self, sig: SignalDef) -> list[str]:
         byte_idx = sig.start_bit // 8
         bit_idx = sig.start_bit % 8
         return [
-            f"    uint8_t bit_val = val ? 1u : 0u;",
+            "    uint8_t bit_val = val ? 1u : 0u;",
             f"    buf[{byte_idx}] = (buf[{byte_idx}] & ~(1u << {bit_idx})) | (bit_val << {bit_idx});",
         ]
 
@@ -187,41 +192,41 @@ class CANCodeGenerator(BaseGenerator):
     def _unpack_raw(self, sig: SignalDef, ret_type: str) -> list[str]:
         lines: list[str] = []
         if sig.byte_order == "little_endian":
-            lines.append(f"    uint32_t raw = 0;")
+            lines.append("    uint32_t raw = 0;")
             lines.append(f"    unsigned start_byte = {sig.start_bit // 8}u;")
             lines.append(f"    unsigned start_bit  = {sig.start_bit % 8}u;")
             lines.append(f"    unsigned remaining  = {sig.bit_length}u;")
-            lines.append(f"    unsigned bit_pos    = 0;")
-            lines.append(f"    while (remaining > 0) {{")
-            lines.append(f"        unsigned bits_in_byte = 8u - start_bit;")
-            lines.append(f"        if (bits_in_byte > remaining) bits_in_byte = remaining;")
-            lines.append(f"        uint8_t mask = (uint8_t)(((1u << bits_in_byte) - 1u) << start_bit);")
-            lines.append(f"        raw |= (uint32_t)((buf[start_byte] & mask) >> start_bit) << bit_pos;")
-            lines.append(f"        bit_pos    += bits_in_byte;")
-            lines.append(f"        remaining  -= bits_in_byte;")
-            lines.append(f"        start_byte += 1u;")
-            lines.append(f"        start_bit   = 0u;")
-            lines.append(f"    }}")
+            lines.append("    unsigned bit_pos    = 0;")
+            lines.append("    while (remaining > 0) {")
+            lines.append("        unsigned bits_in_byte = 8u - start_bit;")
+            lines.append("        if (bits_in_byte > remaining) bits_in_byte = remaining;")
+            lines.append("        uint8_t mask = (uint8_t)(((1u << bits_in_byte) - 1u) << start_bit);")
+            lines.append("        raw |= (uint32_t)((buf[start_byte] & mask) >> start_bit) << bit_pos;")
+            lines.append("        bit_pos    += bits_in_byte;")
+            lines.append("        remaining  -= bits_in_byte;")
+            lines.append("        start_byte += 1u;")
+            lines.append("        start_bit   = 0u;")
+            lines.append("    }")
         else:
             msb_byte = sig.start_bit // 8
             msb_bit = sig.start_bit % 8
-            lines.append(f"    uint32_t raw = 0;")
+            lines.append("    uint32_t raw = 0;")
             lines.append(f"    unsigned cur_byte = {msb_byte}u;")
             lines.append(f"    unsigned cur_bit  = {msb_bit}u;")
             lines.append(f"    unsigned remaining = {sig.bit_length}u;")
             lines.append(f"    unsigned shift     = {sig.bit_length - 1}u;")
-            lines.append(f"    while (remaining > 0) {{")
-            lines.append(f"        unsigned bits_here = cur_bit + 1;")
-            lines.append(f"        if (bits_here > remaining) bits_here = remaining;")
-            lines.append(f"        for (unsigned i = 0; i < bits_here; i++) {{")
-            lines.append(f"            uint8_t bit_val = (buf[cur_byte] >> (cur_bit - i)) & 1u;")
-            lines.append(f"            raw |= (uint32_t)bit_val << shift;")
-            lines.append(f"            if (shift > 0) shift--;")
-            lines.append(f"        }}")
-            lines.append(f"        remaining -= bits_here;")
-            lines.append(f"        cur_byte += 1;")
-            lines.append(f"        cur_bit   = 7;")
-            lines.append(f"    }}")
+            lines.append("    while (remaining > 0) {")
+            lines.append("        unsigned bits_here = cur_bit + 1;")
+            lines.append("        if (bits_here > remaining) bits_here = remaining;")
+            lines.append("        for (unsigned i = 0; i < bits_here; i++) {")
+            lines.append("            uint8_t bit_val = (buf[cur_byte] >> (cur_bit - i)) & 1u;")
+            lines.append("            raw |= (uint32_t)bit_val << shift;")
+            lines.append("            if (shift > 0) shift--;")
+            lines.append("        }")
+            lines.append("        remaining -= bits_here;")
+            lines.append("        cur_byte += 1;")
+            lines.append("        cur_bit   = 7;")
+            lines.append("    }")
 
         # Sign extension
         if sig.value_type == "signed" and sig.bit_length < 32:
@@ -289,13 +294,19 @@ class CANCodeGenerator(BaseGenerator):
     @staticmethod
     def _raw_c_type(sig: SignalDef) -> str:
         if sig.value_type == "signed":
-            if sig.bit_length <= 8: return "int8_t"
-            if sig.bit_length <= 16: return "int16_t"
-            if sig.bit_length <= 32: return "int32_t"
+            if sig.bit_length <= 8:
+                return "int8_t"
+            if sig.bit_length <= 16:
+                return "int16_t"
+            if sig.bit_length <= 32:
+                return "int32_t"
             return "int64_t"
-        if sig.bit_length <= 8: return "uint8_t"
-        if sig.bit_length <= 16: return "uint16_t"
-        if sig.bit_length <= 32: return "uint32_t"
+        if sig.bit_length <= 8:
+            return "uint8_t"
+        if sig.bit_length <= 16:
+            return "uint16_t"
+        if sig.bit_length <= 32:
+            return "uint32_t"
         return "uint64_t"
 
     @staticmethod

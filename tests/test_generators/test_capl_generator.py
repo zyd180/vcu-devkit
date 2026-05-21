@@ -1,42 +1,69 @@
 """Tests for core.generators.capl_generator — CAPL code generation."""
 
-import pytest
-from pathlib import Path
-
-from core.parsers.dbc_parser import DBCData, MessageDef, SignalDef
 from core.generators.capl_generator import CAPLGenerator
+from core.parsers.dbc_parser import DBCData, MessageDef, SignalDef
 
 
-def _make_signal(name, start_bit=0, bit_length=8, byte_order="little_endian",
-                 value_type="unsigned", factor=1.0, offset=0.0, minimum=0.0,
-                 maximum=255.0, unit="", comment="", receivers=None):
+def _make_signal(
+    name,
+    start_bit=0,
+    bit_length=8,
+    byte_order="little_endian",
+    value_type="unsigned",
+    factor=1.0,
+    offset=0.0,
+    minimum=0.0,
+    maximum=255.0,
+    unit="",
+    comment="",
+    receivers=None,
+):
     return SignalDef(
-        name=name, start_bit=start_bit, bit_length=bit_length,
-        byte_order=byte_order, value_type=value_type,
-        factor=factor, offset=offset, minimum=minimum, maximum=maximum,
-        unit=unit, comment=comment, receivers=receivers or [],
-        value_descriptions={}, mux=None,
+        name=name,
+        start_bit=start_bit,
+        bit_length=bit_length,
+        byte_order=byte_order,
+        value_type=value_type,
+        factor=factor,
+        offset=offset,
+        minimum=minimum,
+        maximum=maximum,
+        unit=unit,
+        comment=comment,
+        receivers=receivers or [],
+        value_descriptions={},
+        mux=None,
     )
 
 
 def _make_message(name, msg_id=0x100, dlc=8, sender="VCU", signals=None):
     return MessageDef(
-        id=msg_id, name=name, dlc=dlc, sender=sender,
-        signals=signals or [], comment="", is_extended=False,
+        id=msg_id,
+        name=name,
+        dlc=dlc,
+        sender=sender,
+        signals=signals or [],
+        comment="",
+        is_extended=False,
     )
 
 
 def _make_dbc(messages):
     return DBCData(
-        version="v1", messages=messages, nodes=[],
-        value_tables={}, comments={}, attributes={}, source_path="<test>",
+        version="v1",
+        messages=messages,
+        nodes=[],
+        value_tables={},
+        comments={},
+        attributes={},
+        source_path="<test>",
     )
 
 
 # ── Generator tests ──────────────────────────────────────────────────────────
 
-class TestCAPLGenerator:
 
+class TestCAPLGenerator:
     def setup_method(self):
         self.gen = CAPLGenerator()
 
@@ -101,8 +128,8 @@ class TestCAPLGenerator:
 
 # ── Type mapping tests ────────────────────────────────────────────────────────
 
-class TestCAPLTypeMapping:
 
+class TestCAPLTypeMapping:
     def test_unsigned_byte(self):
         sig = _make_signal("S", bit_length=8, value_type="unsigned")
         assert CAPLGenerator._capl_type(sig) == "byte"
@@ -144,7 +171,6 @@ class TestCAPLTypeMapping:
 
 
 class TestCAPLContentVerification:
-
     def setup_method(self):
         self.gen = CAPLGenerator()
 
@@ -193,11 +219,13 @@ class TestCAPLContentVerification:
 
     def test_multiple_messages_in_output(self, tmp_path):
         """Multiple messages should all appear in the generated file."""
-        data = _make_dbc([
-            _make_message("M1", msg_id=0x100, sender="VCU", signals=[_make_signal("S1")]),
-            _make_message("M2", msg_id=0x200, sender="BMS", signals=[_make_signal("S2")]),
-            _make_message("M3", msg_id=0x300, sender="VCU", signals=[_make_signal("S3")]),
-        ])
+        data = _make_dbc(
+            [
+                _make_message("M1", msg_id=0x100, sender="VCU", signals=[_make_signal("S1")]),
+                _make_message("M2", msg_id=0x200, sender="BMS", signals=[_make_signal("S2")]),
+                _make_message("M3", msg_id=0x300, sender="VCU", signals=[_make_signal("S3")]),
+            ]
+        )
         result = self.gen.generate(data, tmp_path)
         content = result.output_files[0].read_text(encoding="utf-8")
         assert "M1" in content

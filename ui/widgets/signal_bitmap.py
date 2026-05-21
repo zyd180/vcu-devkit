@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-from PySide6.QtWidgets import QWidget, QToolTip
-from PySide6.QtCore import Qt, Signal, QPointF, QRectF
-from PySide6.QtGui import QPainter, QColor, QPen, QFont, QMouseEvent, QPaintEvent
+from PySide6.QtCore import QRectF, Qt, Signal
+from PySide6.QtGui import QColor, QFont, QMouseEvent, QPainter, QPaintEvent, QPen
+from PySide6.QtWidgets import QToolTip, QWidget
 
 from core.parsers.dbc_parser import SignalDef
 
@@ -34,7 +34,7 @@ class SignalBitmapWidget(QWidget):
         super().__init__(parent)
         self.dlc = dlc
         self._signals: list[SignalDef] = []
-        self._bit_owner: dict[int, str] = {}      # bit_pos → signal name
+        self._bit_owner: dict[int, str] = {}  # bit_pos → signal name
         self._signal_colors: dict[str, QColor] = {}
         self._hovered_signal: str | None = None
         self._selected_signal: str | None = None

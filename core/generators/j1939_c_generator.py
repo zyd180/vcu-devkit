@@ -6,7 +6,7 @@ from datetime import datetime
 from pathlib import Path
 
 from core.generators.base import BaseGenerator, GenerateResult
-from core.parsers.j1939_parser import J1939Data, J1939PGN, J1939SPN
+from core.parsers.j1939_parser import J1939Data
 
 
 class J1939CodeGenerator(BaseGenerator):
@@ -73,8 +73,7 @@ class J1939CodeGenerator(BaseGenerator):
             # Default priority 6 for most J1939 messages
             can_id = (6 << 26) | (pgn.pgn << 8) | pgn.source_address
             lines.append(
-                f"#define J1939_ID_{safe:<30s} 0x{can_id:08X}u  "
-                f"/* PGN=0x{pgn.pgn:04X} SA=0x{pgn.source_address:02X} */"
+                f"#define J1939_ID_{safe:<30s} 0x{can_id:08X}u  /* PGN=0x{pgn.pgn:04X} SA=0x{pgn.source_address:02X} */"
             )
 
         lines.append("")

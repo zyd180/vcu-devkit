@@ -6,21 +6,21 @@ import struct
 
 import pytest
 
+from core.parsers.a2l_parser import A2LCharacteristic, A2LData, A2LMeasurement
+from core.protocols.ccp import CcpCmd, CcpCodec, CcpError
 from core.protocols.xcp import (
-    XcpAddressMapping, XcpCmd, XcpConnection, XcpError, XcpPid, XcpResponse,
+    XcpAddressMapping,
+    XcpCmd,
+    XcpError,
 )
 from core.protocols.xcp_codec import XcpCodec
 from core.protocols.xcp_mapping import XcpAddressMapper
-from core.protocols.xcp_session import LoopbackTransport, ReadResult, WriteResult, XcpSession
-from core.protocols.ccp import CcpCmd, CcpCodec, CcpError, CcpResponse
-from core.parsers.a2l_parser import A2LCharacteristic, A2LCompuMethod, A2LData, A2LMeasurement
-
+from core.protocols.xcp_session import LoopbackTransport, XcpSession
 
 # ── XCP Codec tests ────────────────────────────────────────────────────────
 
 
 class TestXcpCodec:
-
     def test_encode_connect(self):
         cmd = XcpCodec.encode_connect(0)
         assert cmd[0] == XcpCmd.CONNECT
@@ -172,31 +172,44 @@ class TestXcpCodec:
 
 
 class TestXcpAddressMapper:
-
     def _make_a2l_data(self) -> A2LData:
         return A2LData(
             characteristics=[
                 A2LCharacteristic(
-                    name="K_EngSpeed", long_identifier="Engine speed limit",
-                    type="VALUE", address=0x1000, record_layout="RL_ULONG",
-                    conversion="CM_EngSpeed", unit="rpm",
-                    lower_limit=0, upper_limit=8000,
+                    name="K_EngSpeed",
+                    long_identifier="Engine speed limit",
+                    type="VALUE",
+                    address=0x1000,
+                    record_layout="RL_ULONG",
+                    conversion="CM_EngSpeed",
+                    unit="rpm",
+                    lower_limit=0,
+                    upper_limit=8000,
                 ),
                 A2LCharacteristic(
-                    name="K_FuelMap", long_identifier="Fuel injection map",
-                    type="MAP", address=0x2000, record_layout="RL_MAP",
+                    name="K_FuelMap",
+                    long_identifier="Fuel injection map",
+                    type="MAP",
+                    address=0x2000,
+                    record_layout="RL_MAP",
                     conversion="CM_Fuel",
                 ),
             ],
             measurements=[
                 A2LMeasurement(
-                    name="M_VehicleSpeed", long_identifier="Vehicle speed",
-                    data_type="UWORD", conversion="CM_Speed",
-                    unit="km/h", lower_limit=0, upper_limit=250,
+                    name="M_VehicleSpeed",
+                    long_identifier="Vehicle speed",
+                    data_type="UWORD",
+                    conversion="CM_Speed",
+                    unit="km/h",
+                    lower_limit=0,
+                    upper_limit=250,
                 ),
                 A2LMeasurement(
-                    name="M_EngTemp", long_identifier="Engine coolant temp",
-                    data_type="FLOAT32_IEEE", conversion="CM_Temp",
+                    name="M_EngTemp",
+                    long_identifier="Engine coolant temp",
+                    data_type="FLOAT32_IEEE",
+                    conversion="CM_Temp",
                     unit="degC",
                 ),
             ],
@@ -258,14 +271,13 @@ class TestXcpAddressMapper:
         mapper = XcpAddressMapper()
         a2l = A2LData(
             characteristics=[
-                A2LCharacteristic(name="K1", long_identifier="", type="VALUE",
-                                  address=0x100, record_layout=""),
+                A2LCharacteristic(name="K1", long_identifier="", type="VALUE", address=0x100, record_layout=""),
             ],
             measurements=[
-                A2LMeasurement(name="M1", long_identifier="", data_type="FLOAT32_IEEE",
-                               conversion=""),
+                A2LMeasurement(name="M1", long_identifier="", data_type="FLOAT32_IEEE", conversion=""),
             ],
-            compu_methods=[], source_path="",
+            compu_methods=[],
+            source_path="",
         )
         mappings = mapper.build_mappings(a2l)
         k1 = mapper.find_mapping(mappings, "K1")
@@ -278,7 +290,6 @@ class TestXcpAddressMapper:
 
 
 class TestXcpSession:
-
     def test_connect(self):
         transport = LoopbackTransport()
         session = XcpSession(transport)
@@ -334,10 +345,13 @@ class TestXcpSession:
         transport.memory[0x1000:0x1004] = struct.pack("<I", 5500)
         session = XcpSession(transport)
         session.connect()
-        session.set_mappings([
-            XcpAddressMapping(name="K_EngSpeed", address=0x1000, size=4,
-                              data_type="ULONG", direction="calibration"),
-        ])
+        session.set_mappings(
+            [
+                XcpAddressMapping(
+                    name="K_EngSpeed", address=0x1000, size=4, data_type="ULONG", direction="calibration"
+                ),
+            ]
+        )
         result = session.read_parameter("K_EngSpeed")
         assert result.success
         assert result.raw_value == 5500.0
@@ -346,10 +360,13 @@ class TestXcpSession:
         transport = LoopbackTransport()
         session = XcpSession(transport)
         session.connect()
-        session.set_mappings([
-            XcpAddressMapping(name="K_EngSpeed", address=0x1000, size=4,
-                              data_type="ULONG", direction="calibration"),
-        ])
+        session.set_mappings(
+            [
+                XcpAddressMapping(
+                    name="K_EngSpeed", address=0x1000, size=4, data_type="ULONG", direction="calibration"
+                ),
+            ]
+        )
         result = session.write_parameter("K_EngSpeed", 6000.0)
         assert result.success
         # Verify
@@ -360,10 +377,11 @@ class TestXcpSession:
         transport = LoopbackTransport()
         session = XcpSession(transport)
         session.connect()
-        session.set_mappings([
-            XcpAddressMapping(name="M_Speed", address=0x2000, size=2,
-                              data_type="UWORD", direction="measurement"),
-        ])
+        session.set_mappings(
+            [
+                XcpAddressMapping(name="M_Speed", address=0x2000, size=2, data_type="UWORD", direction="measurement"),
+            ]
+        )
         result = session.write_parameter("M_Speed", 100.0)
         assert not result.success
         assert "read-only" in result.error
@@ -379,10 +397,11 @@ class TestXcpSession:
     def test_write_disconnected(self):
         transport = LoopbackTransport()
         session = XcpSession(transport)
-        session.set_mappings([
-            XcpAddressMapping(name="K1", address=0x1000, size=4,
-                              data_type="ULONG", direction="calibration"),
-        ])
+        session.set_mappings(
+            [
+                XcpAddressMapping(name="K1", address=0x1000, size=4, data_type="ULONG", direction="calibration"),
+            ]
+        )
         result = session.write_parameter("K1", 42.0)
         assert not result.success
 
@@ -416,7 +435,6 @@ class TestXcpSession:
 
 
 class TestCcpCodec:
-
     def test_encode_connect(self):
         cmd = CcpCodec.encode_connect(station_address=0x0001)
         assert cmd[0] == CcpCmd.CONNECT

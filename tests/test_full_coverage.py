@@ -2,11 +2,8 @@
 Covers: imports, controllers, parsers, UI components, DB, themes, XXE protection.
 """
 
-import sys
-import os
 import json
-import tempfile
-import re
+import sys
 from pathlib import Path
 
 import pytest
@@ -19,28 +16,32 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 # 1. APPLICATION ENTRY POINT
 # ============================================================================
 
-class TestAppEntryPoint:
 
+class TestAppEntryPoint:
     def test_main_module_importable(self):
         """main.py can be imported without crashing."""
         import importlib
+
         spec = importlib.util.find_spec("main")
         assert spec is not None, "main module not found"
 
     def test_load_stylesheet_function_exists(self):
         """main.load_stylesheet is importable and callable."""
         from main import load_stylesheet
+
         assert callable(load_stylesheet)
 
     def test_load_stylesheet_returns_str(self):
         """load_stylesheet returns a string (may be empty if file missing)."""
         from main import load_stylesheet
+
         result = load_stylesheet("light")
         assert isinstance(result, str)
 
     def test_main_function_exists(self):
         """main.main function exists and is callable."""
         from main import main
+
         assert callable(main)
 
 
@@ -48,137 +49,203 @@ class TestAppEntryPoint:
 # 2. ALL MODULE IMPORT TESTS
 # ============================================================================
 
+
 class TestModuleImports:
     """Verify every key module can be imported without errors."""
 
     def test_import_config_settings(self):
         from config.settings import AppSettings
+
         assert AppSettings is not None
 
     def test_import_arxml_parser(self):
         from core.parsers.arxml_parser import ARXMLParser
+
         assert ARXMLParser is not None
 
     def test_import_dbc_parser(self):
         from core.parsers.dbc_parser import DBCParser
+
         assert DBCParser is not None
 
     def test_import_odx_parser(self):
         from core.parsers.odx_parser import ODXParser
+
         assert ODXParser is not None
 
     def test_import_a2l_parser(self):
         from core.parsers.a2l_parser import A2LParser
+
         assert A2LParser is not None
 
     def test_import_base_parser(self):
         from core.parsers.base import BaseParser, ParseResult
+
         assert BaseParser is not None
         assert ParseResult is not None
 
     def test_import_c_generator(self):
         from core.generators.c_generator import CANCodeGenerator
+
         assert CANCodeGenerator is not None
 
     def test_import_arxml_generator(self):
         from core.generators.arxml_generator import ARXMLGenerator
+
         assert ARXMLGenerator is not None
 
     def test_import_rule_engine(self):
         from core.rules.engine import RuleEngine
+
         assert RuleEngine is not None
 
     def test_import_db_models(self):
         from core.db.models import (
-            CalibrationParameter, CalibrationChange,
-            DTCDefinition, DiagService,
-            Requirement, TraceabilityLink,
-            ProjectConfig, FileVersion,
+            CalibrationChange,
+            CalibrationParameter,
+            DiagService,
+            DTCDefinition,
+            FileVersion,
+            ProjectConfig,
+            Requirement,
+            TraceabilityLink,
         )
-        assert all(cls is not None for cls in [
-            CalibrationParameter, CalibrationChange,
-            DTCDefinition, DiagService,
-            Requirement, TraceabilityLink,
-            ProjectConfig, FileVersion,
-        ])
+
+        assert all(
+            cls is not None
+            for cls in [
+                CalibrationParameter,
+                CalibrationChange,
+                DTCDefinition,
+                DiagService,
+                Requirement,
+                TraceabilityLink,
+                ProjectConfig,
+                FileVersion,
+            ]
+        )
 
     def test_import_db_manager(self):
         from core.db.manager import DatabaseManager
+
         assert DatabaseManager is not None
 
     def test_import_ui_icons(self):
         from ui.icons import (
-            icon_open, icon_save, icon_check, icon_generate,
-            icon_export, icon_diff, icon_add, icon_remove,
-            icon_validate, icon_clear, icon_load, icon_search,
-            icon_export_json, icon_export_excel, icon_export_arxml, icon_export_a2l,
+            icon_add,
+            icon_check,
+            icon_clear,
+            icon_diff,
+            icon_export,
+            icon_export_a2l,
+            icon_export_arxml,
+            icon_export_excel,
+            icon_export_json,
+            icon_generate,
+            icon_load,
+            icon_open,
+            icon_remove,
+            icon_save,
+            icon_search,
+            icon_validate,
         )
-        assert all(callable(fn) for fn in [
-            icon_open, icon_save, icon_check, icon_generate,
-            icon_export, icon_diff, icon_add, icon_remove,
-            icon_validate, icon_clear, icon_load, icon_search,
-            icon_export_json, icon_export_excel, icon_export_arxml, icon_export_a2l,
-        ])
+
+        assert all(
+            callable(fn)
+            for fn in [
+                icon_open,
+                icon_save,
+                icon_check,
+                icon_generate,
+                icon_export,
+                icon_diff,
+                icon_add,
+                icon_remove,
+                icon_validate,
+                icon_clear,
+                icon_load,
+                icon_search,
+                icon_export_json,
+                icon_export_excel,
+                icon_export_arxml,
+                icon_export_a2l,
+            ]
+        )
 
     def test_import_sidebar(self):
         from ui.sidebar import Sidebar
+
         assert Sidebar is not None
 
     def test_import_main_window(self):
         from ui.main_window import MainWindow
+
         assert MainWindow is not None
 
     def test_import_table_editor(self):
         from ui.widgets.table_editor import DataTableModel, TableEditor
+
         assert DataTableModel is not None
         assert TableEditor is not None
 
     def test_import_file_worker(self):
         from ui.widgets.file_worker import FileWorker
+
         assert FileWorker is not None
 
     def test_import_tree_view(self):
         from ui.widgets.tree_view import TreeView
+
         assert TreeView is not None
 
     def test_import_property_panel(self):
         from ui.widgets.property_panel import PropertyPanel
+
         assert PropertyPanel is not None
 
     def test_import_status_bar(self):
         from ui.widgets.status_bar import StatusBarWidget
+
         assert StatusBarWidget is not None
 
     def test_import_can_builder_controller(self):
         from modules.can_builder.controller import CANBuilderController
+
         assert CANBuilderController is not None
 
     def test_import_swc_designer_controller(self):
         from modules.swc_designer.controller import SWCDesignerController
+
         assert SWCDesignerController is not None
 
     def test_import_diag_builder_controller(self):
         from modules.diag_builder.controller import DiagBuilderController
+
         assert DiagBuilderController is not None
 
     def test_import_calib_manager_controller(self):
         from modules.calib_manager.controller import CalibManagerController
+
         assert CalibManagerController is not None
 
     def test_import_test_generator_controller(self):
         from modules.test_generator.controller import TestGeneratorController
+
         assert TestGeneratorController is not None
 
     def test_import_trace_matrix_controller(self):
         from modules.trace_matrix.controller import TraceMatrixController
+
         assert TraceMatrixController is not None
 
     def test_import_generators_base(self):
         from core.generators.base import BaseGenerator, GenerateResult, TemplateEngine
+
         assert all(cls is not None for cls in [BaseGenerator, GenerateResult, TemplateEngine])
 
     def test_import_diff_engine(self):
         from core.diff.dbc_diff import DBCDiffEngine
+
         assert DBCDiffEngine is not None
 
 
@@ -216,15 +283,16 @@ VAL_ 256 VCU_PowerMode 0 "PowerOff" 1 "ACC" 2 "PowerOn" 3 "Charging" 15 "Fault" 
 
 
 class TestCANBuilderController:
-
     def test_create_instance(self):
         from modules.can_builder.controller import CANBuilderController
+
         ctrl = CANBuilderController()
         assert ctrl is not None
         assert ctrl.current_dbc is None
 
     def test_load_dbc_from_file(self, tmp_path):
         from modules.can_builder.controller import CANBuilderController
+
         dbc_file = tmp_path / "test.dbc"
         dbc_file.write_text(SAMPLE_DBC, encoding="utf-8")
         ctrl = CANBuilderController()
@@ -235,6 +303,7 @@ class TestCANBuilderController:
 
     def test_get_messages(self, tmp_path):
         from modules.can_builder.controller import CANBuilderController
+
         dbc_file = tmp_path / "test.dbc"
         dbc_file.write_text(SAMPLE_DBC, encoding="utf-8")
         ctrl = CANBuilderController()
@@ -248,6 +317,7 @@ class TestCANBuilderController:
 
     def test_get_message_by_name(self, tmp_path):
         from modules.can_builder.controller import CANBuilderController
+
         dbc_file = tmp_path / "test.dbc"
         dbc_file.write_text(SAMPLE_DBC, encoding="utf-8")
         ctrl = CANBuilderController()
@@ -259,6 +329,7 @@ class TestCANBuilderController:
 
     def test_get_signals_for_message(self, tmp_path):
         from modules.can_builder.controller import CANBuilderController
+
         dbc_file = tmp_path / "test.dbc"
         dbc_file.write_text(SAMPLE_DBC, encoding="utf-8")
         ctrl = CANBuilderController()
@@ -270,6 +341,7 @@ class TestCANBuilderController:
 
     def test_validate(self, tmp_path):
         from modules.can_builder.controller import CANBuilderController
+
         dbc_file = tmp_path / "test.dbc"
         dbc_file.write_text(SAMPLE_DBC, encoding="utf-8")
         ctrl = CANBuilderController()
@@ -281,6 +353,7 @@ class TestCANBuilderController:
 
     def test_generate_code(self, tmp_path):
         from modules.can_builder.controller import CANBuilderController
+
         dbc_file = tmp_path / "test.dbc"
         dbc_file.write_text(SAMPLE_DBC, encoding="utf-8")
         out_dir = tmp_path / "output"
@@ -294,17 +367,25 @@ class TestCANBuilderController:
         assert (out_dir / "can_messages.h").exists()
 
     def test_add_signal(self, tmp_path):
-        from modules.can_builder.controller import CANBuilderController
         from core.parsers.dbc_parser import SignalDef
+        from modules.can_builder.controller import CANBuilderController
+
         dbc_file = tmp_path / "test.dbc"
         dbc_file.write_text(SAMPLE_DBC, encoding="utf-8")
         ctrl = CANBuilderController()
         ctrl.load_dbc(dbc_file)
         sig = SignalDef(
-            name="NewSignal", start_bit=48, bit_length=8,
-            byte_order="little_endian", value_type="unsigned",
-            factor=1.0, offset=0.0, minimum=0, maximum=255,
-            unit="", comment="test",
+            name="NewSignal",
+            start_bit=48,
+            bit_length=8,
+            byte_order="little_endian",
+            value_type="unsigned",
+            factor=1.0,
+            offset=0.0,
+            minimum=0,
+            maximum=255,
+            unit="",
+            comment="test",
         )
         ok = ctrl.add_signal("VCU_Status", sig)
         assert ok is True
@@ -312,6 +393,7 @@ class TestCANBuilderController:
 
     def test_remove_signal(self, tmp_path):
         from modules.can_builder.controller import CANBuilderController
+
         dbc_file = tmp_path / "test.dbc"
         dbc_file.write_text(SAMPLE_DBC, encoding="utf-8")
         ctrl = CANBuilderController()
@@ -322,6 +404,7 @@ class TestCANBuilderController:
 
     def test_update_signal(self, tmp_path):
         from modules.can_builder.controller import CANBuilderController
+
         dbc_file = tmp_path / "test.dbc"
         dbc_file.write_text(SAMPLE_DBC, encoding="utf-8")
         ctrl = CANBuilderController()
@@ -333,6 +416,7 @@ class TestCANBuilderController:
 
     def test_no_dbc_loaded_returns_empty(self):
         from modules.can_builder.controller import CANBuilderController
+
         ctrl = CANBuilderController()
         assert ctrl.get_messages() == []
         assert ctrl.validate() == []
@@ -341,14 +425,15 @@ class TestCANBuilderController:
 
 
 class TestSWCDesignerController:
-
     def test_create_instance(self):
         from modules.swc_designer.controller import SWCDesignerController
+
         ctrl = SWCDesignerController()
         assert ctrl is not None
 
     def test_new_project(self):
         from modules.swc_designer.controller import SWCDesignerController
+
         ctrl = SWCDesignerController()
         ctrl.new_project("TestPackage")
         assert ctrl.current_data is not None
@@ -356,8 +441,9 @@ class TestSWCDesignerController:
         assert ctrl.current_data.swcs == []
 
     def test_add_swc(self):
-        from modules.swc_designer.controller import SWCDesignerController
         from core.parsers.arxml_parser import SWCDef
+        from modules.swc_designer.controller import SWCDesignerController
+
         ctrl = SWCDesignerController()
         ctrl.new_project()
         swc = SWCDef(name="TestSWC", category="ApplicationSoftwareComponent", description="test")
@@ -366,8 +452,9 @@ class TestSWCDesignerController:
         assert len(ctrl.get_swcs()) == 1
 
     def test_add_duplicate_swc_returns_false(self):
-        from modules.swc_designer.controller import SWCDesignerController
         from core.parsers.arxml_parser import SWCDef
+        from modules.swc_designer.controller import SWCDesignerController
+
         ctrl = SWCDesignerController()
         ctrl.new_project()
         swc = SWCDef(name="TestSWC", category="ApplicationSoftwareComponent", description="test")
@@ -376,8 +463,9 @@ class TestSWCDesignerController:
         assert ok is False
 
     def test_remove_swc(self):
-        from modules.swc_designer.controller import SWCDesignerController
         from core.parsers.arxml_parser import SWCDef
+        from modules.swc_designer.controller import SWCDesignerController
+
         ctrl = SWCDesignerController()
         ctrl.new_project()
         ctrl.add_swc(SWCDef(name="TestSWC", category="ApplicationSoftwareComponent", description="test"))
@@ -386,8 +474,9 @@ class TestSWCDesignerController:
         assert len(ctrl.get_swcs()) == 0
 
     def test_add_port(self):
+        from core.parsers.arxml_parser import PortDef, PortDirection, SWCDef
         from modules.swc_designer.controller import SWCDesignerController
-        from core.parsers.arxml_parser import SWCDef, PortDef, PortDirection
+
         ctrl = SWCDesignerController()
         ctrl.new_project()
         ctrl.add_swc(SWCDef(name="TestSWC", category="ApplicationSoftwareComponent", description="test"))
@@ -399,13 +488,15 @@ class TestSWCDesignerController:
 
     def test_get_ports_nonexistent_swc(self):
         from modules.swc_designer.controller import SWCDesignerController
+
         ctrl = SWCDesignerController()
         ctrl.new_project()
         assert ctrl.get_ports("Nonexistent") == []
 
     def test_add_runnable(self):
+        from core.parsers.arxml_parser import RunnableDef, SWCDef
         from modules.swc_designer.controller import SWCDesignerController
-        from core.parsers.arxml_parser import SWCDef, RunnableDef
+
         ctrl = SWCDesignerController()
         ctrl.new_project()
         ctrl.add_swc(SWCDef(name="TestSWC", category="ApplicationSoftwareComponent", description="test"))
@@ -417,25 +508,26 @@ class TestSWCDesignerController:
 
     def test_get_interfaces_empty_project(self):
         from modules.swc_designer.controller import SWCDesignerController
+
         ctrl = SWCDesignerController()
         ctrl.new_project()
         assert ctrl.get_interfaces() == []
         assert ctrl.get_interface_names() == []
 
     def test_add_interface(self):
+        from core.parsers.arxml_parser import DataElementDef, SenderReceiverInterface
         from modules.swc_designer.controller import SWCDesignerController
-        from core.parsers.arxml_parser import SenderReceiverInterface, DataElementDef
+
         ctrl = SWCDesignerController()
         ctrl.new_project()
-        iface = SenderReceiverInterface(name="I_Test", data_elements=[
-            DataElementDef(name="Elem1", type_ref="uint8")
-        ])
+        iface = SenderReceiverInterface(name="I_Test", data_elements=[DataElementDef(name="Elem1", type_ref="uint8")])
         ok = ctrl.add_interface(iface)
         assert ok is True
         assert "I_Test" in ctrl.get_interface_names()
 
     def test_template_library(self):
         from modules.swc_designer.controller import SWCDesignerController
+
         ctrl = SWCDesignerController()
         names = ctrl.get_template_names()
         assert len(names) > 0
@@ -444,6 +536,7 @@ class TestSWCDesignerController:
 
     def test_create_from_template(self):
         from modules.swc_designer.controller import SWCDesignerController
+
         ctrl = SWCDesignerController()
         swc = ctrl.create_swc_from_template("TPL_PowerMgmt", "MyPowerMgmt")
         assert swc is not None
@@ -453,6 +546,7 @@ class TestSWCDesignerController:
 
     def test_validate_empty_project(self):
         from modules.swc_designer.controller import SWCDesignerController
+
         ctrl = SWCDesignerController()
         ctrl.new_project()
         results = ctrl.validate()
@@ -460,11 +554,11 @@ class TestSWCDesignerController:
 
 
 class TestDiagBuilderController:
-
     @pytest.fixture
     def diag_ctrl(self, tmp_path):
-        from modules.diag_builder.controller import DiagBuilderController
         from core.db.manager import DatabaseManager
+        from modules.diag_builder.controller import DiagBuilderController
+
         db_mgr = DatabaseManager(tmp_path / "test_diag.db")
         ctrl = DiagBuilderController(db_manager=db_mgr)
         yield ctrl
@@ -533,6 +627,7 @@ class TestDiagBuilderController:
 
     def test_standard_services_template(self):
         from modules.diag_builder.controller import DiagBuilderController
+
         svcs = DiagBuilderController.get_standard_services()
         assert len(svcs) > 0
         sids = [s["sid"] for s in svcs]
@@ -592,11 +687,11 @@ class TestDiagBuilderController:
 
 
 class TestCalibManagerController:
-
     @pytest.fixture
     def calib_ctrl(self, tmp_path):
-        from modules.calib_manager.controller import CalibManagerController
         from core.db.manager import DatabaseManager
+        from modules.calib_manager.controller import CalibManagerController
+
         db_mgr = DatabaseManager(tmp_path / "test_calib.db")
         ctrl = CalibManagerController(db_manager=db_mgr)
         yield ctrl
@@ -606,9 +701,9 @@ class TestCalibManagerController:
         assert calib_ctrl is not None
 
     def test_add_param(self, calib_ctrl):
-        param = calib_ctrl.add_param("MotorMaxTorque", data_type="VALUE",
-                                      default_value=300.0, min_value=0.0,
-                                      max_value=500.0, unit="Nm")
+        param = calib_ctrl.add_param(
+            "MotorMaxTorque", data_type="VALUE", default_value=300.0, min_value=0.0, max_value=500.0, unit="Nm"
+        )
         assert param is not None
         assert param.name == "MotorMaxTorque"
 
@@ -640,8 +735,9 @@ class TestCalibManagerController:
         assert "DriveCtrl" in swcs
 
     def test_validate(self, calib_ctrl):
-        calib_ctrl.add_param("P1", data_type="VALUE", description="Test param",
-                              min_value=0, max_value=100, group_name="Test")
+        calib_ctrl.add_param(
+            "P1", data_type="VALUE", description="Test param", min_value=0, max_value=100, group_name="Test"
+        )
         issues = calib_ctrl.validate()
         # Well-defined param should have no errors
         errors = [i for i in issues if i["type"] == "error"]
@@ -664,15 +760,16 @@ class TestCalibManagerController:
 
 
 class TestTestGeneratorController:
-
     def test_create_instance(self):
         from modules.test_generator.controller import TestGeneratorController
+
         ctrl = TestGeneratorController()
         assert ctrl is not None
         assert ctrl.get_test_cases() == []
 
     def test_load_dbc_and_generate(self, tmp_path):
         from modules.test_generator.controller import TestGeneratorController
+
         dbc_file = tmp_path / "test.dbc"
         dbc_file.write_text(SAMPLE_DBC, encoding="utf-8")
         ctrl = TestGeneratorController()
@@ -685,6 +782,7 @@ class TestTestGeneratorController:
 
     def test_generate_with_methods(self, tmp_path):
         from modules.test_generator.controller import TestGeneratorController, TestMethod
+
         dbc_file = tmp_path / "test.dbc"
         dbc_file.write_text(SAMPLE_DBC, encoding="utf-8")
         ctrl = TestGeneratorController()
@@ -696,6 +794,7 @@ class TestTestGeneratorController:
 
     def test_get_cases_by_category(self, tmp_path):
         from modules.test_generator.controller import TestGeneratorController
+
         dbc_file = tmp_path / "test.dbc"
         dbc_file.write_text(SAMPLE_DBC, encoding="utf-8")
         ctrl = TestGeneratorController()
@@ -706,6 +805,7 @@ class TestTestGeneratorController:
 
     def test_get_coverage(self, tmp_path):
         from modules.test_generator.controller import TestGeneratorController
+
         dbc_file = tmp_path / "test.dbc"
         dbc_file.write_text(SAMPLE_DBC, encoding="utf-8")
         ctrl = TestGeneratorController()
@@ -718,6 +818,7 @@ class TestTestGeneratorController:
 
     def test_export_json(self, tmp_path):
         from modules.test_generator.controller import TestGeneratorController
+
         dbc_file = tmp_path / "test.dbc"
         dbc_file.write_text(SAMPLE_DBC, encoding="utf-8")
         ctrl = TestGeneratorController()
@@ -732,17 +833,18 @@ class TestTestGeneratorController:
 
     def test_no_dbc_returns_zero(self):
         from modules.test_generator.controller import TestGeneratorController
+
         ctrl = TestGeneratorController()
         assert ctrl.generate_signal_tests() == 0
         assert ctrl.get_coverage()["total_signals"] == 0
 
 
 class TestTraceMatrixController:
-
     @pytest.fixture
     def trace_ctrl(self, tmp_path):
-        from modules.trace_matrix.controller import TraceMatrixController
         from core.db.manager import DatabaseManager
+        from modules.trace_matrix.controller import TraceMatrixController
+
         db_mgr = DatabaseManager(tmp_path / "test_trace.db")
         ctrl = TraceMatrixController(db_manager=db_mgr)
         yield ctrl
@@ -837,8 +939,8 @@ class TestTraceMatrixController:
 # 4. PARSER FUNCTIONAL TESTS
 # ============================================================================
 
-class TestA2LParser:
 
+class TestA2LParser:
     SAMPLE_A2L = """\
 /begin PROJECT VCU_Project "VCU Project"
   /begin HEADER "VCU Calibration"
@@ -862,7 +964,8 @@ class TestA2LParser:
 """
 
     def test_parse_string(self):
-        from core.parsers.a2l_parser import A2LParser, A2LData
+        from core.parsers.a2l_parser import A2LData, A2LParser
+
         parser = A2LParser()
         result = parser.parse_string(self.SAMPLE_A2L)
         assert result.success
@@ -870,6 +973,7 @@ class TestA2LParser:
 
     def test_parse_characteristics(self):
         from core.parsers.a2l_parser import A2LParser
+
         parser = A2LParser()
         result = parser.parse_string(self.SAMPLE_A2L)
         chars = result.data.characteristics
@@ -880,6 +984,7 @@ class TestA2LParser:
 
     def test_parse_measurements(self):
         from core.parsers.a2l_parser import A2LParser
+
         parser = A2LParser()
         result = parser.parse_string(self.SAMPLE_A2L)
         meas = result.data.measurements
@@ -889,6 +994,7 @@ class TestA2LParser:
 
     def test_parse_compu_methods(self):
         from core.parsers.a2l_parser import A2LParser
+
         parser = A2LParser()
         result = parser.parse_string(self.SAMPLE_A2L)
         cms = result.data.compu_methods
@@ -899,6 +1005,7 @@ class TestA2LParser:
     def test_validate_valid_a2l(self, tmp_path):
         """Validate accepts valid A2L files (bug fixed: now checks '/BEGIN')."""
         from core.parsers.a2l_parser import A2LParser
+
         f = tmp_path / "test.a2l"
         f.write_text(self.SAMPLE_A2L, encoding="utf-8")
         parser = A2LParser()
@@ -907,6 +1014,7 @@ class TestA2LParser:
 
     def test_validate_invalid_file(self, tmp_path):
         from core.parsers.a2l_parser import A2LParser
+
         f = tmp_path / "bad.a2l"
         f.write_text("This is not A2L content", encoding="utf-8")
         parser = A2LParser()
@@ -915,7 +1023,6 @@ class TestA2LParser:
 
 
 class TestODXParser:
-
     SAMPLE_ODX = """\
 <?xml version="1.0" encoding="UTF-8"?>
 <ODX version="2.2">
@@ -939,7 +1046,8 @@ class TestODXParser:
 """
 
     def test_parse_string_via_file(self, tmp_path):
-        from core.parsers.odx_parser import ODXParser, ODXData
+        from core.parsers.odx_parser import ODXData, ODXParser
+
         f = tmp_path / "test.odx"
         f.write_text(self.SAMPLE_ODX, encoding="utf-8")
         parser = ODXParser()
@@ -949,6 +1057,7 @@ class TestODXParser:
 
     def test_extract_dtcs(self, tmp_path):
         from core.parsers.odx_parser import ODXParser
+
         f = tmp_path / "test.odx"
         f.write_text(self.SAMPLE_ODX, encoding="utf-8")
         parser = ODXParser()
@@ -960,6 +1069,7 @@ class TestODXParser:
 
     def test_extract_services(self, tmp_path):
         from core.parsers.odx_parser import ODXParser
+
         f = tmp_path / "test.odx"
         f.write_text(self.SAMPLE_ODX, encoding="utf-8")
         parser = ODXParser()
@@ -969,6 +1079,7 @@ class TestODXParser:
 
     def test_validate_valid_odx(self, tmp_path):
         from core.parsers.odx_parser import ODXParser
+
         f = tmp_path / "test.odx"
         f.write_text(self.SAMPLE_ODX, encoding="utf-8")
         parser = ODXParser()
@@ -977,6 +1088,7 @@ class TestODXParser:
 
     def test_validate_invalid_xml(self, tmp_path):
         from core.parsers.odx_parser import ODXParser
+
         f = tmp_path / "bad.odx"
         f.write_text("not xml at all", encoding="utf-8")
         parser = ODXParser()
@@ -985,6 +1097,7 @@ class TestODXParser:
 
     def test_supported_extensions(self):
         from core.parsers.odx_parser import ODXParser
+
         parser = ODXParser()
         exts = parser.supported_extensions()
         assert ".odx" in exts
@@ -1004,6 +1117,7 @@ class TestXXEProtection:
 
     def test_arxml_parser_blocks_xxe(self, tmp_path):
         from core.parsers.arxml_parser import ARXMLParser
+
         f = tmp_path / "xxe.arxml"
         f.write_text(self.XXE_PAYLOAD, encoding="utf-8")
         parser = ARXMLParser()
@@ -1016,6 +1130,7 @@ class TestXXEProtection:
 
     def test_odx_parser_blocks_xxe(self, tmp_path):
         from core.parsers.odx_parser import ODXParser
+
         f = tmp_path / "xxe.odx"
         f.write_text(self.XXE_PAYLOAD, encoding="utf-8")
         parser = ODXParser()
@@ -1030,10 +1145,11 @@ class TestXXEProtection:
 # 5. UI COMPONENT TESTS (without GUI startup)
 # ============================================================================
 
-class TestAppSettings:
 
+class TestAppSettings:
     def test_default_values(self):
         from config.settings import AppSettings
+
         s = AppSettings()
         assert s.app_name == "VCU DevKit"
         assert s.version == "0.1.0"
@@ -1041,12 +1157,14 @@ class TestAppSettings:
 
     def test_add_recent_file(self):
         from config.settings import AppSettings
+
         s = AppSettings()
         s.add_recent_file("/path/to/file.dbc")
         assert s.recent_files[0] == "/path/to/file.dbc"
 
     def test_add_recent_file_dedup(self):
         from config.settings import AppSettings
+
         s = AppSettings()
         s.add_recent_file("/path/to/file.dbc")
         s.add_recent_file("/path/to/other.dbc")
@@ -1056,6 +1174,7 @@ class TestAppSettings:
 
     def test_save_and_load(self, tmp_path):
         from config.settings import AppSettings
+
         cfg = tmp_path / "settings.json"
         s = AppSettings()
         s.theme = "dark"
@@ -1067,24 +1186,28 @@ class TestAppSettings:
 
     def test_load_nonexistent(self, tmp_path):
         from config.settings import AppSettings
+
         s = AppSettings()
         s.load(tmp_path / "nonexistent.json")
         assert s.theme == "light"  # default unchanged
 
 
 class TestDataTableModel:
-
     def test_create_model(self):
         from PySide6.QtWidgets import QApplication
-        app = QApplication.instance() or QApplication([])
+
+        _app = QApplication.instance() or QApplication([])
         from ui.widgets.table_editor import DataTableModel
+
         model = DataTableModel(["Name", "Value"], ["name", "value"])
         assert model.rowCount() == 0
 
     def test_load_data(self):
         from PySide6.QtWidgets import QApplication
-        app = QApplication.instance() or QApplication([])
+
+        _app = QApplication.instance() or QApplication([])
         from ui.widgets.table_editor import DataTableModel
+
         model = DataTableModel(["Name", "Value"], ["name", "value"])
         data = [{"name": "A", "value": 1}, {"name": "B", "value": 2}]
         model.load_data(data)
@@ -1092,8 +1215,10 @@ class TestDataTableModel:
 
     def test_get_row(self):
         from PySide6.QtWidgets import QApplication
-        app = QApplication.instance() or QApplication([])
+
+        _app = QApplication.instance() or QApplication([])
         from ui.widgets.table_editor import DataTableModel
+
         model = DataTableModel(["Name", "Value"], ["name", "value"])
         model.load_data([{"name": "A", "value": 1}])
         row = model.get_row(0)
@@ -1102,8 +1227,10 @@ class TestDataTableModel:
 
     def test_add_row(self):
         from PySide6.QtWidgets import QApplication
-        app = QApplication.instance() or QApplication([])
+
+        _app = QApplication.instance() or QApplication([])
         from ui.widgets.table_editor import DataTableModel
+
         model = DataTableModel(["Name", "Value"], ["name", "value"])
         model.add_row({"name": "New", "value": 42})
         assert model.rowCount() == 1
@@ -1111,8 +1238,10 @@ class TestDataTableModel:
 
     def test_remove_row(self):
         from PySide6.QtWidgets import QApplication
-        app = QApplication.instance() or QApplication([])
+
+        _app = QApplication.instance() or QApplication([])
         from ui.widgets.table_editor import DataTableModel
+
         model = DataTableModel(["Name", "Value"], ["name", "value"])
         model.load_data([{"name": "A", "value": 1}, {"name": "B", "value": 2}])
         model.remove_row(0)
@@ -1121,25 +1250,29 @@ class TestDataTableModel:
 
     def test_column_count(self):
         from PySide6.QtWidgets import QApplication
-        app = QApplication.instance() or QApplication([])
+
+        _app = QApplication.instance() or QApplication([])
         from ui.widgets.table_editor import DataTableModel
+
         model = DataTableModel(["A", "B", "C"], ["a", "b", "c"])
         assert model.columnCount() == 3
 
 
 class TestFileWorker:
-
     def test_create_instance(self):
         from PySide6.QtWidgets import QApplication
-        app = QApplication.instance() or QApplication([])
+
+        _app = QApplication.instance() or QApplication([])
         from ui.widgets.file_worker import FileWorker
+
         worker = FileWorker(lambda: 42)
         assert worker is not None
 
     def test_has_signals(self):
         from ui.widgets.file_worker import FileWorker
-        assert hasattr(FileWorker, 'finished_ok')
-        assert hasattr(FileWorker, 'finished_err')
+
+        assert hasattr(FileWorker, "finished_ok")
+        assert hasattr(FileWorker, "finished_err")
 
 
 class TestUIIcons:
@@ -1147,64 +1280,103 @@ class TestUIIcons:
 
     def test_icon_open(self):
         from PySide6.QtWidgets import QApplication
-        app = QApplication.instance() or QApplication([])
+
+        _app = QApplication.instance() or QApplication([])
         from ui.icons import icon_open
+
         icon = icon_open()
         assert icon is not None
 
     def test_icon_save(self):
         from PySide6.QtWidgets import QApplication
-        app = QApplication.instance() or QApplication([])
+
+        _app = QApplication.instance() or QApplication([])
         from ui.icons import icon_save
+
         icon = icon_save()
         assert icon is not None
 
     def test_icon_generate(self):
         from PySide6.QtWidgets import QApplication
-        app = QApplication.instance() or QApplication([])
+
+        _app = QApplication.instance() or QApplication([])
         from ui.icons import icon_generate
+
         icon = icon_generate()
         assert icon is not None
 
     def test_all_icons_return_qicon(self):
-        from PySide6.QtWidgets import QApplication
         from PySide6.QtGui import QIcon
-        app = QApplication.instance() or QApplication([])
+        from PySide6.QtWidgets import QApplication
+
+        _app = QApplication.instance() or QApplication([])
         from ui.icons import (
-            icon_open, icon_save, icon_check, icon_generate,
-            icon_export, icon_diff, icon_add, icon_remove,
-            icon_validate, icon_clear, icon_load, icon_search,
-            icon_export_json, icon_export_excel, icon_export_arxml, icon_export_a2l,
+            icon_add,
+            icon_check,
+            icon_clear,
+            icon_diff,
+            icon_export,
+            icon_export_a2l,
+            icon_export_arxml,
+            icon_export_excel,
+            icon_export_json,
+            icon_generate,
+            icon_load,
+            icon_open,
+            icon_remove,
+            icon_save,
+            icon_search,
+            icon_validate,
         )
-        for fn in [icon_open, icon_save, icon_check, icon_generate,
-                    icon_export, icon_diff, icon_add, icon_remove,
-                    icon_validate, icon_clear, icon_load, icon_search,
-                    icon_export_json, icon_export_excel, icon_export_arxml, icon_export_a2l]:
+
+        for fn in [
+            icon_open,
+            icon_save,
+            icon_check,
+            icon_generate,
+            icon_export,
+            icon_diff,
+            icon_add,
+            icon_remove,
+            icon_validate,
+            icon_clear,
+            icon_load,
+            icon_search,
+            icon_export_json,
+            icon_export_excel,
+            icon_export_arxml,
+            icon_export_a2l,
+        ]:
             result = fn()
             assert isinstance(result, QIcon), f"{fn.__name__} did not return QIcon"
 
 
 class TestStatusBarWidget:
-
     def test_create(self):
         from PySide6.QtWidgets import QApplication
-        app = QApplication.instance() or QApplication([])
+
+        _app = QApplication.instance() or QApplication([])
         from ui.widgets.status_bar import StatusBarWidget
+
         widget = StatusBarWidget()
         assert widget is not None
 
     def test_set_project(self):
         from PySide6.QtWidgets import QApplication
-        app = QApplication.instance() or QApplication([])
+
+        _app = QApplication.instance() or QApplication([])
         from ui.widgets.status_bar import StatusBarWidget
+
         widget = StatusBarWidget()
         widget.set_project("/path/to/MyProject")
         assert "MyProject" in widget.project_label.text()
 
     def test_set_file_counts(self):
         from PySide6.QtWidgets import QApplication
-        app = QApplication.instance() or QApplication([])
+
+        _app = QApplication.instance() or QApplication([])
         from ui.widgets.status_bar import StatusBarWidget
+
         widget = StatusBarWidget()
         widget.set_file_counts(dbc=3, arxml=2, odx=1, a2l=4)
         text = widget.files_label.text()
@@ -1213,18 +1385,21 @@ class TestStatusBarWidget:
 
 
 class TestTreeView:
-
     def test_create(self):
         from PySide6.QtWidgets import QApplication
-        app = QApplication.instance() or QApplication([])
+
+        _app = QApplication.instance() or QApplication([])
         from ui.widgets.tree_view import TreeView
+
         tv = TreeView()
         assert tv is not None
 
     def test_add_items(self):
         from PySide6.QtWidgets import QApplication
-        app = QApplication.instance() or QApplication([])
+
+        _app = QApplication.instance() or QApplication([])
         from ui.widgets.tree_view import TreeView
+
         tv = TreeView()
         parent = tv.add_top_level_item("Messages")
         tv.add_child_item(parent, "VCU_Status")
@@ -1234,18 +1409,21 @@ class TestTreeView:
 
 
 class TestPropertyPanel:
-
     def test_create(self):
         from PySide6.QtWidgets import QApplication
-        app = QApplication.instance() or QApplication([])
+
+        _app = QApplication.instance() or QApplication([])
         from ui.widgets.property_panel import PropertyPanel
+
         panel = PropertyPanel()
         assert panel is not None
 
     def test_set_properties(self):
         from PySide6.QtWidgets import QApplication
-        app = QApplication.instance() or QApplication([])
+
+        _app = QApplication.instance() or QApplication([])
         from ui.widgets.property_panel import PropertyPanel
+
         panel = PropertyPanel()
         fields = [
             {"name": "name", "label": "Name", "type": "text", "value": "Test"},
@@ -1257,8 +1435,10 @@ class TestPropertyPanel:
 
     def test_clear(self):
         from PySide6.QtWidgets import QApplication
-        app = QApplication.instance() or QApplication([])
+
+        _app = QApplication.instance() or QApplication([])
         from ui.widgets.property_panel import PropertyPanel
+
         panel = PropertyPanel()
         panel.set_properties("Test", [{"name": "x", "label": "X", "type": "text", "value": "1"}])
         panel.clear()
@@ -1269,10 +1449,11 @@ class TestPropertyPanel:
 # 6. DATABASE TESTS
 # ============================================================================
 
-class TestDatabaseManager:
 
+class TestDatabaseManager:
     def test_init(self, tmp_path):
         from core.db.manager import DatabaseManager
+
         db_mgr = DatabaseManager(tmp_path / "test.db")
         db_mgr.init()
         assert db_mgr.is_ready()
@@ -1281,6 +1462,7 @@ class TestDatabaseManager:
     def test_create_tables(self, tmp_path):
         from core.db.manager import DatabaseManager
         from core.db.models import db
+
         db_mgr = DatabaseManager(tmp_path / "test.db")
         db_mgr.init()
         # Tables should exist
@@ -1291,6 +1473,7 @@ class TestDatabaseManager:
 
     def test_add_and_get_calibration_param(self, tmp_path):
         from core.db.manager import DatabaseManager
+
         db_mgr = DatabaseManager(tmp_path / "test.db")
         db_mgr.init()
         param = db_mgr.add_calibration_param(name="TestParam", data_type="VALUE")
@@ -1301,6 +1484,7 @@ class TestDatabaseManager:
 
     def test_add_and_get_dtc(self, tmp_path):
         from core.db.manager import DatabaseManager
+
         db_mgr = DatabaseManager(tmp_path / "test.db")
         db_mgr.init()
         dtc = db_mgr.add_dtc(dtc_code="0xD001", description="Test DTC")
@@ -1311,6 +1495,7 @@ class TestDatabaseManager:
 
     def test_add_and_get_diag_service(self, tmp_path):
         from core.db.manager import DatabaseManager
+
         db_mgr = DatabaseManager(tmp_path / "test.db")
         db_mgr.init()
         svc = db_mgr.add_diag_service(sid="0x22", service_name="RDBI")
@@ -1321,6 +1506,7 @@ class TestDatabaseManager:
 
     def test_add_and_get_requirement(self, tmp_path):
         from core.db.manager import DatabaseManager
+
         db_mgr = DatabaseManager(tmp_path / "test.db")
         db_mgr.init()
         req = db_mgr.add_requirement(req_id="REQ-001", title="Test Req")
@@ -1331,6 +1517,7 @@ class TestDatabaseManager:
 
     def test_reset(self, tmp_path):
         from core.db.manager import DatabaseManager
+
         db_mgr = DatabaseManager(tmp_path / "test.db")
         db_mgr.init()
         db_mgr.add_dtc(dtc_code="0xD001", description="Test")
@@ -1341,6 +1528,7 @@ class TestDatabaseManager:
 
     def test_record_file_version(self, tmp_path):
         from core.db.manager import DatabaseManager
+
         db_mgr = DatabaseManager(tmp_path / "test.db")
         db_mgr.init()
         fv = db_mgr.record_file_version("/path/to/test.dbc", "dbc", "abc123")
@@ -1354,8 +1542,8 @@ class TestDatabaseManager:
 # 7. THEME FILE TESTS
 # ============================================================================
 
-class TestThemeFiles:
 
+class TestThemeFiles:
     def test_light_qss_exists(self):
         qss_path = Path(__file__).resolve().parent.parent / "ui" / "themes" / "light.qss"
         assert qss_path.exists(), "light.qss not found"
@@ -1406,11 +1594,12 @@ class TestThemeFiles:
 # 8. RULE ENGINE TESTS
 # ============================================================================
 
-class TestRuleEngine:
 
+class TestRuleEngine:
     def test_check_dbc_valid(self):
-        from core.rules.engine import RuleEngine
         from core.parsers.dbc_parser import DBCParser
+        from core.rules.engine import RuleEngine
+
         parser = DBCParser()
         result = parser.parse_string(SAMPLE_DBC)
         engine = RuleEngine()
@@ -1419,14 +1608,20 @@ class TestRuleEngine:
         assert len(errors) == 0
 
     def test_check_dbc_duplicate_id(self):
+        from core.parsers.dbc_parser import DBCData, MessageDef
         from core.rules.engine import RuleEngine
-        from core.parsers.dbc_parser import DBCData, MessageDef, SignalDef
+
         data = DBCData(
-            version="", messages=[
+            version="",
+            messages=[
                 MessageDef(id=0x100, name="Msg1", dlc=8, sender="", comment="", signals=[]),
                 MessageDef(id=0x100, name="Msg2", dlc=8, sender="", comment="", signals=[]),
             ],
-            nodes=[], value_tables={}, comments={}, attributes={}, source_path="",
+            nodes=[],
+            value_tables={},
+            comments={},
+            attributes={},
+            source_path="",
         )
         engine = RuleEngine()
         findings = engine.check_dbc(data)
@@ -1438,11 +1633,12 @@ class TestRuleEngine:
 # 9. CODE GENERATOR TESTS
 # ============================================================================
 
-class TestCANCodeGenerator:
 
+class TestCANCodeGenerator:
     def test_generate_to_dir(self, tmp_path):
         from core.generators.c_generator import CANCodeGenerator
         from core.parsers.dbc_parser import DBCParser
+
         parser = DBCParser()
         result = parser.parse_string(SAMPLE_DBC)
         gen = CANCodeGenerator()
@@ -1456,6 +1652,7 @@ class TestCANCodeGenerator:
     def test_generated_header_content(self, tmp_path):
         from core.generators.c_generator import CANCodeGenerator
         from core.parsers.dbc_parser import DBCParser
+
         parser = DBCParser()
         result = parser.parse_string(SAMPLE_DBC)
         gen = CANCodeGenerator()

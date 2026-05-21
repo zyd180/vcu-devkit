@@ -4,10 +4,10 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass, field
-from pathlib import Path
 from enum import Enum
+from pathlib import Path
 
-from core.parsers.dbc_parser import DBCParser, DBCData, SignalDef, MessageDef
+from core.parsers.dbc_parser import DBCData, DBCParser, MessageDef, SignalDef
 
 
 class TestMethod(Enum):
@@ -21,6 +21,7 @@ class TestMethod(Enum):
 @dataclass
 class TestCase:
     """Single test case definition."""
+
     id: str
     name: str
     category: str
@@ -32,8 +33,8 @@ class TestCase:
     signal_name: str = ""
     message_name: str = ""
     input_value: str = ""
-    priority: str = "medium"    # low / medium / high / critical
-    status: str = "draft"       # draft / ready / passed / failed / blocked
+    priority: str = "medium"  # low / medium / high / critical
+    status: str = "draft"  # draft / ready / passed / failed / blocked
 
 
 class TestGeneratorController:
@@ -78,129 +79,141 @@ class TestGeneratorController:
 
         if method == TestMethod.BOUNDARY_VALUE:
             # Min boundary
-            cases.append(TestCase(
-                id=f"{prefix}_BV_MIN",
-                name=f"{sig.name} 最小边界值",
-                category="边界值测试",
-                method=method.value,
-                description=f"验证信号 {sig.name} 在最小物理值 ({sig.minimum}) 时的行为",
-                steps=[
-                    f"设置 {msg.name}.{sig.name} = {sig.minimum} {sig.unit}",
-                    f"发送报文 {msg.name} (0x{msg.id:03X})",
-                    "观察接收方响应",
-                ],
-                expected_results=[
-                    f"接收方正确解析 {sig.name} = {sig.minimum} {sig.unit}",
-                    "无错误或异常行为",
-                ],
-                signal_name=sig.name,
-                message_name=msg.name,
-                input_value=str(sig.minimum),
-                priority="high",
-            ))
+            cases.append(
+                TestCase(
+                    id=f"{prefix}_BV_MIN",
+                    name=f"{sig.name} 最小边界值",
+                    category="边界值测试",
+                    method=method.value,
+                    description=f"验证信号 {sig.name} 在最小物理值 ({sig.minimum}) 时的行为",
+                    steps=[
+                        f"设置 {msg.name}.{sig.name} = {sig.minimum} {sig.unit}",
+                        f"发送报文 {msg.name} (0x{msg.id:03X})",
+                        "观察接收方响应",
+                    ],
+                    expected_results=[
+                        f"接收方正确解析 {sig.name} = {sig.minimum} {sig.unit}",
+                        "无错误或异常行为",
+                    ],
+                    signal_name=sig.name,
+                    message_name=msg.name,
+                    input_value=str(sig.minimum),
+                    priority="high",
+                )
+            )
             # Max boundary
-            cases.append(TestCase(
-                id=f"{prefix}_BV_MAX",
-                name=f"{sig.name} 最大边界值",
-                category="边界值测试",
-                method=method.value,
-                description=f"验证信号 {sig.name} 在最大物理值 ({sig.maximum}) 时的行为",
-                steps=[
-                    f"设置 {msg.name}.{sig.name} = {sig.maximum} {sig.unit}",
-                    f"发送报文 {msg.name} (0x{msg.id:03X})",
-                    "观察接收方响应",
-                ],
-                expected_results=[
-                    f"接收方正确解析 {sig.name} = {sig.maximum} {sig.unit}",
-                    "无错误或异常行为",
-                ],
-                signal_name=sig.name,
-                message_name=msg.name,
-                input_value=str(sig.maximum),
-                priority="high",
-            ))
+            cases.append(
+                TestCase(
+                    id=f"{prefix}_BV_MAX",
+                    name=f"{sig.name} 最大边界值",
+                    category="边界值测试",
+                    method=method.value,
+                    description=f"验证信号 {sig.name} 在最大物理值 ({sig.maximum}) 时的行为",
+                    steps=[
+                        f"设置 {msg.name}.{sig.name} = {sig.maximum} {sig.unit}",
+                        f"发送报文 {msg.name} (0x{msg.id:03X})",
+                        "观察接收方响应",
+                    ],
+                    expected_results=[
+                        f"接收方正确解析 {sig.name} = {sig.maximum} {sig.unit}",
+                        "无错误或异常行为",
+                    ],
+                    signal_name=sig.name,
+                    message_name=msg.name,
+                    input_value=str(sig.maximum),
+                    priority="high",
+                )
+            )
             # Just below min
-            cases.append(TestCase(
-                id=f"{prefix}_BV_BELOW",
-                name=f"{sig.name} 低于最小值",
-                category="边界值测试",
-                method=method.value,
-                description=f"验证信号 {sig.name} 在低于最小物理值时的处理",
-                steps=[
-                    f"设置 {msg.name}.{sig.name} = {sig.minimum - sig.factor} {sig.unit}",
-                    f"发送报文 {msg.name} (0x{msg.id:03X})",
-                ],
-                expected_results=[
-                    "系统正确处理下溢值（截断或报错）",
-                ],
-                signal_name=sig.name,
-                message_name=msg.name,
-                input_value=str(sig.minimum - sig.factor),
-                priority="medium",
-            ))
+            cases.append(
+                TestCase(
+                    id=f"{prefix}_BV_BELOW",
+                    name=f"{sig.name} 低于最小值",
+                    category="边界值测试",
+                    method=method.value,
+                    description=f"验证信号 {sig.name} 在低于最小物理值时的处理",
+                    steps=[
+                        f"设置 {msg.name}.{sig.name} = {sig.minimum - sig.factor} {sig.unit}",
+                        f"发送报文 {msg.name} (0x{msg.id:03X})",
+                    ],
+                    expected_results=[
+                        "系统正确处理下溢值（截断或报错）",
+                    ],
+                    signal_name=sig.name,
+                    message_name=msg.name,
+                    input_value=str(sig.minimum - sig.factor),
+                    priority="medium",
+                )
+            )
 
         elif method == TestMethod.NORMAL_RANGE:
             mid = (sig.minimum + sig.maximum) / 2
-            cases.append(TestCase(
-                id=f"{prefix}_NR_MID",
-                name=f"{sig.name} 正常中间值",
-                category="正常范围测试",
-                method=method.value,
-                description=f"验证信号 {sig.name} 在正常中间值 ({mid:.2f}) 时的通信",
-                steps=[
-                    f"设置 {msg.name}.{sig.name} = {mid:.2f} {sig.unit}",
-                    f"以周期发送报文 {msg.name}",
-                    "持续发送100个周期",
-                ],
-                expected_results=[
-                    f"接收方正确解析 {sig.name} ≈ {mid:.2f} {sig.unit}",
-                    "无丢帧或超时",
-                ],
-                signal_name=sig.name,
-                message_name=msg.name,
-                input_value=f"{mid:.2f}",
-                priority="medium",
-            ))
+            cases.append(
+                TestCase(
+                    id=f"{prefix}_NR_MID",
+                    name=f"{sig.name} 正常中间值",
+                    category="正常范围测试",
+                    method=method.value,
+                    description=f"验证信号 {sig.name} 在正常中间值 ({mid:.2f}) 时的通信",
+                    steps=[
+                        f"设置 {msg.name}.{sig.name} = {mid:.2f} {sig.unit}",
+                        f"以周期发送报文 {msg.name}",
+                        "持续发送100个周期",
+                    ],
+                    expected_results=[
+                        f"接收方正确解析 {sig.name} ≈ {mid:.2f} {sig.unit}",
+                        "无丢帧或超时",
+                    ],
+                    signal_name=sig.name,
+                    message_name=msg.name,
+                    input_value=f"{mid:.2f}",
+                    priority="medium",
+                )
+            )
 
         elif method == TestMethod.ERROR_INJECTION:
-            cases.append(TestCase(
-                id=f"{prefix}_EI_INVALID",
-                name=f"{sig.name} 无效原始值",
-                category="错误注入测试",
-                method=method.value,
-                description=f"向 {sig.name} 注入超出物理范围的原始值",
-                steps=[
-                    f"构造原始值使 {sig.name} 物理值 > {sig.maximum}",
-                    f"发送报文 {msg.name} (0x{msg.id:03X})",
-                ],
-                expected_results=[
-                    "接收方正确处理无效值（使用默认值或报警）",
-                ],
-                signal_name=sig.name,
-                message_name=msg.name,
-                priority="high",
-            ))
+            cases.append(
+                TestCase(
+                    id=f"{prefix}_EI_INVALID",
+                    name=f"{sig.name} 无效原始值",
+                    category="错误注入测试",
+                    method=method.value,
+                    description=f"向 {sig.name} 注入超出物理范围的原始值",
+                    steps=[
+                        f"构造原始值使 {sig.name} 物理值 > {sig.maximum}",
+                        f"发送报文 {msg.name} (0x{msg.id:03X})",
+                    ],
+                    expected_results=[
+                        "接收方正确处理无效值（使用默认值或报警）",
+                    ],
+                    signal_name=sig.name,
+                    message_name=msg.name,
+                    priority="high",
+                )
+            )
 
         elif method == TestMethod.SIGNAL_TIMEOUT:
-            cases.append(TestCase(
-                id=f"{prefix}_TIMEOUT",
-                name=f"{sig.name} 信号超时",
-                category="超时测试",
-                method=method.value,
-                description=f"验证 {msg.name} 报文停止发送后 {sig.name} 的超时处理",
-                steps=[
-                    f"正常发送 {msg.name} 10秒",
-                    f"停止发送 {msg.name}",
-                    f"等待超时时间",
-                ],
-                expected_results=[
-                    f"接收方检测到 {sig.name} 超时",
-                    "使用安全默认值或触发DTC",
-                ],
-                signal_name=sig.name,
-                message_name=msg.name,
-                priority="critical",
-            ))
+            cases.append(
+                TestCase(
+                    id=f"{prefix}_TIMEOUT",
+                    name=f"{sig.name} 信号超时",
+                    category="超时测试",
+                    method=method.value,
+                    description=f"验证 {msg.name} 报文停止发送后 {sig.name} 的超时处理",
+                    steps=[
+                        f"正常发送 {msg.name} 10秒",
+                        f"停止发送 {msg.name}",
+                        "等待超时时间",
+                    ],
+                    expected_results=[
+                        f"接收方检测到 {sig.name} 超时",
+                        "使用安全默认值或触发DTC",
+                    ],
+                    signal_name=sig.name,
+                    message_name=msg.name,
+                    priority="critical",
+                )
+            )
 
         return cases
 
@@ -286,9 +299,7 @@ class TestGeneratorController:
                 ],
                 "coverage": self.get_coverage(),
             }
-            output_path.write_text(
-                json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8"
-            )
+            output_path.write_text(json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8")
             return True, []
         except Exception as exc:
             return False, [str(exc)]
@@ -296,14 +307,28 @@ class TestGeneratorController:
     def export_excel(self, output_path: Path) -> tuple[bool, list[str]]:
         try:
             from openpyxl import Workbook
-            from core.utils.excel_utils import write_header_row, auto_width
+
+            from core.utils.excel_utils import auto_width, write_header_row
 
             wb = Workbook()
             ws = wb.active
             ws.title = "测试用例"
 
-            headers = ["用例ID", "名称", "分类", "方法", "描述", "前置条件", "测试步骤", "预期结果",
-                       "关联信号", "关联报文", "输入值", "优先级", "状态"]
+            headers = [
+                "用例ID",
+                "名称",
+                "分类",
+                "方法",
+                "描述",
+                "前置条件",
+                "测试步骤",
+                "预期结果",
+                "关联信号",
+                "关联报文",
+                "输入值",
+                "优先级",
+                "状态",
+            ]
             write_header_row(ws, headers)
 
             for row, tc in enumerate(self.test_cases, 2):

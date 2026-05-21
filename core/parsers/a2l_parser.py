@@ -17,15 +17,16 @@ from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
-from core.parsers.base import BaseParser, ParseResult
+from core.parsers.base import BaseParser, ParseResult  # noqa: E402
 
 
 @dataclass
 class A2LCharacteristic:
     """Calibration parameter (CHARACTERISTIC block)."""
+
     name: str
     long_identifier: str
-    type: str                       # VALUE, CURVE, MAP, ASCII, CUBE, etc.
+    type: str  # VALUE, CURVE, MAP, ASCII, CUBE, etc.
     address: int
     record_layout: str
     max_diff: float = 0.0
@@ -39,9 +40,10 @@ class A2LCharacteristic:
 @dataclass
 class A2LMeasurement:
     """Measurement variable (MEASUREMENT block)."""
+
     name: str
     long_identifier: str
-    data_type: str                  # UBYTE, SBYTE, UWORD, SWORD, ULONG, SLONG, FLOAT32_IEEE, etc.
+    data_type: str  # UBYTE, SBYTE, UWORD, SWORD, ULONG, SLONG, FLOAT32_IEEE, etc.
     conversion: str
     resolution: int = 0
     accuracy: float = 0.0
@@ -54,18 +56,20 @@ class A2LMeasurement:
 @dataclass
 class A2LCompuMethod:
     """Conversion method (COMPU_METHOD block)."""
+
     name: str
     description: str
-    conversion_type: str            # IDENTICAL, LINEAR, RAT_FUNC, FORM, TAB_INTP, TAB_NOINTP
+    conversion_type: str  # IDENTICAL, LINEAR, RAT_FUNC, FORM, TAB_INTP, TAB_NOINTP
     format_string: str = ""
     unit: str = ""
     coeffs: list[float] = field(default_factory=list)  # For RAT_FUNC: a,b,c,d,e,f
-    formula: str = ""               # For FORM type
+    formula: str = ""  # For FORM type
 
 
 @dataclass
 class A2LData:
     """Parsed A2L file data."""
+
     characteristics: list[A2LCharacteristic]
     measurements: list[A2LMeasurement]
     compu_methods: list[A2LCompuMethod]
@@ -122,7 +126,7 @@ class A2LParser(BaseParser):
         """Extract all /begin BLOCK_TYPE ... /end BLOCK_TYPE blocks."""
         results = []
         pattern = re.compile(
-            rf'/begin\s+{block_type}\s+(.*?)/end\s+{block_type}',
+            rf"/begin\s+{block_type}\s+(.*?)/end\s+{block_type}",
             re.DOTALL | re.IGNORECASE,
         )
         for match in pattern.finditer(content):
@@ -140,13 +144,25 @@ class A2LParser(BaseParser):
         if not block:
             return None
 
-        lines = block.split('\n')
+        lines = block.split("\n")
 
         _SUB_KEY_FIRST = {
-            "COMPU_METHOD", "UNIT", "LONG-NAME", "LOWER_LIMIT", "UPPER_LIMIT",
-            "EXTENDED_LIMITS", "FORMAT", "NUMBER", "BIT_MASK", "READ_ONLY",
-            "DISPLAY_IDENTIFIER", "MATRIX_DIM", "ECU_ADDRESS_EXTENSION",
-            "ECU_ADDRESS", "ANNOTATION", "FUNCTION_LIST",
+            "COMPU_METHOD",
+            "UNIT",
+            "LONG-NAME",
+            "LOWER_LIMIT",
+            "UPPER_LIMIT",
+            "EXTENDED_LIMITS",
+            "FORMAT",
+            "NUMBER",
+            "BIT_MASK",
+            "READ_ONLY",
+            "DISPLAY_IDENTIFIER",
+            "MATRIX_DIM",
+            "ECU_ADDRESS_EXTENSION",
+            "ECU_ADDRESS",
+            "ANNOTATION",
+            "FUNCTION_LIST",
         }
 
         # Extract header tokens one line at a time, stopping when we have enough.
@@ -163,12 +179,12 @@ class A2LParser(BaseParser):
                 continue
 
             # Track nested sub-blocks
-            if re.match(r'/begin\s+', stripped, re.IGNORECASE):
+            if re.match(r"/begin\s+", stripped, re.IGNORECASE):
                 nesting += 1
                 if nesting == 1:
                     remaining_lines.append(line)
                     continue
-            if re.match(r'/end\s+', stripped, re.IGNORECASE):
+            if re.match(r"/end\s+", stripped, re.IGNORECASE):
                 nesting -= 1
                 if nesting >= 0:
                     remaining_lines.append(line)
@@ -195,8 +211,8 @@ class A2LParser(BaseParser):
                 if not long_id:
                     long_id = q.group(1)
                 # Add non-quoted tokens to header_tokens
-                before = line[:q.start()].strip()
-                after = line[q.end():].strip()
+                before = line[: q.start()].strip()
+                after = line[q.end() :].strip()
                 for tok in before.split():
                     header_tokens.append(tok)
                 for tok in after.split():
@@ -245,7 +261,7 @@ class A2LParser(BaseParser):
         )
 
         # Parse sub-keys from remaining lines
-        sub_text = '\n'.join(remaining_lines)
+        sub_text = "\n".join(remaining_lines)
         char.conversion = self._extract_keyword(sub_text, "COMPU_METHOD") or header_conversion
         char.unit = self._extract_keyword(sub_text, "UNIT")
         char.description = self._extract_keyword(sub_text, "LONG-NAME") or long_id
@@ -258,7 +274,7 @@ class A2LParser(BaseParser):
         return char
 
     def _parse_measurement(self, block: str) -> A2LMeasurement | None:
-        lines = block.strip().split('\n')
+        lines = block.strip().split("\n")
         if not lines:
             return None
 
@@ -294,14 +310,14 @@ class A2LParser(BaseParser):
             except ValueError:
                 pass
 
-        block_text = '\n'.join(lines[1:])
+        block_text = "\n".join(lines[1:])
         meas.unit = self._extract_keyword(block_text, "UNIT") or ""
         meas.description = long_id
 
         return meas
 
     def _parse_compu_method(self, block: str) -> A2LCompuMethod | None:
-        lines = block.strip().split('\n')
+        lines = block.strip().split("\n")
         if not lines:
             return None
 
@@ -320,8 +336,8 @@ class A2LParser(BaseParser):
         )
 
         # COEFFS for RAT_FUNC
-        block_text = '\n'.join(lines[1:])
-        coeffs_match = re.search(r'COEFFS\s+([\d\.\-\+\s]+)', block_text)
+        block_text = "\n".join(lines[1:])
+        coeffs_match = re.search(r"COEFFS\s+([\d\.\-\+\s]+)", block_text)
         if coeffs_match:
             cm.coeffs = [float(x) for x in coeffs_match.group(1).strip().split()]
 
@@ -341,7 +357,7 @@ class A2LParser(BaseParser):
     @staticmethod
     def _extract_limits(block_text: str) -> tuple[float, float]:
         """Extract lower/upper limits."""
-        match = re.search(r'LOWER_LIMIT\s+([\d\.\-\+eE]+)\s+UPPER_LIMIT\s+([\d\.\-\+eE]+)', block_text, re.IGNORECASE)
+        match = re.search(r"LOWER_LIMIT\s+([\d\.\-\+eE]+)\s+UPPER_LIMIT\s+([\d\.\-\+eE]+)", block_text, re.IGNORECASE)
         if match:
             return float(match.group(1)), float(match.group(2))
         return 0.0, 0.0

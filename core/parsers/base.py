@@ -9,6 +9,7 @@ from typing import Any
 @dataclass
 class ParseResult:
     """Unified parse result container."""
+
     success: bool
     data: Any = None
     errors: list[str] = field(default_factory=list)

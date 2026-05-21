@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from openpyxl.styles import PatternFill, Font, Alignment, Border, Side
+from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 from openpyxl.worksheet.worksheet import Worksheet
 
 HEADER_FILL = PatternFill(start_color="1A73E8", fill_type="solid")

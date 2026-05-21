@@ -14,10 +14,12 @@ import subprocess
 import sys
 from pathlib import Path
 
+
 # Read version from pyproject.toml
 def get_version() -> str:
     try:
         import tomllib
+
         with open("pyproject.toml", "rb") as f:
             data = tomllib.load(f)
         return data.get("project", {}).get("version", "0.1.0")
@@ -42,7 +44,9 @@ def main():
                 shutil.rmtree(p)
 
     cmd = [
-        sys.executable, "-m", "PyInstaller",
+        sys.executable,
+        "-m",
+        "PyInstaller",
         "vcu_devkit.spec",
         "--noconfirm",
         "--clean",

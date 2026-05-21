@@ -1,51 +1,82 @@
 """Tests for core.generators.report_generator — Excel report generation."""
 
-import pytest
-from pathlib import Path
-
-from core.parsers.dbc_parser import DBCData, MessageDef, SignalDef
-from core.diff.dbc_diff import DBCDiffResult, MessageDiff, SignalDiff, DiffType
+from core.diff.dbc_diff import DBCDiffResult, DiffType, MessageDiff, SignalDiff
 from core.generators.report_generator import ReportGenerator
+from core.parsers.dbc_parser import DBCData, MessageDef, SignalDef
 
 
-def _make_signal(name, start_bit=0, bit_length=8, byte_order="little_endian",
-                 value_type="unsigned", factor=1.0, offset=0.0, minimum=0.0,
-                 maximum=255.0, unit="", comment="", receivers=None):
+def _make_signal(
+    name,
+    start_bit=0,
+    bit_length=8,
+    byte_order="little_endian",
+    value_type="unsigned",
+    factor=1.0,
+    offset=0.0,
+    minimum=0.0,
+    maximum=255.0,
+    unit="",
+    comment="",
+    receivers=None,
+):
     return SignalDef(
-        name=name, start_bit=start_bit, bit_length=bit_length,
-        byte_order=byte_order, value_type=value_type,
-        factor=factor, offset=offset, minimum=minimum, maximum=maximum,
-        unit=unit, comment=comment, receivers=receivers or [],
-        value_descriptions={}, mux=None,
+        name=name,
+        start_bit=start_bit,
+        bit_length=bit_length,
+        byte_order=byte_order,
+        value_type=value_type,
+        factor=factor,
+        offset=offset,
+        minimum=minimum,
+        maximum=maximum,
+        unit=unit,
+        comment=comment,
+        receivers=receivers or [],
+        value_descriptions={},
+        mux=None,
     )
 
 
 def _make_message(name, msg_id=0x100, dlc=8, sender="VCU", signals=None):
     return MessageDef(
-        id=msg_id, name=name, dlc=dlc, sender=sender,
-        signals=signals or [], comment="", is_extended=False,
+        id=msg_id,
+        name=name,
+        dlc=dlc,
+        sender=sender,
+        signals=signals or [],
+        comment="",
+        is_extended=False,
     )
 
 
 def _make_dbc(messages):
     return DBCData(
-        version="v1", messages=messages, nodes=[],
-        value_tables={}, comments={}, attributes={}, source_path="<test>",
+        version="v1",
+        messages=messages,
+        nodes=[],
+        value_tables={},
+        comments={},
+        attributes={},
+        source_path="<test>",
     )
 
 
 class TestReportGenerator:
-
     def setup_method(self):
         self.gen = ReportGenerator()
 
     def test_signal_matrix(self, tmp_path):
-        data = _make_dbc([
-            _make_message("M1", signals=[
-                _make_signal("S1", unit="V", receivers=["BMS"]),
-                _make_signal("S2", factor=0.1, offset=-500),
-            ]),
-        ])
+        data = _make_dbc(
+            [
+                _make_message(
+                    "M1",
+                    signals=[
+                        _make_signal("S1", unit="V", receivers=["BMS"]),
+                        _make_signal("S2", factor=0.1, offset=-500),
+                    ],
+                ),
+            ]
+        )
         out = tmp_path / "matrix.xlsx"
         self.gen.generate_signal_matrix(data, out)
         assert out.exists()
@@ -59,10 +90,13 @@ class TestReportGenerator:
 
     def test_diff_report(self, tmp_path):
         diff = DBCDiffResult(
-            old_version="v1", new_version="v2",
+            old_version="v1",
+            new_version="v2",
             message_diffs=[
                 MessageDiff(
-                    message_name="M1", diff_type=DiffType.MODIFIED, id=0x100,
+                    message_name="M1",
+                    diff_type=DiffType.MODIFIED,
+                    id=0x100,
                     signal_diffs=[
                         SignalDiff(
                             signal_name="S1",
@@ -73,7 +107,9 @@ class TestReportGenerator:
                     ],
                 ),
                 MessageDiff(
-                    message_name="M2", diff_type=DiffType.ADDED, id=0x200,
+                    message_name="M2",
+                    diff_type=DiffType.ADDED,
+                    id=0x200,
                     signal_diffs=[
                         SignalDiff(signal_name="S2", diff_type=DiffType.ADDED, message_name="M2"),
                     ],
@@ -89,6 +125,7 @@ class TestReportGenerator:
 
     def test_signal_matrix_sheet_name_and_headers(self, tmp_path):
         from openpyxl import load_workbook
+
         data = _make_dbc([_make_message("M1", signals=[_make_signal("S1")])])
         out = tmp_path / "matrix.xlsx"
         self.gen.generate_signal_matrix(data, out)
@@ -104,8 +141,18 @@ class TestReportGenerator:
 
     def test_signal_matrix_data_values(self, tmp_path):
         from openpyxl import load_workbook
-        data = _make_dbc([_make_message("M1", msg_id=0x123, dlc=8, sender="VCU",
-                          signals=[_make_signal("EngSpeed", unit="rpm", receivers=["BMS"])])])
+
+        data = _make_dbc(
+            [
+                _make_message(
+                    "M1",
+                    msg_id=0x123,
+                    dlc=8,
+                    sender="VCU",
+                    signals=[_make_signal("EngSpeed", unit="rpm", receivers=["BMS"])],
+                )
+            ]
+        )
         out = tmp_path / "matrix.xlsx"
         self.gen.generate_signal_matrix(data, out)
         wb = load_workbook(out)
@@ -121,6 +168,7 @@ class TestReportGenerator:
 
     def test_signal_matrix_freeze_panes(self, tmp_path):
         from openpyxl import load_workbook
+
         data = _make_dbc([_make_message("M1", signals=[_make_signal("S1")])])
         out = tmp_path / "matrix.xlsx"
         self.gen.generate_signal_matrix(data, out)
@@ -130,12 +178,15 @@ class TestReportGenerator:
 
     def test_message_summary_content(self, tmp_path):
         from openpyxl import load_workbook
-        data = _make_dbc([
-            _make_message("M1", msg_id=0x100, dlc=8, sender="VCU",
-                          signals=[_make_signal("S1"), _make_signal("S2")]),
-            _make_message("M2", msg_id=0x200, dlc=4, sender="BMS",
-                          signals=[_make_signal("S3")]),
-        ])
+
+        data = _make_dbc(
+            [
+                _make_message(
+                    "M1", msg_id=0x100, dlc=8, sender="VCU", signals=[_make_signal("S1"), _make_signal("S2")]
+                ),
+                _make_message("M2", msg_id=0x200, dlc=4, sender="BMS", signals=[_make_signal("S3")]),
+            ]
+        )
         out = tmp_path / "summary.xlsx"
         self.gen.generate_message_summary(data, out)
         wb = load_workbook(out)
@@ -156,11 +207,15 @@ class TestReportGenerator:
 
     def test_diff_report_sheets_exist(self, tmp_path):
         from openpyxl import load_workbook
+
         diff = DBCDiffResult(
-            old_version="v1", new_version="v2",
+            old_version="v1",
+            new_version="v2",
             message_diffs=[
                 MessageDiff(
-                    message_name="M1", diff_type=DiffType.ADDED, id=0x100,
+                    message_name="M1",
+                    diff_type=DiffType.ADDED,
+                    id=0x100,
                     signal_diffs=[
                         SignalDiff(signal_name="S1", diff_type=DiffType.ADDED, message_name="M1"),
                     ],
@@ -177,8 +232,10 @@ class TestReportGenerator:
 
     def test_diff_report_summary_content(self, tmp_path):
         from openpyxl import load_workbook
+
         diff = DBCDiffResult(
-            old_version="v1", new_version="v2",
+            old_version="v1",
+            new_version="v2",
             message_diffs=[],
             summary={"messages_added": 2, "signals_removed": 3},
         )
@@ -196,14 +253,19 @@ class TestReportGenerator:
 
     def test_diff_report_detail_with_changes(self, tmp_path):
         from openpyxl import load_workbook
+
         diff = DBCDiffResult(
-            old_version="v1", new_version="v2",
+            old_version="v1",
+            new_version="v2",
             message_diffs=[
                 MessageDiff(
-                    message_name="M1", diff_type=DiffType.MODIFIED, id=0x100,
+                    message_name="M1",
+                    diff_type=DiffType.MODIFIED,
+                    id=0x100,
                     signal_diffs=[
                         SignalDiff(
-                            signal_name="S1", diff_type=DiffType.MODIFIED,
+                            signal_name="S1",
+                            diff_type=DiffType.MODIFIED,
                             changes={"factor": (1.0, 0.5)},
                             message_name="M1",
                         ),
@@ -232,11 +294,15 @@ class TestReportGenerator:
 
     def test_diff_report_signal_added_without_changes(self, tmp_path):
         from openpyxl import load_workbook
+
         diff = DBCDiffResult(
-            old_version="v1", new_version="v2",
+            old_version="v1",
+            new_version="v2",
             message_diffs=[
                 MessageDiff(
-                    message_name="M2", diff_type=DiffType.ADDED, id=0x200,
+                    message_name="M2",
+                    diff_type=DiffType.ADDED,
+                    id=0x200,
                     signal_diffs=[
                         SignalDiff(signal_name="NewSig", diff_type=DiffType.ADDED, message_name="M2"),
                     ],
@@ -259,11 +325,15 @@ class TestReportGenerator:
     def test_diff_report_message_level_diff(self, tmp_path):
         """Message diff without signal_diffs — message-level row."""
         from openpyxl import load_workbook
+
         diff = DBCDiffResult(
-            old_version="v1", new_version="v2",
+            old_version="v1",
+            new_version="v2",
             message_diffs=[
                 MessageDiff(
-                    message_name="OldMsg", diff_type=DiffType.REMOVED, id=0x300,
+                    message_name="OldMsg",
+                    diff_type=DiffType.REMOVED,
+                    id=0x300,
                     signal_diffs=[],
                 ),
             ],

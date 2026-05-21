@@ -3,16 +3,26 @@
 from __future__ import annotations
 
 from PySide6.QtWidgets import (
-    QDialog, QVBoxLayout, QFormLayout, QLineEdit, QComboBox,
-    QDialogButtonBox, QListWidget, QListWidgetItem, QLabel,
-    QHBoxLayout, QPushButton, QSpinBox, QMessageBox,
-    QTabWidget, QWidget,
+    QComboBox,
+    QDialog,
+    QDialogButtonBox,
+    QFormLayout,
+    QHBoxLayout,
+    QLineEdit,
+    QListWidget,
+    QMessageBox,
+    QPushButton,
+    QTabWidget,
+    QVBoxLayout,
+    QWidget,
 )
-from PySide6.QtCore import Qt
 
 from core.parsers.arxml_parser import (
-    PortDef, PortDirection,
-    SenderReceiverInterface, ClientServerInterface, DataElementDef,
+    ClientServerInterface,
+    DataElementDef,
+    PortDef,
+    PortDirection,
+    SenderReceiverInterface,
 )
 
 

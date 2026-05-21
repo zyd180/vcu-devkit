@@ -1,50 +1,86 @@
 """Tests for core.rules.engine — validation rule engine."""
 
-import pytest
-
-from core.parsers.dbc_parser import DBCData, MessageDef, SignalDef
 from core.parsers.arxml_parser import (
-    ARXMLData, SWCDef, PortDef, RunnableDef, DataElementDef,
-    SenderReceiverInterface, CompositionDef, CompositionConnector,
-    PortDirection, AUTOSARVersion,
+    ARXMLData,
+    AUTOSARVersion,
+    CompositionDef,
+    DataElementDef,
+    PortDef,
+    PortDirection,
+    RunnableDef,
+    SenderReceiverInterface,
+    SWCDef,
 )
+from core.parsers.dbc_parser import DBCData, MessageDef, SignalDef
 from core.rules.engine import RuleEngine, Severity
 
 
-def _sig(name, start_bit=0, bit_length=8, byte_order="little_endian",
-         value_type="unsigned", factor=1.0, offset=0.0, minimum=0.0, maximum=255.0):
+def _sig(
+    name,
+    start_bit=0,
+    bit_length=8,
+    byte_order="little_endian",
+    value_type="unsigned",
+    factor=1.0,
+    offset=0.0,
+    minimum=0.0,
+    maximum=255.0,
+):
     return SignalDef(
-        name=name, start_bit=start_bit, bit_length=bit_length,
-        byte_order=byte_order, value_type=value_type,
-        factor=factor, offset=offset, minimum=minimum, maximum=maximum,
-        unit="", comment="", receivers=[], value_descriptions={}, mux=None,
+        name=name,
+        start_bit=start_bit,
+        bit_length=bit_length,
+        byte_order=byte_order,
+        value_type=value_type,
+        factor=factor,
+        offset=offset,
+        minimum=minimum,
+        maximum=maximum,
+        unit="",
+        comment="",
+        receivers=[],
+        value_descriptions={},
+        mux=None,
     )
 
 
 def _msg(name, msg_id=0x100, dlc=8, sender="VCU", signals=None):
     return MessageDef(
-        id=msg_id, name=name, dlc=dlc, sender=sender,
-        signals=signals or [], comment="", is_extended=False,
+        id=msg_id,
+        name=name,
+        dlc=dlc,
+        sender=sender,
+        signals=signals or [],
+        comment="",
+        is_extended=False,
     )
 
 
 def _dbc(messages):
     return DBCData(
-        version="v1", messages=messages, nodes=[],
-        value_tables={}, comments={}, attributes={}, source_path="<test>",
+        version="v1",
+        messages=messages,
+        nodes=[],
+        value_tables={},
+        comments={},
+        attributes={},
+        source_path="<test>",
     )
 
 
 def _arxml(swcs=None, interfaces=None, compositions=None):
     return ARXMLData(
         autosar_version=AUTOSARVersion.AUTOSAR_4_2,
-        package_name="Test", swcs=swcs or [], interfaces=interfaces or [],
-        data_types=[], compositions=compositions or [], source_path="<test>",
+        package_name="Test",
+        swcs=swcs or [],
+        interfaces=interfaces or [],
+        data_types=[],
+        compositions=compositions or [],
+        source_path="<test>",
     )
 
 
 class TestRuleEngine:
-
     def setup_method(self):
         self.engine = RuleEngine()
 
@@ -121,22 +157,32 @@ class TestRuleEngine:
     # ── ARXML rules ─────────────────────────────────────────────────────────
 
     def test_swc_invalid_name(self):
-        swc = SWCDef(name="Bad-Name", category="ApplicationSoftwareComponent", description="desc",
-                     runnables=[RunnableDef(name="Run", period_ms=10)])
+        swc = SWCDef(
+            name="Bad-Name",
+            category="ApplicationSoftwareComponent",
+            description="desc",
+            runnables=[RunnableDef(name="Run", period_ms=10)],
+        )
         results = self.engine.check_arxml(_arxml(swcs=[swc]))
         ids = [r.rule_id for r in results]
         assert "ARXML_SWC_NAME" in ids
 
     def test_swc_no_description(self):
-        swc = SWCDef(name="GoodName", category="ApplicationSoftwareComponent", description="",
-                     runnables=[RunnableDef(name="Run", period_ms=10)])
+        swc = SWCDef(
+            name="GoodName",
+            category="ApplicationSoftwareComponent",
+            description="",
+            runnables=[RunnableDef(name="Run", period_ms=10)],
+        )
         results = self.engine.check_arxml(_arxml(swcs=[swc]))
         ids = [r.rule_id for r in results]
         assert "ARXML_SWC_NO_DESC" in ids
 
     def test_duplicate_port_name(self):
         swc = SWCDef(
-            name="SWC1", category="ApplicationSoftwareComponent", description="d",
+            name="SWC1",
+            category="ApplicationSoftwareComponent",
+            description="d",
             ports=[
                 PortDef(name="P1", direction=PortDirection.PROVIDED, interface_ref="IF1"),
                 PortDef(name="P1", direction=PortDirection.REQUIRED, interface_ref="IF2"),
@@ -148,7 +194,9 @@ class TestRuleEngine:
 
     def test_orphan_interface(self):
         swc = SWCDef(
-            name="SWC1", category="ApplicationSoftwareComponent", description="d",
+            name="SWC1",
+            category="ApplicationSoftwareComponent",
+            description="d",
             ports=[PortDef(name="P1", direction=PortDirection.PROVIDED, interface_ref="NonExistent")],
         )
         results = self.engine.check_arxml(_arxml(swcs=[swc]))
@@ -157,7 +205,9 @@ class TestRuleEngine:
 
     def test_runnable_invalid_name(self):
         swc = SWCDef(
-            name="SWC1", category="ApplicationSoftwareComponent", description="d",
+            name="SWC1",
+            category="ApplicationSoftwareComponent",
+            description="d",
             runnables=[RunnableDef(name="bad-name!", period_ms=10)],
         )
         results = self.engine.check_arxml(_arxml(swcs=[swc]))
@@ -171,17 +221,29 @@ class TestRuleEngine:
         assert "ARXML_NO_RUNNABLE" in ids
 
     def test_empty_swc_no_ports(self):
-        swc = SWCDef(name="SWC1", category="ApplicationSoftwareComponent", description="d",
-                     runnables=[RunnableDef(name="Run", period_ms=10)])
+        swc = SWCDef(
+            name="SWC1",
+            category="ApplicationSoftwareComponent",
+            description="d",
+            runnables=[RunnableDef(name="Run", period_ms=10)],
+        )
         results = self.engine.check_arxml(_arxml(swcs=[swc]))
         ids = [r.rule_id for r in results]
         assert "ARXML_NO_PORTS" in ids
 
     def test_duplicate_swc_names(self):
-        swc1 = SWCDef(name="Dup", category="ApplicationSoftwareComponent", description="d",
-                      runnables=[RunnableDef(name="R1", period_ms=10)])
-        swc2 = SWCDef(name="Dup", category="ApplicationSoftwareComponent", description="d",
-                      runnables=[RunnableDef(name="R2", period_ms=10)])
+        swc1 = SWCDef(
+            name="Dup",
+            category="ApplicationSoftwareComponent",
+            description="d",
+            runnables=[RunnableDef(name="R1", period_ms=10)],
+        )
+        swc2 = SWCDef(
+            name="Dup",
+            category="ApplicationSoftwareComponent",
+            description="d",
+            runnables=[RunnableDef(name="R2", period_ms=10)],
+        )
         results = self.engine.check_arxml(_arxml(swcs=[swc1, swc2]))
         ids = [r.rule_id for r in results]
         assert "ARXML_DUP_SWC" in ids
@@ -194,7 +256,9 @@ class TestRuleEngine:
 
     def test_composition_unmatched_required(self):
         swc = SWCDef(
-            name="SWC1", category="ApplicationSoftwareComponent", description="d",
+            name="SWC1",
+            category="ApplicationSoftwareComponent",
+            description="d",
             ports=[PortDef(name="R1", direction=PortDirection.REQUIRED, interface_ref="IF1")],
             runnables=[RunnableDef(name="Run", period_ms=10)],
         )
@@ -204,11 +268,16 @@ class TestRuleEngine:
         assert "ARXML_UNMATCHED_REQUIRED" in ids
 
     def test_clean_arxml_no_issues(self):
-        iface = SenderReceiverInterface(name="IF1", data_elements=[
-            DataElementDef(name="E1", type_ref="float32"),
-        ])
+        iface = SenderReceiverInterface(
+            name="IF1",
+            data_elements=[
+                DataElementDef(name="E1", type_ref="float32"),
+            ],
+        )
         swc = SWCDef(
-            name="Valid_SWC", category="ApplicationSoftwareComponent", description="A valid SWC",
+            name="Valid_SWC",
+            category="ApplicationSoftwareComponent",
+            description="A valid SWC",
             ports=[PortDef(name="P1", direction=PortDirection.PROVIDED, interface_ref="IF1")],
             runnables=[RunnableDef(name="Run_10ms", period_ms=10)],
         )

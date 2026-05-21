@@ -2,12 +2,15 @@
 
 import re
 
-from PySide6.QtWidgets import QPlainTextEdit, QWidget, QTextEdit
-from PySide6.QtCore import Qt, QRect, QSize
+from PySide6.QtCore import QRect, QSize, Qt
 from PySide6.QtGui import (
-    QFont, QColor, QPainter, QSyntaxHighlighter,
-    QTextCharFormat, QTextFormat,
+    QColor,
+    QFont,
+    QPainter,
+    QSyntaxHighlighter,
+    QTextCharFormat,
 )
+from PySide6.QtWidgets import QPlainTextEdit, QWidget
 
 
 class LineNumberArea(QWidget):
@@ -39,9 +42,32 @@ class CodeHighlighter(QSyntaxHighlighter):
         keyword_fmt.setForeground(QColor("#0000ff"))
         keyword_fmt.setFontWeight(QFont.Bold)
         keywords = [
-            "void", "int", "uint8_t", "uint16_t", "uint32_t", "int8_t", "int16_t", "int32_t",
-            "float", "double", "char", "static", "inline", "const", "typedef", "struct", "enum",
-            "if", "else", "for", "while", "switch", "case", "return", "include", "define",
+            "void",
+            "int",
+            "uint8_t",
+            "uint16_t",
+            "uint32_t",
+            "int8_t",
+            "int16_t",
+            "int32_t",
+            "float",
+            "double",
+            "char",
+            "static",
+            "inline",
+            "const",
+            "typedef",
+            "struct",
+            "enum",
+            "if",
+            "else",
+            "for",
+            "while",
+            "switch",
+            "case",
+            "return",
+            "include",
+            "define",
         ]
         for kw in keywords:
             self._rules.append((re.compile(rf"\b{kw}\b"), keyword_fmt))
@@ -95,9 +121,9 @@ class CodeHighlighter(QSyntaxHighlighter):
             if not start:
                 break
             # Apply single-line rules before the block comment
-            self._apply_rules(text[offset:offset + start.start()], offset)
+            self._apply_rules(text[offset : offset + start.start()], offset)
             # Find end of block comment
-            after_start = remaining[start.end():]
+            after_start = remaining[start.end() :]
             end = self._BLOCK_END.search(after_start)
             if end:
                 comment_end = offset + start.start()
@@ -155,9 +181,7 @@ class CodeEditor(QPlainTextEdit):
     def resizeEvent(self, event):
         super().resizeEvent(event)
         cr = self.contentsRect()
-        self.line_number_area.setGeometry(
-            QRect(cr.left(), cr.top(), self.line_number_area_width(), cr.height())
-        )
+        self.line_number_area.setGeometry(QRect(cr.left(), cr.top(), self.line_number_area_width(), cr.height()))
 
     def line_number_area_paint_event(self, event):
         painter = QPainter(self.line_number_area)
@@ -172,7 +196,9 @@ class CodeEditor(QPlainTextEdit):
             if block.isVisible() and bottom >= event.rect().top():
                 painter.setPen(QColor("#999"))
                 painter.drawText(
-                    0, top, self.line_number_area.width() - 4,
+                    0,
+                    top,
+                    self.line_number_area.width() - 4,
                     self.fontMetrics().height(),
                     Qt.AlignRight,
                     str(block_number + 1),

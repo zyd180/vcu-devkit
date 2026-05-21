@@ -61,8 +61,7 @@ class CSVParserPlugin(ParserPlugin):
         try:
             with open(path, encoding="utf-8") as f:
                 reader = csv.DictReader(f)
-                required = {"message_id", "message_name", "dlc",
-                            "signal_name", "start_bit", "bit_length"}
+                required = {"message_id", "message_name", "dlc", "signal_name", "start_bit", "bit_length"}
                 if reader.fieldnames is None:
                     errors.append("Empty CSV file")
                     return errors

@@ -3,11 +3,19 @@
 from __future__ import annotations
 
 from PySide6.QtWidgets import (
-    QDialog, QVBoxLayout, QFormLayout, QLineEdit, QComboBox,
-    QDialogButtonBox, QLabel, QListWidget, QPushButton,
-    QHBoxLayout, QMessageBox, QCheckBox,
+    QCheckBox,
+    QComboBox,
+    QDialog,
+    QDialogButtonBox,
+    QFormLayout,
+    QHBoxLayout,
+    QLabel,
+    QLineEdit,
+    QListWidget,
+    QMessageBox,
+    QPushButton,
+    QVBoxLayout,
 )
-from PySide6.QtCore import Qt
 
 
 class ServiceDialog(QDialog):

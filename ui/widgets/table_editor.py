@@ -1,11 +1,17 @@
 """Editable table widget for data display and editing."""
 
-from PySide6.QtWidgets import (
-    QTableView, QWidget, QVBoxLayout, QHBoxLayout,
-    QLineEdit, QPushButton, QHeaderView, QAbstractItemView,
-)
-from PySide6.QtCore import Qt, Signal, QAbstractTableModel, QModelIndex, QTimer
+from PySide6.QtCore import QAbstractTableModel, QModelIndex, Qt, QTimer, Signal
 from PySide6.QtGui import QColor
+from PySide6.QtWidgets import (
+    QAbstractItemView,
+    QHBoxLayout,
+    QHeaderView,
+    QLineEdit,
+    QPushButton,
+    QTableView,
+    QVBoxLayout,
+    QWidget,
+)
 
 
 class DataTableModel(QAbstractTableModel):

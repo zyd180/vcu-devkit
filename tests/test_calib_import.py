@@ -1,14 +1,14 @@
 """Tests for A2L → calibration DB import pipeline."""
 
-import pytest
 from pathlib import Path
 
+import pytest
+
+from core.db.manager import DatabaseManager
+from core.generators.dcm_generator import DCMGenerator
 from core.parsers.a2l_parser import A2LParser
 from core.parsers.dcm_parser import DCMParser
-from core.generators.dcm_generator import DCMGenerator
-from core.db.manager import DatabaseManager
 from modules.calib_manager.controller import CalibManagerController
-
 
 # ── Realistic A2L content ─────────────────────────────────────────────────────
 
@@ -120,7 +120,6 @@ def a2l_file(tmp_path):
 
 
 class TestA2LParserFormats:
-
     def test_full_a2l_characteristics(self, parser):
         result = parser.parse_string(A2L_FULL)
         assert result.success
@@ -192,7 +191,6 @@ class TestA2LParserFormats:
 
 
 class TestCalibImport:
-
     def test_load_a2l(self, controller, a2l_file):
         ok, errs = controller.load_a2l(a2l_file)
         assert ok
@@ -272,7 +270,6 @@ class TestCalibImport:
 
 
 class TestFullPipeline:
-
     def test_file_to_db_pipeline(self, controller, a2l_file):
         """Full pipeline: parse A2L file, import to DB, verify records."""
         ok, _ = controller.load_a2l(a2l_file)
@@ -328,6 +325,7 @@ class TestFullPipeline:
         assert ok
         assert out.exists()
         import json
+
         data = json.loads(out.read_text(encoding="utf-8"))
         assert len(data["parameters"]) == 3
 
@@ -336,10 +334,9 @@ class TestFullPipeline:
 
 
 class TestCalibImportEdgeCases:
-
     def test_empty_a2l(self, controller, tmp_path):
         f = tmp_path / "empty.a2l"
-        f.write_text("/begin PROJECT X \"Y\" /end PROJECT", encoding="utf-8")
+        f.write_text('/begin PROJECT X "Y" /end PROJECT', encoding="utf-8")
         controller.load_a2l(f)
         imported, skipped = controller.import_a2l_to_db()
         assert imported == 0
@@ -391,7 +388,6 @@ class TestCalibImportEdgeCases:
 
 
 class TestWritebackA2L:
-
     A2L_CONTENT = """/begin CHARACTERISTIC
  Param1
  "Param One"
@@ -503,7 +499,6 @@ class TestWritebackA2L:
 
 
 class TestCalibrationPage:
-
     def test_list_pages_default(self, controller):
         """New database has only 'default' page."""
         pages = controller.list_pages()
@@ -706,7 +701,6 @@ DCM_EXTRA = """\
 
 
 class TestDCMParser:
-
     def test_parse_dcm_basic(self):
         parser = DCMParser()
         result = parser.parse_string(DCM_BASIC)
@@ -767,12 +761,17 @@ class TestDCMParser:
 
 
 class TestDCMGenerator:
-
     def test_generate_basic(self, tmp_path):
         gen = DCMGenerator()
         params = [
-            {"name": "EngSpeed", "description": "Engine Speed", "default_value": 1500,
-             "min_value": 0, "max_value": 8000, "unit": "rpm"},
+            {
+                "name": "EngSpeed",
+                "description": "Engine Speed",
+                "default_value": 1500,
+                "min_value": 0,
+                "max_value": 8000,
+                "unit": "rpm",
+            },
         ]
         out = tmp_path / "out.dcm"
         result = gen.generate(params, out)
@@ -782,8 +781,14 @@ class TestDCMGenerator:
     def test_generate_content(self):
         gen = DCMGenerator()
         params = [
-            {"name": "EngSpeed", "description": "Engine Speed", "default_value": 1500,
-             "min_value": 0, "max_value": 8000, "unit": "rpm"},
+            {
+                "name": "EngSpeed",
+                "description": "Engine Speed",
+                "default_value": 1500,
+                "min_value": 0,
+                "max_value": 8000,
+                "unit": "rpm",
+            },
         ]
         content = gen.generate_string(params)
         assert "EngSpeed" in content
@@ -793,8 +798,14 @@ class TestDCMGenerator:
     def test_generate_with_unit(self):
         gen = DCMGenerator()
         params = [
-            {"name": "BatteryVolt", "description": "Battery Voltage", "default_value": 12.6,
-             "min_value": 0, "max_value": 18, "unit": "V"},
+            {
+                "name": "BatteryVolt",
+                "description": "Battery Voltage",
+                "default_value": 12.6,
+                "min_value": 0,
+                "max_value": 18,
+                "unit": "V",
+            },
         ]
         content = gen.generate_string(params)
         assert 'UNIT "V"' in content
@@ -803,8 +814,14 @@ class TestDCMGenerator:
         """Generate DCM, parse it back, values should match."""
         gen = DCMGenerator()
         params = [
-            {"name": "Param1", "description": "Test Param", "default_value": 42.5,
-             "min_value": 0, "max_value": 100, "unit": ""},
+            {
+                "name": "Param1",
+                "description": "Test Param",
+                "default_value": 42.5,
+                "min_value": 0,
+                "max_value": 100,
+                "unit": "",
+            },
         ]
         out = tmp_path / "roundtrip.dcm"
         gen.generate(params, out)
@@ -818,7 +835,6 @@ class TestDCMGenerator:
 
 
 class TestDCMController:
-
     def test_load_dcm(self, controller, tmp_path):
         f = tmp_path / "test.dcm"
         f.write_text(DCM_BASIC, encoding="utf-8")

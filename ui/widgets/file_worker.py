@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any, Callable
 
-from PySide6.QtCore import QThread, Signal, QObject
+from PySide6.QtCore import QThread, Signal
 
 
 class FileWorker(QThread):
@@ -20,8 +20,8 @@ class FileWorker(QThread):
         self._worker.start()
     """
 
-    finished_ok = Signal(object)   # result from the callable
-    finished_err = Signal(str)     # error message
+    finished_ok = Signal(object)  # result from the callable
+    finished_err = Signal(str)  # error message
 
     def __init__(self, fn: Callable[..., Any], *args: Any, **kwargs: Any):
         super().__init__()

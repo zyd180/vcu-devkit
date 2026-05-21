@@ -11,6 +11,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from pathlib import Path
+
 from lxml import etree
 
 from core.parsers.base import BaseParser, ParseResult
@@ -22,6 +23,7 @@ _SAFE_PARSER = etree.XMLParser(resolve_entities=False, no_network=True)
 @dataclass
 class ODXDTC:
     """DTC extracted from ODX/CDD."""
+
     code: str
     description: str
     severity: str = "warning"
@@ -32,6 +34,7 @@ class ODXDTC:
 @dataclass
 class ODXService:
     """Diagnostic service extracted from ODX/CDD."""
+
     sid: str
     name: str
     sub_functions: list[str] = field(default_factory=list)
@@ -41,6 +44,7 @@ class ODXService:
 @dataclass
 class ODXData:
     """Parsed ODX/CDD data."""
+
     dtcs: list[ODXDTC]
     services: list[ODXService]
     source_path: str

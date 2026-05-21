@@ -1,16 +1,21 @@
 """Tests for core.generators.arxml_generator — ARXML output."""
 
-import pytest
 from lxml import etree
 
-from core.parsers.arxml_parser import (
-    ARXMLData, SWCDef, PortDef, RunnableDef, DataElementDef,
-    SenderReceiverInterface, ClientServerInterface,
-    CompositionDef, CompositionConnector,
-    PortDirection, AUTOSARVersion,
-    AUTOSAR_NS, NS,
-)
 from core.generators.arxml_generator import ARXMLGenerator
+from core.parsers.arxml_parser import (
+    ARXMLData,
+    AUTOSARVersion,
+    ClientServerInterface,
+    CompositionConnector,
+    CompositionDef,
+    DataElementDef,
+    PortDef,
+    PortDirection,
+    RunnableDef,
+    SenderReceiverInterface,
+    SWCDef,
+)
 
 
 def _make_arxml_data(**overrides):
@@ -29,8 +34,8 @@ def _make_arxml_data(**overrides):
 
 # ── Basic generation ──────────────────────────────────────────────────────────
 
-class TestARXMLGenerator:
 
+class TestARXMLGenerator:
     def setup_method(self):
         self.gen = ARXMLGenerator()
 
@@ -142,8 +147,8 @@ class TestARXMLGenerator:
 
 # ── File generation ───────────────────────────────────────────────────────────
 
-class TestARXMLGeneratorFile:
 
+class TestARXMLGeneratorFile:
     def test_generate_to_file(self, tmp_path):
         gen = ARXMLGenerator()
         data = _make_arxml_data()
@@ -155,9 +160,11 @@ class TestARXMLGeneratorFile:
 
     def test_generated_file_is_valid_xml(self, tmp_path):
         gen = ARXMLGenerator()
-        data = _make_arxml_data(swcs=[
-            SWCDef(name="TestSWC", category="ApplicationSoftwareComponent", description="test"),
-        ])
+        data = _make_arxml_data(
+            swcs=[
+                SWCDef(name="TestSWC", category="ApplicationSoftwareComponent", description="test"),
+            ]
+        )
         out = tmp_path / "test.arxml"
         gen.generate(data, out)
         tree = etree.parse(str(out))

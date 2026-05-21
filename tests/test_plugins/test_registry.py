@@ -6,17 +6,20 @@ from pathlib import Path
 
 import pytest
 
-from core.parsers.base import ParseResult
-from core.parsers.dbc_parser import DBCData, MessageDef, SignalDef
 from core.generators.base import GenerateResult
-from core.rules.engine import RuleEngine, RuleResult, Severity
+from core.parsers.base import ParseResult
+from core.parsers.dbc_parser import DBCData
 from core.plugins.base import (
-    GeneratorPlugin, ParserPlugin, PluginMeta, RulePlugin,
+    GeneratorPlugin,
+    ParserPlugin,
+    PluginMeta,
+    RulePlugin,
 )
 from core.plugins.registry import PluginRegistry
-
+from core.rules.engine import RuleEngine, RuleResult, Severity
 
 # ── Test plugin implementations ──────────────────────────────────────────────
+
 
 class DummyParser(ParserPlugin):
     """A minimal test parser plugin."""
@@ -54,12 +57,14 @@ class DummyRule(RulePlugin):
         return PluginMeta(name="dummy_rule", version="0.1.0", author="test")
 
     def check_dbc(self, data) -> list[RuleResult]:
-        return [RuleResult(
-            rule_id="PLUGIN_DUMMY",
-            severity=Severity.INFO,
-            message="Dummy rule fired",
-            location="global",
-        )]
+        return [
+            RuleResult(
+                rule_id="PLUGIN_DUMMY",
+                severity=Severity.INFO,
+                message="Dummy rule fired",
+                location="global",
+            )
+        ]
 
 
 class DummyARXMLRule(RulePlugin):
@@ -70,18 +75,20 @@ class DummyARXMLRule(RulePlugin):
         return PluginMeta(name="dummy_arxml_rule")
 
     def check_arxml(self, data) -> list[RuleResult]:
-        return [RuleResult(
-            rule_id="PLUGIN_ARXML",
-            severity=Severity.INFO,
-            message="ARXML plugin rule",
-            location="global",
-        )]
+        return [
+            RuleResult(
+                rule_id="PLUGIN_ARXML",
+                severity=Severity.INFO,
+                message="ARXML plugin rule",
+                location="global",
+            )
+        ]
 
 
 # ── Registry tests ───────────────────────────────────────────────────────────
 
-class TestPluginRegistry:
 
+class TestPluginRegistry:
     def test_register_parser(self):
         registry = PluginRegistry()
         parser = DummyParser()
@@ -135,8 +142,8 @@ class TestPluginRegistry:
 
 # ── Discovery tests ──────────────────────────────────────────────────────────
 
-class TestPluginDiscovery:
 
+class TestPluginDiscovery:
     def test_discover_empty_dir(self, tmp_path):
         registry = PluginRegistry()
         count = registry.discover([tmp_path])
@@ -148,7 +155,7 @@ class TestPluginDiscovery:
         assert count == 0
 
     def test_discover_finds_plugins(self, tmp_path):
-        plugin_code = '''
+        plugin_code = """
 from core.plugins.base import ParserPlugin, PluginMeta
 from core.parsers.base import ParseResult
 from pathlib import Path
@@ -166,7 +173,7 @@ class TestPlugin(ParserPlugin):
 
     def validate(self, file_path):
         return []
-'''
+"""
         (tmp_path / "test_plugin.py").write_text(plugin_code)
         registry = PluginRegistry()
         count = registry.discover([tmp_path])
@@ -188,14 +195,18 @@ class TestPlugin(ParserPlugin):
 
 # ── Rule engine integration tests ────────────────────────────────────────────
 
-class TestRuleEnginePluginIntegration:
 
+class TestRuleEnginePluginIntegration:
     def test_plugin_rule_executed_in_check_dbc(self):
         engine = RuleEngine()
         engine.register_plugin_rules([DummyRule()])
         dbc = DBCData(
-            version="", messages=[], nodes=[],
-            value_tables={}, comments={}, attributes={},
+            version="",
+            messages=[],
+            nodes=[],
+            value_tables={},
+            comments={},
+            attributes={},
             source_path="<test>",
         )
         results = engine.check_dbc(dbc)
@@ -204,12 +215,17 @@ class TestRuleEnginePluginIntegration:
 
     def test_plugin_arxml_rule_executed(self):
         from core.parsers.arxml_parser import ARXMLData
+
         engine = RuleEngine()
         engine.register_plugin_rules([DummyARXMLRule()])
         data = ARXMLData(
-            autosar_version="4.4", package_name="pkg",
-            swcs=[], interfaces=[], compositions=[],
-            data_types=[], source_path="<test>",
+            autosar_version="4.4",
+            package_name="pkg",
+            swcs=[],
+            interfaces=[],
+            compositions=[],
+            data_types=[],
+            source_path="<test>",
         )
         results = engine.check_arxml(data)
         plugin_results = [r for r in results if r.rule_id == "PLUGIN_ARXML"]
@@ -218,8 +234,12 @@ class TestRuleEnginePluginIntegration:
     def test_no_plugins_no_extra_results(self):
         engine = RuleEngine()
         dbc = DBCData(
-            version="", messages=[], nodes=[],
-            value_tables={}, comments={}, attributes={},
+            version="",
+            messages=[],
+            nodes=[],
+            value_tables={},
+            comments={},
+            attributes={},
             source_path="<test>",
         )
         results = engine.check_dbc(dbc)
@@ -229,8 +249,8 @@ class TestRuleEnginePluginIntegration:
 
 # ── Example CSV parser plugin test ───────────────────────────────────────────
 
-class TestExampleCSVParser:
 
+class TestExampleCSVParser:
     def test_csv_parser_loads(self, tmp_path):
         registry = PluginRegistry()
         plugin_dir = Path(__file__).parent.parent.parent / "plugins"

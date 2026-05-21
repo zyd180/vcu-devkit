@@ -10,18 +10,18 @@ import cantools
 
 from core.parsers.base import BaseParser, ParseResult
 
-
 # ── Data models ──────────────────────────────────────────────────────────────
 
 
 @dataclass
 class SignalDef:
     """DBC signal definition."""
+
     name: str
     start_bit: int
     bit_length: int
-    byte_order: str                  # "little_endian" | "big_endian"
-    value_type: str                  # "unsigned" | "signed"
+    byte_order: str  # "little_endian" | "big_endian"
+    value_type: str  # "unsigned" | "signed"
     factor: float
     offset: float
     minimum: float
@@ -30,25 +30,27 @@ class SignalDef:
     comment: str
     receivers: list[str] = field(default_factory=list)
     value_descriptions: dict[int, str] = field(default_factory=dict)
-    mux: dict | None = None          # {"mux_type": "multiplexor"|"multiplexed", "mux_value": int|None}
+    mux: dict | None = None  # {"mux_type": "multiplexor"|"multiplexed", "mux_value": int|None}
 
 
 @dataclass
 class MessageDef:
     """DBC message definition."""
-    id: int                          # CAN ID (numeric, e.g. 0x100 → 256)
+
+    id: int  # CAN ID (numeric, e.g. 0x100 → 256)
     name: str
     dlc: int
     sender: str
     comment: str
     signals: list[SignalDef] = field(default_factory=list)
     is_extended: bool = False
-    is_fd: bool = False              # CAN FD frame (DLC > 8)
+    is_fd: bool = False  # CAN FD frame (DLC > 8)
 
 
 @dataclass
 class DBCData:
     """Complete DBC file data."""
+
     version: str
     messages: list[MessageDef]
     nodes: list[str]
@@ -236,32 +238,36 @@ def dbc_data_from_dict(d: dict) -> DBCData:
     for md in d.get("messages", []):
         signals = []
         for sd in md.get("signals", []):
-            signals.append(SignalDef(
-                name=sd["name"],
-                start_bit=sd["start_bit"],
-                bit_length=sd["bit_length"],
-                byte_order=sd["byte_order"],
-                value_type=sd["value_type"],
-                factor=sd["factor"],
-                offset=sd["offset"],
-                minimum=sd["minimum"],
-                maximum=sd["maximum"],
-                unit=sd.get("unit", ""),
-                comment=sd.get("comment", ""),
-                receivers=sd.get("receivers", []),
-                value_descriptions={int(k): v for k, v in sd.get("value_descriptions", {}).items()},
-                mux=sd.get("mux"),
-            ))
-        messages.append(MessageDef(
-            id=int(md["id"], 16) if isinstance(md["id"], str) else md["id"],
-            name=md["name"],
-            dlc=md["dlc"],
-            sender=md.get("sender", ""),
-            comment=md.get("comment", ""),
-            signals=signals,
-            is_extended=md.get("is_extended", False),
-            is_fd=md.get("is_fd", False),
-        ))
+            signals.append(
+                SignalDef(
+                    name=sd["name"],
+                    start_bit=sd["start_bit"],
+                    bit_length=sd["bit_length"],
+                    byte_order=sd["byte_order"],
+                    value_type=sd["value_type"],
+                    factor=sd["factor"],
+                    offset=sd["offset"],
+                    minimum=sd["minimum"],
+                    maximum=sd["maximum"],
+                    unit=sd.get("unit", ""),
+                    comment=sd.get("comment", ""),
+                    receivers=sd.get("receivers", []),
+                    value_descriptions={int(k): v for k, v in sd.get("value_descriptions", {}).items()},
+                    mux=sd.get("mux"),
+                )
+            )
+        messages.append(
+            MessageDef(
+                id=int(md["id"], 16) if isinstance(md["id"], str) else md["id"],
+                name=md["name"],
+                dlc=md["dlc"],
+                sender=md.get("sender", ""),
+                comment=md.get("comment", ""),
+                signals=signals,
+                is_extended=md.get("is_extended", False),
+                is_fd=md.get("is_fd", False),
+            )
+        )
     return DBCData(
         version=d.get("version", ""),
         messages=messages,

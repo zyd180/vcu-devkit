@@ -3,11 +3,17 @@
 from __future__ import annotations
 
 from PySide6.QtWidgets import (
-    QDialog, QVBoxLayout, QFormLayout, QLineEdit, QComboBox,
-    QDialogButtonBox, QLabel, QMessageBox, QListWidget,
-    QHBoxLayout, QPushButton,
+    QComboBox,
+    QDialog,
+    QDialogButtonBox,
+    QFormLayout,
+    QHBoxLayout,
+    QLabel,
+    QLineEdit,
+    QListWidget,
+    QMessageBox,
+    QVBoxLayout,
 )
-from PySide6.QtCore import Qt
 
 
 class LinkDialog(QDialog):

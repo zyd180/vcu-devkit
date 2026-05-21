@@ -1,7 +1,6 @@
 """Status bar widget."""
 
-from PySide6.QtWidgets import QWidget, QHBoxLayout, QLabel
-from PySide6.QtCore import Qt
+from PySide6.QtWidgets import QHBoxLayout, QLabel, QWidget
 
 
 class StatusBarWidget(QWidget):
@@ -25,6 +24,7 @@ class StatusBarWidget(QWidget):
     def set_project(self, path: str):
         """Update project path display."""
         import os
+
         name = os.path.basename(path)
         self.project_label.setText(f"项目: {name}")
 

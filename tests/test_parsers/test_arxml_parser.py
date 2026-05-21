@@ -1,14 +1,15 @@
 """Tests for ARXML parser."""
 
 import pytest
-from pathlib import Path
 
 from core.parsers.arxml_parser import (
-    ARXMLParser, ARXMLData, SWCDef, PortDef, RunnableDef,
-    SenderReceiverInterface, ClientServerInterface, PortDirection,
-    AUTOSARVersion, arxml_data_to_dict,
+    ARXMLData,
+    ARXMLParser,
+    AUTOSARVersion,
+    PortDirection,
+    SenderReceiverInterface,
+    arxml_data_to_dict,
 )
-
 
 SAMPLE_ARXML = """\
 <?xml version="1.0" encoding="UTF-8"?>
@@ -156,7 +157,6 @@ def sample_arxml_file(tmp_path):
 
 
 class TestARXMLParser:
-
     def test_supported_extensions(self, arxml_parser):
         assert arxml_parser.supported_extensions() == [".arxml"]
 
@@ -250,7 +250,6 @@ class TestARXMLParser:
 
 
 class TestARXMLSerialisation:
-
     def test_to_dict(self, arxml_parser, sample_arxml_file):
         result = arxml_parser.parse(sample_arxml_file)
         d = arxml_data_to_dict(result.data)

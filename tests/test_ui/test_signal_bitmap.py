@@ -1,14 +1,14 @@
 """Tests for ui.widgets.signal_bitmap — CAN signal bit-level visualization."""
 
 import pytest
-from unittest.mock import MagicMock
 
-from ui.widgets.signal_bitmap import SignalBitmapWidget, _PALETTE
 from core.parsers.dbc_parser import SignalDef
+from ui.widgets.signal_bitmap import _PALETTE, SignalBitmapWidget
 
 
-def _make_signal(name, start_bit, bit_length, byte_order="little_endian",
-                 factor=1.0, offset=0.0, minimum=0.0, maximum=0.0, unit=""):
+def _make_signal(
+    name, start_bit, bit_length, byte_order="little_endian", factor=1.0, offset=0.0, minimum=0.0, maximum=0.0, unit=""
+):
     return SignalDef(
         name=name,
         start_bit=start_bit,
@@ -33,7 +33,6 @@ def bitmap(qtbot):
 
 
 class TestBitmapCreation:
-
     def test_create_default(self, qtbot):
         w = SignalBitmapWidget()
         qtbot.addWidget(w)
@@ -53,7 +52,6 @@ class TestBitmapCreation:
 
 
 class TestBitmapSetSignals:
-
     def test_set_signals_populates_bit_owner(self, bitmap):
         sig = _make_signal("Speed", start_bit=0, bit_length=8)
         bitmap.set_signals([sig], dlc=8)
@@ -86,7 +84,6 @@ class TestBitmapSetSignals:
 
 
 class TestBitmapBitLayout:
-
     def test_little_endian_bits(self, bitmap):
         sig = _make_signal("S1", start_bit=0, bit_length=4, byte_order="little_endian")
         bits = bitmap._get_signal_bits(sig)
@@ -143,7 +140,6 @@ class TestBitmapBitLayout:
 
 
 class TestBitmapInteraction:
-
     def test_set_selected_signal(self, bitmap):
         sig = _make_signal("Speed", start_bit=0, bit_length=8)
         bitmap.set_signals([sig])
@@ -180,7 +176,6 @@ class TestBitmapInteraction:
 
 
 class TestBitmapPalette:
-
     def test_palette_has_colors(self):
         assert len(_PALETTE) >= 12
 
@@ -190,7 +185,6 @@ class TestBitmapPalette:
 
 
 class TestBitmapPaint:
-
     def test_paint_no_crash(self, bitmap):
         """Painting with no signals should not crash."""
         bitmap.update()

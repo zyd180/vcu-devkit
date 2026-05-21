@@ -2,11 +2,16 @@
 
 from pathlib import Path
 
+from PySide6.QtCore import QSize, Qt, Signal
+from PySide6.QtGui import QIcon
 from PySide6.QtWidgets import (
-    QWidget, QVBoxLayout, QListWidget, QListWidgetItem, QLabel, QFrame,
+    QFrame,
+    QLabel,
+    QListWidget,
+    QListWidgetItem,
+    QVBoxLayout,
+    QWidget,
 )
-from PySide6.QtCore import Qt, Signal, QSize
-from PySide6.QtGui import QFont, QIcon
 
 from config.settings import __version__
 

@@ -50,6 +50,7 @@ def sample_dbc_file(tmp_path):
 def sample_dbc_data(sample_dbc_file):
     """Parse SAMPLE_DBC and return DBCData."""
     from core.parsers.dbc_parser import DBCParser
+
     parser = DBCParser()
     result = parser.parse(sample_dbc_file)
     assert result.success, f"Failed to parse sample DBC: {result.errors}"
@@ -60,6 +61,7 @@ def sample_dbc_data(sample_dbc_file):
 def db_manager(tmp_path):
     """Return an initialised DatabaseManager using a temp SQLite file."""
     from core.db.manager import DatabaseManager
+
     db_path = tmp_path / "test.db"
     mgr = DatabaseManager(db_path)
     mgr.init()
