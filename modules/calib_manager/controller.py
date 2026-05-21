@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 from pathlib import Path
 
 from core.db.models import CalibrationParameter, CalibrationChange
@@ -233,6 +234,153 @@ class CalibManagerController(CRUDMixin):
         except Exception as exc:
             logger.error("Failed to export A2L: %s", exc)
             return False, [str(exc)]
+
+    def writeback_a2l(self, output_path: Path | None = None) -> tuple[bool, list[str]]:
+        """Write modified calibration values back to the A2L file.
+
+        Reads the original A2L file, updates CHARACTERISTIC limits/defaults
+        with values from the DB, and writes the result.
+        If output_path is None, overwrites the original file.
+        Returns (success, errors).
+        """
+        if self.current_a2l is None:
+            return False, ["未加载A2L文件"]
+        source = self.current_a2l.source_path
+        if not source or source == "<string>":
+            return False, ["无法确定原始A2L文件路径"]
+        source_path = Path(source)
+        if not source_path.exists():
+            return False, [f"原始A2L文件不存在: {source_path}"]
+
+        try:
+            content = source_path.read_text(encoding="utf-8", errors="replace")
+        except OSError as exc:
+            return False, [f"读取A2L文件失败: {exc}"]
+
+        # Build name→DB value lookup
+        db_params: dict[str, dict] = {}
+        for p in self.get_params():
+            if p.source == "a2l":
+                db_params[p.name] = {
+                    "min_value": p.min_value,
+                    "max_value": p.max_value,
+                    "default_value": p.default_value,
+                    "unit": p.unit or "",
+                    "description": p.description or "",
+                }
+
+        if not db_params:
+            return False, ["数据库中没有A2L来源的标定量"]
+
+        # Replace each CHARACTERISTIC block
+        block_re = re.compile(
+            r'(/begin\s+CHARACTERISTIC\s+)(.*?)(/end\s+CHARACTERISTIC)',
+            re.DOTALL | re.IGNORECASE,
+        )
+
+        def _replace_block(match: re.Match) -> str:
+            prefix = match.group(1)
+            body = match.group(2)
+            suffix = match.group(3)
+
+            # Find the characteristic name from the body
+            name_match = re.search(r'(\S+)', body.strip())
+            if not name_match:
+                return match.group(0)
+            name = name_match.group(1)
+
+            if name not in db_params:
+                return match.group(0)
+
+            vals = db_params[name]
+            new_lower = self._fmt_val(vals["min_value"])
+            new_upper = self._fmt_val(vals["max_value"])
+            new_default = self._fmt_val(vals["default_value"])
+
+            # Strategy 1: Replace limits in the header line
+            # Header has: name "id" type addr layout max_diff conversion lower upper
+            # The lower and upper are the 8th and 9th tokens after quoted string
+            lines = body.split('\n')
+            new_lines = []
+            header_tokens_done = 0
+            in_sub_block = 0
+
+            for line in lines:
+                stripped = line.strip()
+
+                # Track nested blocks
+                if re.match(r'/begin\s+', stripped, re.IGNORECASE):
+                    in_sub_block += 1
+                if re.match(r'/end\s+', stripped, re.IGNORECASE):
+                    in_sub_block -= 1
+
+                if in_sub_block > 0:
+                    new_lines.append(line)
+                    continue
+
+                # Replace LOWER_LIMIT / UPPER_LIMIT sub-keys
+                if re.match(r'\s*LOWER_LIMIT\s+', stripped, re.IGNORECASE):
+                    new_lines.append(re.sub(
+                        r'(LOWER_LIMIT\s+)[\d\.\-\+eE]+',
+                        rf'\g<1>{new_lower}',
+                        line, flags=re.IGNORECASE,
+                    ))
+                    continue
+                if re.match(r'\s*UPPER_LIMIT\s+', stripped, re.IGNORECASE):
+                    new_lines.append(re.sub(
+                        r'(UPPER_LIMIT\s+)[\d\.\-\+eE]+',
+                        rf'\g<1>{new_upper}',
+                        line, flags=re.IGNORECASE,
+                    ))
+                    continue
+
+                new_lines.append(line)
+
+            new_body = '\n'.join(new_lines)
+
+            # Replace header limits: find the lower/upper values in the header
+            # Header tokens (after quoted string): type addr layout max_diff conv lower upper
+            # We replace the 7th and 8th numeric tokens after the name
+            header_lower_upper_re = re.compile(
+                r'("([^"]*)"'          # quoted string
+                r'\s+\S+'              # type
+                r'\s+\S+'              # address
+                r'\s+\S+'              # layout
+                r'\s+\S+'              # max_diff
+                r'\s+\S+'              # conversion
+                r'\s+)[\d\.\-\+eE]+'   # lower_limit
+                r'(\s+)[\d\.\-\+eE]+', # upper_limit
+            )
+            m = header_lower_upper_re.search(new_body)
+            if m:
+                new_body = (
+                    new_body[:m.start()] +
+                    m.group(1) + new_lower +
+                    m.group(3) + new_upper +
+                    new_body[m.end():]
+                )
+
+            return prefix + new_body + suffix
+
+        new_content = block_re.sub(_replace_block, content)
+
+        # Write output
+        out = output_path or source_path
+        try:
+            out = Path(out)
+            out.parent.mkdir(parents=True, exist_ok=True)
+            out.write_text(new_content, encoding="utf-8")
+            return True, []
+        except OSError as exc:
+            return False, [f"写入文件失败: {exc}"]
+
+    @staticmethod
+    def _fmt_val(value: float | None) -> str:
+        if value is None:
+            return "0"
+        if value == int(value):
+            return str(int(value))
+        return f"{value:g}"
 
     # ── Validation ─────────────────────────────────────────────────────────
 

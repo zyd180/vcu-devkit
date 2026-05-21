@@ -52,6 +52,14 @@ class ParamTableModel(QAbstractTableModel):
             return f"{val:g}"
         return str(val)
 
+    def flags(self, index: QModelIndex):
+        if not index.isValid():
+            return Qt.NoItemFlags
+        return Qt.ItemIsSelectable | Qt.ItemIsEnabled
+
+    def setData(self, index: QModelIndex, value, role=Qt.EditRole):
+        return False  # editing via dialog only
+
     def headerData(self, section, orientation, role=Qt.DisplayRole):
         if role == Qt.DisplayRole and orientation == Qt.Horizontal:
             return self.HEADERS[section]
@@ -95,6 +103,7 @@ class CalibManagerView(QWidget):
         toolbar.setMovable(False)
         self.act_load_a2l = QAction(icon_load(), "加载A2L", self)
         self.act_import_a2l = QAction(icon_open(), "导入A2L到DB", self)
+        self.act_writeback_a2l = QAction(icon_save(), "回写A2L", self)
         self.act_add_param = QAction(icon_add(), "新建参数", self)
         self.act_export_json = QAction(icon_export_json(), "导出JSON", self)
         self.act_export_a2l = QAction(icon_export_a2l(), "导出A2L摘要", self)
@@ -102,6 +111,7 @@ class CalibManagerView(QWidget):
 
         toolbar.addAction(self.act_load_a2l)
         toolbar.addAction(self.act_import_a2l)
+        toolbar.addAction(self.act_writeback_a2l)
         toolbar.addSeparator()
         toolbar.addAction(self.act_add_param)
         toolbar.addSeparator()
@@ -202,6 +212,7 @@ class CalibManagerView(QWidget):
     def _connect_signals(self):
         self.act_load_a2l.triggered.connect(self._on_load_a2l)
         self.act_import_a2l.triggered.connect(self._on_import_a2l)
+        self.act_writeback_a2l.triggered.connect(self._on_writeback_a2l)
         self.act_add_param.triggered.connect(self._on_add_param)
         self.act_export_json.triggered.connect(self._on_export_json)
         self.act_export_a2l.triggered.connect(self._on_export_a2l)
@@ -246,6 +257,35 @@ class CalibManagerView(QWidget):
         self._refresh_all()
         self.status_bar.showMessage(f"导入完成: {imported} 参数, {skipped} 跳过", 5000)
 
+    def _on_writeback_a2l(self):
+        if self.controller.current_a2l is None:
+            QMessageBox.information(self, "提示", "请先加载A2L文件")
+            return
+        reply = QMessageBox.question(
+            self, "回写A2L",
+            "将数据库中标定量的修改写回A2L文件。\n"
+            f"原始文件: {self.controller.current_a2l.source_path}\n\n"
+            "选择\"另存为\"可保存到新文件，不修改原文件。",
+            QMessageBox.Save | QMessageBox.Discard | QMessageBox.Cancel,
+        )
+        if reply == QMessageBox.Cancel:
+            return
+        if reply == QMessageBox.Discard:
+            # Overwrite original
+            ok, errs = self.controller.writeback_a2l()
+        else:
+            # Save as
+            path, _ = QFileDialog.getSaveFileName(
+                self, "另存为A2L文件", "", "A2L文件 (*.a2l);;所有文件 (*)"
+            )
+            if not path:
+                return
+            ok, errs = self.controller.writeback_a2l(Path(path))
+        if ok:
+            self.status_bar.showMessage("A2L回写完成", 5000)
+        else:
+            QMessageBox.warning(self, "回写失败", "\n".join(errs))
+
     def _show_a2l_info(self):
         a2l = self.controller.current_a2l
         if a2l is None:
@@ -289,12 +329,15 @@ class CalibManagerView(QWidget):
     def _on_edit_param(self):
         selected = self.param_table.selectionModel().selectedRows()
         if not selected:
+            self.status_bar.showMessage("请先选中一行参数", 3000)
             return
         db_id = self.param_model.get_db_id(selected[0].row())
         if db_id is None:
+            self.status_bar.showMessage("无法获取参数ID", 3000)
             return
         param_data = self.controller.get_param_as_dict(db_id)
         if param_data is None:
+            self.status_bar.showMessage(f"参数(ID={db_id})不存在", 3000)
             return
         groups = self.controller.get_groups()
         swcs = self.controller.get_swcs()
@@ -302,7 +345,7 @@ class CalibManagerView(QWidget):
         if dialog.exec() != ParamDialog.Accepted:
             return
         data = dialog.get_data()
-        self.controller.update_param(
+        ok = self.controller.update_param(
             db_id,
             group_name=data["group_name"],
             swc_name=data["swc_name"],
@@ -312,8 +355,11 @@ class CalibManagerView(QWidget):
             unit=data["unit"],
             description=data["description"],
         )
-        self._refresh_all()
-        self.status_bar.showMessage(f"已更新参数: {data['name']}", 3000)
+        if ok:
+            self._refresh_all()
+            self.status_bar.showMessage(f"已更新参数: {data['name']}", 3000)
+        else:
+            QMessageBox.warning(self, "错误", f"保存失败: {data['name']}")
 
     def _on_remove_param(self):
         selected = self.param_table.selectionModel().selectedRows()

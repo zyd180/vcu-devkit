@@ -383,3 +383,115 @@ class TestCalibImportEdgeCases:
         assert imported == 1
         p = controller.get_param_by_name("Param1")
         assert p is not None
+
+
+# ── Writeback tests ──────────────────────────────────────────────────────────
+
+
+class TestWritebackA2L:
+
+    A2L_CONTENT = """/begin CHARACTERISTIC
+ Param1
+ "Param One"
+ VALUE
+ 0x1000
+ Default_RL
+ 0
+ CM_Identical
+ 0.0
+ 100.0
+/end CHARACTERISTIC
+/begin CHARACTERISTIC
+ Param2
+ "Param Two"
+ VALUE
+ 0x2000
+ Default_RL
+ 0
+ CM_Identical
+ -50.0
+ 50.0
+ UNIT "V"
+ LOWER_LIMIT -50.0 UPPER_LIMIT 50.0
+/end CHARACTERISTIC
+"""
+
+    def test_writeback_no_a2l_loaded(self, controller):
+        ok, errs = controller.writeback_a2l()
+        assert not ok
+        assert "未加载" in errs[0]
+
+    def test_writeback_updates_limits(self, controller, tmp_path):
+        a2l = tmp_path / "test.a2l"
+        a2l.write_text(self.A2L_CONTENT, encoding="utf-8")
+        controller.load_a2l(a2l)
+        controller.import_a2l_to_db()
+
+        # Modify Param1's limits in DB
+        p = controller.get_param_by_name("Param1")
+        controller.update_param(p.id, min_value=10.0, max_value=200.0)
+
+        # Writeback
+        out = tmp_path / "out.a2l"
+        ok, errs = controller.writeback_a2l(out)
+        assert ok
+        content = out.read_text(encoding="utf-8")
+        assert "10" in content
+        assert "200" in content
+
+    def test_writeback_preserves_structure(self, controller, tmp_path):
+        a2l = tmp_path / "test.a2l"
+        a2l.write_text(self.A2L_CONTENT, encoding="utf-8")
+        controller.load_a2l(a2l)
+        controller.import_a2l_to_db()
+
+        out = tmp_path / "out.a2l"
+        ok, _ = controller.writeback_a2l(out)
+        assert ok
+        content = out.read_text(encoding="utf-8")
+        assert "/begin CHARACTERISTIC" in content
+        assert "/end CHARACTERISTIC" in content
+        assert "Param1" in content
+        assert "Param2" in content
+
+    def test_writeback_only_modified_params(self, controller, tmp_path):
+        a2l = tmp_path / "test.a2l"
+        a2l.write_text(self.A2L_CONTENT, encoding="utf-8")
+        controller.load_a2l(a2l)
+        controller.import_a2l_to_db()
+
+        # Only modify Param1
+        p1 = controller.get_param_by_name("Param1")
+        controller.update_param(p1.id, max_value=999.0)
+
+        out = tmp_path / "out.a2l"
+        ok, _ = controller.writeback_a2l(out)
+        assert ok
+        content = out.read_text(encoding="utf-8")
+        # Param2 should keep original values
+        assert "-50" in content
+
+    def test_writeback_overwrites_original(self, controller, tmp_path):
+        a2l = tmp_path / "test.a2l"
+        a2l.write_text(self.A2L_CONTENT, encoding="utf-8")
+        controller.load_a2l(a2l)
+        controller.import_a2l_to_db()
+
+        p = controller.get_param_by_name("Param1")
+        controller.update_param(p.id, max_value=555.0)
+
+        ok, _ = controller.writeback_a2l()  # overwrite
+        assert ok
+        content = a2l.read_text(encoding="utf-8")
+        assert "555" in content
+
+    def test_writeback_no_db_params(self, controller, tmp_path):
+        a2l = tmp_path / "test.a2l"
+        a2l.write_text(self.A2L_CONTENT, encoding="utf-8")
+        controller.load_a2l(a2l)
+        # Don't import — no DB params
+
+        out = tmp_path / "out.a2l"
+        ok, errs = controller.writeback_a2l(out)
+        assert not ok
+        assert "没有" in errs[0]
