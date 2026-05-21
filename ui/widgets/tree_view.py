@@ -33,6 +33,7 @@ class TreeView(QWidget):
     """Tree view with search filtering."""
 
     item_selected = Signal(str)
+    child_selected = Signal(str)
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -89,7 +90,10 @@ class TreeView(QWidget):
         source_index = self.proxy.mapToSource(index)
         item = self.model.itemFromIndex(source_index)
         if item:
-            self.item_selected.emit(item.text())
+            if item.parent() is not None:
+                self.child_selected.emit(item.text())
+            else:
+                self.item_selected.emit(item.text())
 
     def add_top_level_item(self, name: str, icon=None) -> QStandardItem:
         """Add a top-level tree item."""

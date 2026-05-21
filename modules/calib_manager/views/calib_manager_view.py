@@ -90,6 +90,7 @@ class CalibManagerView(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.controller = CalibManagerController()
+        self._selected_param_id: int | None = None
         self._setup_ui()
         self._connect_signals()
         self._refresh_all()
@@ -205,6 +206,9 @@ class CalibManagerView(QWidget):
         # Change history tab
         hist_widget = QWidget()
         hist_layout = QVBoxLayout(hist_widget)
+        hist_btn = QPushButton("刷新历史")
+        hist_btn.clicked.connect(self._on_refresh_history)
+        hist_layout.addWidget(hist_btn)
         self.hist_output = QTextEdit()
         self.hist_output.setReadOnly(True)
         hist_layout.addWidget(self.hist_output)
@@ -234,6 +238,7 @@ class CalibManagerView(QWidget):
         self.act_delete_page.triggered.connect(self._on_delete_page)
         self.page_combo.currentTextChanged.connect(self._on_page_changed)
         self.group_tree.item_selected.connect(self._on_group_selected)
+        self.group_tree.child_selected.connect(self._on_tree_param_clicked)
         self.param_table.selectionModel().currentChanged.connect(self._on_param_selected)
 
     # ── A2L operations ─────────────────────────────────────────────────────
@@ -397,7 +402,13 @@ class CalibManagerView(QWidget):
         db_id = self.param_model.get_db_id(current.row())
         if db_id is None:
             return
-        self._show_change_history(db_id)
+        self._selected_param_id = db_id
+
+    def _on_refresh_history(self):
+        if self._selected_param_id is not None:
+            self._show_change_history(self._selected_param_id)
+        else:
+            self.hist_output.setPlainText("请先选中一个参数。")
 
     def _show_change_history(self, param_id: int):
         changes = self.controller.get_change_history(param_id)
@@ -426,14 +437,45 @@ class CalibManagerView(QWidget):
         self.param_model.load_data(rows, id_map)
 
     def _on_group_selected(self, name: str):
-        params = self.controller.get_params()
-        filtered = [p for p in params if (p.group_name or "未分组") == name]
+        group_key = name.rstrip(")").rsplit(" (", 1)[0]
+        if group_key == "未分组":
+            params = [p for p in self.controller.get_params() if not p.group_name]
+        else:
+            params = self.controller.get_params(group=group_key)
         rows = []
         id_map = {}
-        for i, p in enumerate(filtered):
+        for i, p in enumerate(params[:self._TABLE_MAX_ROWS]):
             rows.append(self._param_to_row(p))
             id_map[i] = p.id
         self.param_model.load_data(rows, id_map)
+
+    def _on_tree_param_clicked(self, name: str):
+        """Click a parameter name in the group tree → open edit dialog."""
+        p = self.controller.get_param_by_name(name)
+        if p is None:
+            return
+        param_data = self.controller.get_param_as_dict(p.id)
+        if param_data is None:
+            return
+        groups = self.controller.get_groups()
+        swcs = self.controller.get_swcs()
+        dialog = ParamDialog(groups, swcs, param_data=param_data, parent=self)
+        if dialog.exec() != ParamDialog.Accepted:
+            return
+        data = dialog.get_data()
+        ok = self.controller.update_param(
+            p.id,
+            group_name=data["group_name"],
+            swc_name=data["swc_name"],
+            default_value=data["default_value"],
+            min_value=data["min_value"],
+            max_value=data["max_value"],
+            unit=data["unit"],
+            description=data["description"],
+        )
+        if ok:
+            self._refresh_all()
+            self.status_bar.showMessage(f"已更新参数: {data['name']}", 3000)
 
     # ── Export / Validation ─────────────────────────────────────────────────
 
@@ -544,14 +586,22 @@ class CalibManagerView(QWidget):
                 self.group_tree.add_child_item(parent, p.name)
         self.group_tree.tree.expandAll()
 
+    _TABLE_MAX_ROWS = 1000
+
     def _refresh_param_table(self):
         params = self.controller.get_params()
+        total = len(params)
+        display = params[:self._TABLE_MAX_ROWS]
         rows = []
         id_map = {}
-        for i, p in enumerate(params):
+        for i, p in enumerate(display):
             rows.append(self._param_to_row(p))
             id_map[i] = p.id
         self.param_model.load_data(rows, id_map)
+        if total > self._TABLE_MAX_ROWS:
+            self.status_bar.showMessage(
+                f"显示 {self._TABLE_MAX_ROWS} / {total} 条（使用搜索缩小范围）", 0
+            )
 
     def _param_to_row(self, p) -> dict:
         return {
