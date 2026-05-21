@@ -11,7 +11,7 @@
 | **CAN开发** | DBC 文件解析、信号编辑、校验规则、差异对比、C 代码生成（can_pack.h / can_signals.h / can_messages.h） |
 | **SWC开发** | AUTOSAR SWC 可视化设计、端口/Runnable/接口管理、内置 5 个 VCU 模板、ARXML 导出 |
 | **诊断配置** | DTC 定义与管理、13 项标准 UDS 服务模板、快照配置、ODX/CDD/JSON 导入导出 |
-| **标定管理** | A2L 文件解析、参数树管理、分组/SWC 关联、变更历史、JSON/A2L 导出 |
+| **标定管理** | A2L/DCM 文件解析与生成、参数树管理、多标定页、分组/SWC 关联、变更历史、JSON/A2L/DCM 导出 |
 | **测试生成** | 从 DBC 自动生成测试用例（边界值/正常范围/错误注入/信号超时）、覆盖率统计、Excel 导出 |
 | **需求追溯** | 需求与 SWC/信号/DTC/测试用例的追溯矩阵、自动匹配、缺口分析、Excel 导出 |
 
@@ -50,11 +50,14 @@ vcu-devkit/
 │   │   ├── dbc_parser.py            # DBC 解析（cantools）
 │   │   ├── arxml_parser.py          # ARXML 解析（lxml + XXE防护）
 │   │   ├── odx_parser.py            # ODX/CDD 诊断文件解析
-│   │   └── a2l_parser.py            # A2L 标定文件解析
+│   │   ├── a2l_parser.py            # A2L 标定文件解析
+│   │   └── dcm_parser.py            # DCM 标定数据文件解析
 │   ├── generators/                  # 代码生成器
 │   │   ├── c_generator.py           # C 头文件生成
 │   │   ├── arxml_generator.py       # ARXML 导出
-│   │   └── capl_generator.py        # CAPL 脚本生成
+│   │   ├── capl_generator.py        # CAPL 脚本生成
+│   │   ├── a2l_generator.py         # A2L 标定文件生成
+│   │   └── dcm_generator.py         # DCM 标定数据文件生成
 │   ├── rules/
 │   │   └── engine.py                # 校验规则引擎
 │   ├── diff/
@@ -77,7 +80,7 @@ vcu-devkit/
 │   ├── themes/                      # 浅色/暗色主题 QSS
 │   └── widgets/                     # 通用 UI 组件
 ├── tests/
-│   └── test_full_coverage.py        # 156 项自动化测试
+│   └── test_full_coverage.py        # 750+ 项自动化测试
 └── requirements.txt
 ```
 
@@ -88,6 +91,7 @@ vcu-devkit/
 - `.arxml` — AUTOSAR XML，支持拖拽加载
 - `.odx` / `.cdd` — ODX 2.2（诊断数据库），支持拖拽加载
 - `.a2l` — ASAP2（标定文件），支持拖拽加载
+- `.dcm` — DCM（标定数据文件），ETAS INCA 格式
 - `.json` — 通用配置导入
 
 **输出：**
@@ -96,6 +100,7 @@ vcu-devkit/
 - `.json` — 各模块配置导出
 - `.xlsx` — Excel 测试用例 / 追溯矩阵
 - `.a2l` — A2L 标定参数摘要
+- `.dcm` — DCM 标定数据文件（可加载到 INCA）
 
 ## 快捷键
 
@@ -112,6 +117,7 @@ vcu-devkit/
 ## 特性亮点
 
 - **拖拽加载** — 直接拖入 `.dbc` / `.arxml` / `.odx` / `.a2l` 文件，自动切换到对应模块并加载
+- **DCM 标定** — 支持 ETAS INCA 的 DCM 格式，A2L 定义结构 + DCM 填充值，导出的 DCM 可直接加载到 INCA
 - **全局搜索** — 工具栏搜索框或 `Ctrl+F`，实时过滤当前模块的信号/DTC/参数
 - **ODX/CDD 导入** — 诊断配置模块直接导入 ODX 2.2 / CDD 文件，自动提取 DTC 和诊断服务
 - **暗色主题** — 工具 > 暗色主题 切换，侧边栏、表格、树形视图全面适配
@@ -131,7 +137,7 @@ vcu-devkit/
 python -m pytest tests/ -v
 ```
 
-158 项测试覆盖：模块导入、控制器逻辑、解析器功能、XXE 防护、UI 组件、数据库操作、主题文件、规则引擎、代码生成、ODX 导入。
+752 项测试覆盖：模块导入、控制器逻辑、解析器功能、XXE 防护、UI 组件、数据库操作、主题文件、规则引擎、代码生成、ODX 导入、A2L/DCM 标定流程。
 
 ## License
 
