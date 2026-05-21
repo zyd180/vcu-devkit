@@ -100,7 +100,7 @@ class TestA2LParserMalformed:
         assert len(result.data.characteristics) == 0
 
     def test_characteristic_insufficient_tokens(self, parser):
-        """CHARACTERISTIC with < 5 tokens on first line should be skipped."""
+        """CHARACTERISTIC with only a name (no type) should be skipped."""
         content = '''
 /begin CHARACTERISTIC
     OnlyName
@@ -119,8 +119,10 @@ class TestA2LParserMalformed:
 '''
         result = parser.parse_string(content)
         assert result.success
-        # With < 5 tokens after name, it should be skipped
-        assert len(result.data.characteristics) == 0
+        assert len(result.data.characteristics) == 1
+        char = result.data.characteristics[0]
+        assert char.name == "Param1"
+        assert char.address == 0
 
     def test_measurement_empty_block(self, parser):
         """Empty MEASUREMENT block should be skipped."""

@@ -40,28 +40,39 @@ class CalibManagerController(CRUDMixin):
         """Import characteristics from current A2L into DB. Returns (imported, skipped)."""
         if self.current_a2l is None:
             return 0, 0
-        imported = 0
+
+        # Collect existing names in one query
+        existing_names = set(
+            row.name
+            for row in CalibrationParameter.select(CalibrationParameter.name)
+        )
+
+        rows = []
         skipped = 0
         for char in self.current_a2l.characteristics:
-            existing = CalibrationParameter.select().where(
-                CalibrationParameter.name == char.name
-            ).first()
-            if existing:
+            if char.name in existing_names:
                 skipped += 1
                 continue
-            self.db.add_calibration_param(
-                name=char.name,
-                data_type=char.type,
-                default_value=char.lower_limit,
-                min_value=char.lower_limit,
-                max_value=char.upper_limit,
-                unit=char.unit,
-                description=char.description or char.long_identifier,
-                source="a2l",
-                source_file=self.current_a2l.source_path,
-            )
-            imported += 1
-        return imported, skipped
+            existing_names.add(char.name)
+            rows.append({
+                "name": char.name,
+                "data_type": char.type,
+                "default_value": char.lower_limit,
+                "min_value": char.lower_limit,
+                "max_value": char.upper_limit,
+                "unit": char.unit,
+                "description": char.description or char.long_identifier,
+                "source": "a2l",
+                "source_file": self.current_a2l.source_path,
+            })
+
+        # Batch insert
+        if rows:
+            batch_size = 500
+            for i in range(0, len(rows), batch_size):
+                CalibrationParameter.insert_many(rows[i:i + batch_size]).execute()
+
+        return len(rows), skipped
 
     # ── Parameter CRUD ─────────────────────────────────────────────────────
 

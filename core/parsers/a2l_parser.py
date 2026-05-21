@@ -136,25 +136,105 @@ class A2LParser(BaseParser):
         return results
 
     def _parse_characteristic(self, block: str) -> A2LCharacteristic | None:
-        lines = block.strip().split('\n')
-        if not lines:
+        block = block.strip()
+        if not block:
             return None
 
-        # First line: name long_identifier type address record_layout [max_diff] [conversion]
-        first = lines[0].strip().split()
-        if len(first) < 5:
+        lines = block.split('\n')
+
+        _SUB_KEY_FIRST = {
+            "COMPU_METHOD", "UNIT", "LONG-NAME", "LOWER_LIMIT", "UPPER_LIMIT",
+            "EXTENDED_LIMITS", "FORMAT", "NUMBER", "BIT_MASK", "READ_ONLY",
+            "DISPLAY_IDENTIFIER", "MATRIX_DIM", "ECU_ADDRESS_EXTENSION",
+            "ECU_ADDRESS", "ANNOTATION", "FUNCTION_LIST",
+        }
+
+        # Extract header tokens one line at a time, stopping when we have enough.
+        # Skip nested /begin.../end sub-blocks (AXIS_DESCR, etc.)
+        header_tokens: list[str] = []
+        long_id = ""
+        remaining_lines: list[str] = []
+        nesting = 0
+        done_header = False
+
+        for line in lines:
+            stripped = line.strip()
+            if not stripped:
+                continue
+
+            # Track nested sub-blocks
+            if re.match(r'/begin\s+', stripped, re.IGNORECASE):
+                nesting += 1
+                if nesting == 1:
+                    remaining_lines.append(line)
+                    continue
+            if re.match(r'/end\s+', stripped, re.IGNORECASE):
+                nesting -= 1
+                if nesting >= 0:
+                    remaining_lines.append(line)
+                    continue
+                continue  # /end CHARACTERISTIC itself
+
+            if nesting > 0:
+                remaining_lines.append(line)
+                continue
+
+            if done_header:
+                remaining_lines.append(line)
+                continue
+
+            # Check if first token is a sub-keyword (even with quoted value)
+            first_tok = stripped.split()[0].upper() if stripped.split() else ""
+            if first_tok in _SUB_KEY_FIRST:
+                remaining_lines.append(line)
+                continue
+
+            # Quoted string — extract long_identifier
+            q = re.search(r'"([^"]*)"', line)
+            if q:
+                if not long_id:
+                    long_id = q.group(1)
+                # Add non-quoted tokens to header_tokens
+                before = line[:q.start()].strip()
+                after = line[q.end():].strip()
+                for tok in before.split():
+                    header_tokens.append(tok)
+                for tok in after.split():
+                    header_tokens.append(tok)
+            else:
+                # Accumulate tokens
+                for tok in stripped.split():
+                    header_tokens.append(tok)
+
+            # ASAP2 CHARACTERISTIC header: name type address record_layout max_diff conversion lower_limit upper_limit = 9 tokens
+            if len(header_tokens) >= 9:
+                done_header = True
+
+        if len(header_tokens) < 2:
             return None
 
-        name = first[0]
-        # long_identifier is quoted string
-        long_id_match = re.search(r'"([^"]*)"', lines[0])
-        long_id = long_id_match.group(1) if long_id_match else ""
+        name = header_tokens[0]
+        type_val = header_tokens[1] if len(header_tokens) > 1 else "VALUE"
+        address = 0
+        if len(header_tokens) > 2:
+            try:
+                address = int(header_tokens[2], 16)
+            except ValueError:
+                address = 0
+        record_layout = header_tokens[3] if len(header_tokens) > 3 else ""
+        # header_tokens[4] = max_diff (optional)
+        # header_tokens[5] = conversion (optional)
+        header_conversion = header_tokens[5] if len(header_tokens) > 5 else ""
 
-        # Find remaining tokens after the quoted string
-        after_quote = lines[0][long_id_match.end():].strip().split() if long_id_match else first[1:]
-        type_val = after_quote[0] if after_quote else "VALUE"
-        address = int(after_quote[1], 16) if len(after_quote) > 1 else 0
-        record_layout = after_quote[2] if len(after_quote) > 2 else ""
+        # header_tokens[6] = lower_limit, header_tokens[7] = upper_limit
+        lower_limit = 0.0
+        upper_limit = 0.0
+        if len(header_tokens) > 7:
+            try:
+                lower_limit = float(header_tokens[6])
+                upper_limit = float(header_tokens[7])
+            except ValueError:
+                pass
 
         char = A2LCharacteristic(
             name=name,
@@ -164,16 +244,16 @@ class A2LParser(BaseParser):
             record_layout=record_layout,
         )
 
-        # Parse sub-keys
-        block_text = '\n'.join(lines[1:])
-        char.conversion = self._extract_keyword(block_text, "COMPU_METHOD")
-        char.unit = self._extract_keyword(block_text, "UNIT")
-        char.description = self._extract_keyword(block_text, "LONG-NAME") or long_id
+        # Parse sub-keys from remaining lines
+        sub_text = '\n'.join(remaining_lines)
+        char.conversion = self._extract_keyword(sub_text, "COMPU_METHOD") or header_conversion
+        char.unit = self._extract_keyword(sub_text, "UNIT")
+        char.description = self._extract_keyword(sub_text, "LONG-NAME") or long_id
 
-        # Limits
-        limits = self._extract_limits(block_text)
-        char.lower_limit = limits[0]
-        char.upper_limit = limits[1]
+        # Limits: prefer sub-key format, fall back to header
+        limits = self._extract_limits(sub_text)
+        char.lower_limit = limits[0] if limits != (0.0, 0.0) else lower_limit
+        char.upper_limit = limits[1] if limits != (0.0, 0.0) else upper_limit
 
         return char
 
