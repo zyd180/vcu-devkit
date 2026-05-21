@@ -48,6 +48,79 @@ class DatabaseManager:
                 "UPDATE calibrationparameter SET calibration_page = 'default' "
                 "WHERE calibration_page IS NULL"
             )
+        # Drop old single-column UNIQUE index on name, replace with composite
+        self._migrate_name_unique_to_composite()
+
+    def _migrate_name_unique_to_composite(self):
+        """Replace UNIQUE(name) with UNIQUE(name, calibration_page).
+
+        SQLite UNIQUE constraints created by table definition are auto-indexes
+        that cannot be dropped with DROP INDEX. Must recreate the table.
+        """
+        try:
+            # Check if old UNIQUE(name) auto-index exists
+            has_old_unique = False
+            for row in db.execute_sql("PRAGMA index_list(calibrationparameter)"):
+                if not row[2]:  # not unique
+                    continue
+                cols = [
+                    r[2] for r in
+                    db.execute_sql(f"PRAGMA index_info({row[1]})")
+                ]
+                if cols == ["name"]:
+                    has_old_unique = True
+                    break
+
+            if not has_old_unique:
+                # No old constraint, just ensure composite index exists
+                db.execute_sql(
+                    "CREATE UNIQUE INDEX IF NOT EXISTS "
+                    "calibrationparameter_name_calibration_page "
+                    "ON calibrationparameter (name, calibration_page)"
+                )
+                return
+
+            # Recreate table without UNIQUE on name, with composite index
+            db.execute_sql("ALTER TABLE calibrationparameter RENAME TO _calparam_old")
+            db.execute_sql(
+                """CREATE TABLE calibrationparameter (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    name VARCHAR(128),
+                    calibration_page VARCHAR(128) DEFAULT 'default',
+                    swc_name VARCHAR(128),
+                    group_name VARCHAR(128),
+                    data_type VARCHAR(32),
+                    default_value REAL,
+                    min_value REAL,
+                    max_value REAL,
+                    unit VARCHAR(32),
+                    description TEXT,
+                    source VARCHAR(32) DEFAULT 'manual',
+                    source_file VARCHAR(512),
+                    created_at DATETIME,
+                    updated_at DATETIME
+                )"""
+            )
+            db.execute_sql(
+                """INSERT INTO calibrationparameter
+                   (id, name, calibration_page, swc_name, group_name, data_type,
+                    default_value, min_value, max_value, unit, description,
+                    source, source_file, created_at, updated_at)
+                   SELECT id, name,
+                          COALESCE(calibration_page, 'default'),
+                          swc_name, group_name, data_type,
+                          default_value, min_value, max_value, unit, description,
+                          source, source_file, created_at, updated_at
+                   FROM _calparam_old"""
+            )
+            db.execute_sql("DROP TABLE _calparam_old")
+            db.execute_sql(
+                "CREATE UNIQUE INDEX IF NOT EXISTS "
+                "calibrationparameter_name_calibration_page "
+                "ON calibrationparameter (name, calibration_page)"
+            )
+        except Exception:
+            pass  # Best-effort migration
 
     def close(self):
         """Close the database connection."""

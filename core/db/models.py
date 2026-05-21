@@ -46,9 +46,6 @@ class CalibrationParameter(BaseModel):
     created_at = DateTimeField(default=datetime.now)
     updated_at = DateTimeField(default=datetime.now)
 
-    class Meta:
-        indexes = ((("name", "calibration_page"), True),)
-
 
 class CalibrationChange(BaseModel):
     """Audit trail for calibration parameter changes."""
