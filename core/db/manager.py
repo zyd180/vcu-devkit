@@ -29,8 +29,25 @@ class DatabaseManager:
         db.init(path_key)
         db.connect(reuse_if_open=True)
         db.create_tables(ALL_MODELS, safe=True)
+        self._auto_migrate()
         self._initialized_paths.add(path_key)
         self._initialised = True
+
+    def _auto_migrate(self):
+        """Auto-migrate schema changes for existing databases."""
+        try:
+            db.execute_sql(
+                "SELECT calibration_page FROM calibrationparameter LIMIT 1"
+            )
+        except Exception:
+            db.execute_sql(
+                "ALTER TABLE calibrationparameter "
+                "ADD COLUMN calibration_page VARCHAR(128) DEFAULT 'default'"
+            )
+            db.execute_sql(
+                "UPDATE calibrationparameter SET calibration_page = 'default' "
+                "WHERE calibration_page IS NULL"
+            )
 
     def close(self):
         """Close the database connection."""

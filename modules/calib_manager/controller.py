@@ -7,7 +7,7 @@ import logging
 import re
 from pathlib import Path
 
-from core.db.models import CalibrationParameter, CalibrationChange
+from core.db.models import CalibrationParameter, CalibrationChange, CalibrationPage
 from core.db.manager import DatabaseManager
 from core.db.crud_mixin import CRUDMixin
 from core.parsers.a2l_parser import A2LParser, A2LData, a2l_data_to_dict
@@ -27,6 +27,8 @@ class CalibManagerController(CRUDMixin):
             self.db.init()
         self.a2l_parser = A2LParser()
         self.current_a2l: A2LData | None = None
+        self.current_page: str = "default"
+        self._ensure_default_page()
 
     # ── A2L file operations ────────────────────────────────────────────────
 
@@ -42,10 +44,11 @@ class CalibManagerController(CRUDMixin):
         if self.current_a2l is None:
             return 0, 0
 
-        # Collect existing names in one query
+        # Collect existing names for current page in one query
         existing_names = set(
             row.name
             for row in CalibrationParameter.select(CalibrationParameter.name)
+            .where(CalibrationParameter.calibration_page == self.current_page)
         )
 
         rows = []
@@ -57,6 +60,7 @@ class CalibManagerController(CRUDMixin):
             existing_names.add(char.name)
             rows.append({
                 "name": char.name,
+                "calibration_page": self.current_page,
                 "data_type": char.type,
                 "default_value": char.lower_limit,
                 "min_value": char.lower_limit,
@@ -75,14 +79,68 @@ class CalibManagerController(CRUDMixin):
 
         return len(rows), skipped
 
+    # ── Page management ───────────────────────────────────────────────────
+
+    def list_pages(self) -> list[str]:
+        """Return all calibration page names."""
+        pages = [p.name for p in CalibrationPage.select(CalibrationPage.name)]
+        if not pages:
+            self._ensure_default_page()
+            pages = ["default"]
+        return sorted(pages)
+
+    def create_page(self, name: str) -> bool:
+        """Create a new empty calibration page."""
+        if not name:
+            return False
+        if CalibrationPage.select().where(CalibrationPage.name == name).exists():
+            return False
+        CalibrationPage.create(name=name)
+        return True
+
+    def delete_page(self, name: str) -> tuple[bool, str]:
+        """Delete a calibration page and all its parameters."""
+        if name == "default":
+            return False, "不能删除 default 页面"
+        count = (
+            CalibrationParameter.delete()
+            .where(CalibrationParameter.calibration_page == name)
+            .execute()
+        )
+        CalibrationPage.delete().where(CalibrationPage.name == name).execute()
+        if self.current_page == name:
+            self.current_page = "default"
+        return True, f"已删除 {count} 条参数"
+
+    def set_current_page(self, page: str):
+        """Switch current page."""
+        self.current_page = page
+
+    def get_current_page(self) -> str:
+        """Return current page name."""
+        return self.current_page
+
+    def _ensure_default_page(self):
+        """Ensure 'default' page exists in CalibrationPage table."""
+        if not CalibrationPage.select().where(CalibrationPage.name == "default").exists():
+            CalibrationPage.create(name="default")
+
     # ── Parameter CRUD ─────────────────────────────────────────────────────
 
     def get_params(self, group: str | None = None) -> list[CalibrationParameter]:
-        return self.db.get_calibration_params(group=group)
+        query = CalibrationParameter.select().where(
+            CalibrationParameter.calibration_page == self.current_page
+        )
+        if group:
+            query = query.where(CalibrationParameter.group_name == group)
+        return list(query)
 
     def get_param_by_name(self, name: str) -> CalibrationParameter | None:
         try:
-            return CalibrationParameter.get(CalibrationParameter.name == name)
+            return CalibrationParameter.get(
+                (CalibrationParameter.name == name)
+                & (CalibrationParameter.calibration_page == self.current_page)
+            )
         except CalibrationParameter.DoesNotExist:
             return None
 
@@ -110,6 +168,7 @@ class CalibManagerController(CRUDMixin):
             return {
                 "id": p.id,
                 "name": p.name,
+                "calibration_page": p.calibration_page or "default",
                 "swc_name": p.swc_name or "",
                 "group_name": p.group_name or "",
                 "data_type": p.data_type,
@@ -126,9 +185,11 @@ class CalibManagerController(CRUDMixin):
     # ── Group management ───────────────────────────────────────────────────
 
     def get_groups(self) -> list[str]:
-        """Get all unique group names."""
+        """Get all unique group names for current page."""
         groups = set()
-        for p in CalibrationParameter.select(CalibrationParameter.group_name):
+        for p in CalibrationParameter.select(CalibrationParameter.group_name).where(
+            CalibrationParameter.calibration_page == self.current_page
+        ):
             if p.group_name:
                 groups.add(p.group_name)
         return sorted(groups)
@@ -142,9 +203,11 @@ class CalibManagerController(CRUDMixin):
         return groups
 
     def get_swcs(self) -> list[str]:
-        """Get all unique SWC names referenced by parameters."""
+        """Get all unique SWC names referenced by parameters in current page."""
         swcs = set()
-        for p in CalibrationParameter.select(CalibrationParameter.swc_name):
+        for p in CalibrationParameter.select(CalibrationParameter.swc_name).where(
+            CalibrationParameter.calibration_page == self.current_page
+        ):
             if p.swc_name:
                 swcs.add(p.swc_name)
         return sorted(swcs)
@@ -156,8 +219,11 @@ class CalibManagerController(CRUDMixin):
         keyword_lower = f"%{keyword.lower()}%"
         return list(
             CalibrationParameter.select().where(
-                (CalibrationParameter.name ** keyword_lower) |
-                (CalibrationParameter.description ** keyword_lower)
+                (CalibrationParameter.calibration_page == self.current_page)
+                & (
+                    (CalibrationParameter.name ** keyword_lower)
+                    | (CalibrationParameter.description ** keyword_lower)
+                )
             )
         )
 
@@ -179,6 +245,7 @@ class CalibManagerController(CRUDMixin):
     def export_json(self, output_path: Path) -> tuple[bool, list[str]]:
         try:
             data = {
+                "page": self.current_page,
                 "parameters": [
                     self.get_param_as_dict(p.id) for p in self.get_params()
                 ],

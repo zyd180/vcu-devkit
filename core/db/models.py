@@ -21,10 +21,18 @@ class BaseModel(Model):
 # ── Calibration ──────────────────────────────────────────────────────────────
 
 
+class CalibrationPage(BaseModel):
+    """Named calibration page (version/snapshot)."""
+    id = AutoField()
+    name = CharField(unique=True, max_length=128)
+    created_at = DateTimeField(default=datetime.now)
+
+
 class CalibrationParameter(BaseModel):
     """Calibration (标定) parameter definition."""
     id = AutoField()
-    name = CharField(unique=True, max_length=128)
+    name = CharField(max_length=128)
+    calibration_page = CharField(max_length=128, default="default")
     swc_name = CharField(max_length=128, null=True)
     group_name = CharField(max_length=128, null=True)
     data_type = CharField(max_length=32)
@@ -37,6 +45,9 @@ class CalibrationParameter(BaseModel):
     source_file = CharField(max_length=512, null=True)
     created_at = DateTimeField(default=datetime.now)
     updated_at = DateTimeField(default=datetime.now)
+
+    class Meta:
+        indexes = ((("name", "calibration_page"), True),)
 
 
 class CalibrationChange(BaseModel):
@@ -160,6 +171,7 @@ class FileVersion(BaseModel):
 
 # All tables for easy iteration
 ALL_MODELS = [
+    CalibrationPage,
     CalibrationParameter,
     CalibrationChange,
     DTCDefinition,

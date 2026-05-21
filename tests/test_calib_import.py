@@ -495,3 +495,144 @@ class TestWritebackA2L:
         ok, errs = controller.writeback_a2l(out)
         assert not ok
         assert "没有" in errs[0]
+
+
+# ── Page management tests ───────────────────────────────────────────────────
+
+
+class TestCalibrationPage:
+
+    def test_list_pages_default(self, controller):
+        """New database has only 'default' page."""
+        pages = controller.list_pages()
+        assert pages == ["default"]
+
+    def test_create_page(self, controller):
+        """Creating a page makes it appear in list_pages."""
+        assert controller.create_page("v2")
+        pages = controller.list_pages()
+        assert "v2" in pages
+
+    def test_create_duplicate_page(self, controller):
+        """Creating a duplicate page name returns False."""
+        controller.create_page("v2")
+        assert not controller.create_page("v2")
+
+    def test_create_empty_name(self, controller):
+        """Creating a page with empty name returns False."""
+        assert not controller.create_page("")
+
+    def test_import_to_new_page(self, controller, a2l_file):
+        """Import to a new page, default page stays empty."""
+        controller.load_a2l(a2l_file)
+        controller.set_current_page("v2")
+        imported, skipped = controller.import_a2l_to_db()
+        assert imported == 3
+
+        # v2 page has 3 params
+        params = controller.get_params()
+        assert len(params) == 3
+
+        # default page has 0 params
+        controller.set_current_page("default")
+        params = controller.get_params()
+        assert len(params) == 0
+
+    def test_switch_page(self, controller, a2l_file):
+        """Switching pages returns correct data."""
+        controller.load_a2l(a2l_file)
+
+        # Import to default
+        controller.import_a2l_to_db()
+
+        # Import to v2
+        controller.set_current_page("v2")
+        controller.import_a2l_to_db()
+
+        # Switch back to default
+        controller.set_current_page("default")
+        assert len(controller.get_params()) == 3
+
+        # Switch to v2
+        controller.set_current_page("v2")
+        assert len(controller.get_params()) == 3
+
+    def test_delete_page(self, controller, a2l_file):
+        """Deleting a page removes its parameters."""
+        controller.load_a2l(a2l_file)
+        controller.set_current_page("v2")
+        controller.import_a2l_to_db()
+        assert len(controller.get_params()) == 3
+
+        ok, msg = controller.delete_page("v2")
+        assert ok
+        assert "3" in msg
+
+        # After deletion, current page falls back to default
+        assert controller.get_current_page() == "default"
+        assert len(controller.get_params()) == 0
+
+    def test_delete_default_page_rejected(self, controller):
+        """Cannot delete the default page."""
+        ok, msg = controller.delete_page("default")
+        assert not ok
+        assert "不能删除" in msg
+
+    def test_same_name_different_pages(self, controller, a2l_file):
+        """Same parameter name can exist in different pages."""
+        controller.load_a2l(a2l_file)
+
+        # Import to default
+        controller.import_a2l_to_db()
+
+        # Import to v2 (same parameters)
+        controller.set_current_page("v2")
+        imported, skipped = controller.import_a2l_to_db()
+        assert imported == 3
+        assert skipped == 0
+
+        # Both pages have EngSpeed
+        controller.set_current_page("default")
+        assert controller.get_param_by_name("EngSpeed") is not None
+
+        controller.set_current_page("v2")
+        assert controller.get_param_by_name("EngSpeed") is not None
+
+    def test_search_filtered_by_page(self, controller, a2l_file):
+        """Search only returns results from current page."""
+        controller.load_a2l(a2l_file)
+        controller.import_a2l_to_db()
+
+        controller.set_current_page("v2")
+        controller.import_a2l_to_db()
+
+        # Search in v2
+        results = controller.search_params("Engine")
+        assert len(results) >= 1
+        for p in results:
+            assert p.calibration_page == "v2"
+
+        # Search in default
+        controller.set_current_page("default")
+        results = controller.search_params("Engine")
+        assert len(results) >= 1
+        for p in results:
+            assert p.calibration_page == "default"
+
+    def test_groups_filtered_by_page(self, controller, a2l_file):
+        """Groups are per-page."""
+        controller.load_a2l(a2l_file)
+        controller.import_a2l_to_db()
+
+        # Assign group in default
+        p = controller.get_param_by_name("EngSpeed")
+        controller.update_param(p.id, group_name="Engine")
+
+        # v2 has no groups
+        controller.set_current_page("v2")
+        controller.import_a2l_to_db()
+        assert controller.get_groups() == []
+
+        # default has the group
+        controller.set_current_page("default")
+        assert "Engine" in controller.get_groups()

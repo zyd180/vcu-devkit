@@ -9,6 +9,7 @@ from PySide6.QtWidgets import (
     QPushButton, QFileDialog, QLabel, QToolBar, QMessageBox,
     QTabWidget, QHeaderView, QAbstractItemView,
     QTableView, QStatusBar, QTextEdit, QLineEdit,
+    QComboBox, QInputDialog,
 )
 from PySide6.QtCore import Qt, Signal, QAbstractTableModel, QModelIndex
 from PySide6.QtGui import QAction
@@ -113,6 +114,18 @@ class CalibManagerView(QWidget):
         toolbar.addAction(self.act_import_a2l)
         toolbar.addAction(self.act_writeback_a2l)
         toolbar.addSeparator()
+
+        # Page selector
+        toolbar.addWidget(QLabel(" 标定页: "))
+        self.page_combo = QComboBox()
+        self.page_combo.setMinimumWidth(120)
+        toolbar.addWidget(self.page_combo)
+        self.act_new_page = QAction("新建页", self)
+        self.act_delete_page = QAction("删除页", self)
+        toolbar.addAction(self.act_new_page)
+        toolbar.addAction(self.act_delete_page)
+        toolbar.addSeparator()
+
         toolbar.addAction(self.act_add_param)
         toolbar.addSeparator()
         toolbar.addAction(self.act_export_json)
@@ -217,6 +230,9 @@ class CalibManagerView(QWidget):
         self.act_export_json.triggered.connect(self._on_export_json)
         self.act_export_a2l.triggered.connect(self._on_export_a2l)
         self.act_validate.triggered.connect(self._on_validate)
+        self.act_new_page.triggered.connect(self._on_new_page)
+        self.act_delete_page.triggered.connect(self._on_delete_page)
+        self.page_combo.currentTextChanged.connect(self._on_page_changed)
         self.group_tree.item_selected.connect(self._on_group_selected)
         self.param_table.selectionModel().currentChanged.connect(self._on_param_selected)
 
@@ -460,9 +476,61 @@ class CalibManagerView(QWidget):
         self.tabs.setCurrentIndex(2)
         self.status_bar.showMessage(f"校验完成: {len(issues)} 问题", 5000)
 
+    # ── Page management ─────────────────────────────────────────────────────
+
+    def _on_new_page(self):
+        name, ok = QInputDialog.getText(self, "新建标定页", "页面名称:")
+        if not ok or not name.strip():
+            return
+        name = name.strip()
+        if not self.controller.create_page(name):
+            QMessageBox.warning(self, "错误", f"页面 '{name}' 已存在或名称无效")
+            return
+        self._refresh_pages()
+        self.page_combo.setCurrentText(name)
+
+    def _on_delete_page(self):
+        page = self.controller.get_current_page()
+        if page == "default":
+            QMessageBox.information(self, "提示", "不能删除 default 页面")
+            return
+        reply = QMessageBox.question(
+            self, "删除标定页",
+            f"确定删除页面 '{page}' 及其所有参数？此操作不可撤销。",
+            QMessageBox.Yes | QMessageBox.No,
+        )
+        if reply != QMessageBox.Yes:
+            return
+        ok, msg = self.controller.delete_page(page)
+        if ok:
+            self._refresh_pages()
+            self._refresh_all()
+            self.status_bar.showMessage(msg, 5000)
+        else:
+            QMessageBox.warning(self, "删除失败", msg)
+
+    def _on_page_changed(self, page: str):
+        if not page:
+            return
+        self.controller.set_current_page(page)
+        self._refresh_all()
+
+    def _refresh_pages(self):
+        current = self.page_combo.currentText()
+        self.page_combo.blockSignals(True)
+        self.page_combo.clear()
+        pages = self.controller.list_pages()
+        self.page_combo.addItems(pages)
+        if current in pages:
+            self.page_combo.setCurrentText(current)
+        else:
+            self.page_combo.setCurrentText(self.controller.get_current_page())
+        self.page_combo.blockSignals(False)
+
     # ── Helpers ─────────────────────────────────────────────────────────────
 
     def _refresh_all(self):
+        self._refresh_pages()
         self._refresh_group_tree()
         self._refresh_param_table()
         self._update_info_label()
