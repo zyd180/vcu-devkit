@@ -120,12 +120,13 @@ class CalibManagerController(CRUDMixin):
             matched += 1
             if char.value is not None:
                 param = db_params[char.name]
-                if param.default_value != char.value:
+                old_value = param.default_value
+                if old_value != char.value:
                     param.default_value = char.value
                     param.save()
                     CalibrationChange.create(
                         param=param,
-                        old_value=param.default_value,
+                        old_value=old_value,
                         new_value=char.value,
                         changed_by="dcm_import",
                         reason=f"DCM import value = {char.value}",
