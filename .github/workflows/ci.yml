@@ -28,14 +28,18 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
+      - name: Install system dependencies for PySide6
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libgl1-mesa-glx libegl1-mesa libxkbcommon0 libxcb-cursor0
       - name: Install dependencies
         run: |
           pip install --upgrade pip
-          pip install -e ".[dev]"
+          pip install -e ".[full,dev]"
       - name: Run tests with coverage
         env:
           QT_QPA_PLATFORM: offscreen
-        run: pytest tests/ --cov --cov-report=term-missing --cov-report=xml -q
+        run: pytest tests/ --cov --cov-report=term-missing --cov-report=xml -v
       - name: Upload coverage
         if: matrix.python-version == '3.12'
         uses: actions/upload-artifact@v4
