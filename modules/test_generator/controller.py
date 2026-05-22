@@ -343,7 +343,6 @@ class TestGeneratorController:
         for msg in self.current_dbc.messages:
             cfg = E2EConfig(message_name=msg.name, message_id=msg.id)
 
-            sig_names_lower = {s.name.lower(): s.name for s in msg.signals}
             crc_sig = ""
             cnt_sig = ""
             data_sigs = []
