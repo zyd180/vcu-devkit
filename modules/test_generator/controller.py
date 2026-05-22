@@ -16,6 +16,8 @@ class TestMethod(Enum):
     NORMAL_RANGE = "normal_range"
     ERROR_INJECTION = "error_injection"
     SIGNAL_TIMEOUT = "signal_timeout"
+    E2E_PROTECTION = "e2e_protection"
+    COUNTER_VALIDATION = "counter_validation"
 
 
 @dataclass
@@ -216,6 +218,204 @@ class TestGeneratorController:
                     signal_name=sig.name,
                     message_name=msg.name,
                     priority="critical",
+                )
+            )
+
+        return cases
+
+    def generate_message_tests(self, methods: list[TestMethod] | None = None) -> int:
+        """Generate message-level test cases (E2E, Counter, etc.)."""
+        if self.current_dbc is None:
+            return 0
+        if methods is None:
+            methods = [TestMethod.E2E_PROTECTION, TestMethod.COUNTER_VALIDATION]
+
+        count = 0
+        for msg in self.current_dbc.messages:
+            for method in methods:
+                cases = self._generate_for_message(msg, method)
+                self.test_cases.extend(cases)
+                count += len(cases)
+        return count
+
+    def _generate_for_message(self, msg: MessageDef, method: TestMethod) -> list[TestCase]:
+        cases = []
+        prefix = f"TC_{msg.name}"
+
+        if method == TestMethod.E2E_PROTECTION:
+            # E2E CRC 校验
+            cases.append(
+                TestCase(
+                    id=f"{prefix}_E2E_CRC",
+                    name=f"{msg.name} E2E CRC 校验",
+                    category="E2E保护测试",
+                    method=method.value,
+                    description=f"验证报文 {msg.name} (0x{msg.id:03X}) 的 E2E CRC 计算与校验",
+                    steps=[
+                        f"正常发送报文 {msg.name}，CRC 字段按协议计算",
+                        "接收方校验 CRC",
+                        "修改 CRC 字段为错误值后发送",
+                        "观察接收方是否检测到 CRC 错误",
+                    ],
+                    expected_results=[
+                        "正常 CRC 时接收方正确接受报文",
+                        "错误 CRC 时接收方拒绝报文或使用安全值",
+                        "CRC 错误计数器递增",
+                    ],
+                    message_name=msg.name,
+                    priority="critical",
+                )
+            )
+            # E2E Counter 校验
+            cases.append(
+                TestCase(
+                    id=f"{prefix}_E2E_CNT",
+                    name=f"{msg.name} E2E 计数器校验",
+                    category="E2E保护测试",
+                    method=method.value,
+                    description=f"验证报文 {msg.name} 的 E2E 计数器按协议递增",
+                    steps=[
+                        f"连续发送报文 {msg.name}，观察 E2E 计数器字段",
+                        "确认计数器按 0→Max→0 循环递增",
+                        "发送计数器跳变的报文（如 0→5）",
+                        "观察接收方是否检测到计数器异常",
+                    ],
+                    expected_results=[
+                        "计数器按协议定义的步长和范围递增",
+                        "计数器跳变时接收方检测到错误",
+                        "连续丢帧时接收方在超时后报错",
+                    ],
+                    message_name=msg.name,
+                    priority="critical",
+                )
+            )
+            # E2E 超时检测
+            cases.append(
+                TestCase(
+                    id=f"{prefix}_E2E_TIMEOUT",
+                    name=f"{msg.name} E2E 超时检测",
+                    category="E2E保护测试",
+                    method=method.value,
+                    description=f"验证报文 {msg.name} 停止发送后 E2E 超时机制",
+                    steps=[
+                        f"正常发送 {msg.name} 5秒",
+                        "停止发送",
+                        "等待 E2E 超时时间（通常 2-5 个报文周期）",
+                    ],
+                    expected_results=[
+                        "接收方在超时后检测到 E2E 错误",
+                        "相关信号使用安全默认值",
+                        "触发对应的 DTC（如有定义）",
+                    ],
+                    message_name=msg.name,
+                    priority="high",
+                )
+            )
+            # E2E 状态位校验
+            cases.append(
+                TestCase(
+                    id=f"{prefix}_E2E_STATUS",
+                    name=f"{msg.name} E2E 状态位校验",
+                    category="E2E保护测试",
+                    method=method.value,
+                    description=f"验证报文 {msg.name} 的 E2E 状态指示位",
+                    steps=[
+                        f"正常发送 {msg.name}，读取 E2E 状态信号",
+                        "注入 CRC 错误，读取 E2E 状态信号",
+                        "注入计数器错误，读取 E2E 状态信号",
+                    ],
+                    expected_results=[
+                        "正常时 E2E 状态 = OK",
+                        "CRC 错误时 E2E 状态 = CRC_Error",
+                        "计数器错误时 E2E 状态 = Counter_Error",
+                    ],
+                    message_name=msg.name,
+                    priority="high",
+                )
+            )
+
+        elif method == TestMethod.COUNTER_VALIDATION:
+            # 计数器递增
+            cases.append(
+                TestCase(
+                    id=f"{prefix}_CNT_INC",
+                    name=f"{msg.name} 计数器递增",
+                    category="计数器测试",
+                    method=method.value,
+                    description=f"验证报文 {msg.name} 的滚动计数器每周期递增",
+                    steps=[
+                        f"连续发送 20 个周期的 {msg.name} 报文",
+                        "记录每帧的计数器字段值",
+                        "验证相邻帧计数器差值 = 1",
+                    ],
+                    expected_results=[
+                        "计数器每帧递增 1",
+                        "无跳变或重复",
+                    ],
+                    message_name=msg.name,
+                    priority="high",
+                )
+            )
+            # 计数器回绕
+            cases.append(
+                TestCase(
+                    id=f"{prefix}_CNT_WRAP",
+                    name=f"{msg.name} 计数器回绕",
+                    category="计数器测试",
+                    method=method.value,
+                    description=f"验证报文 {msg.name} 的计数器在最大值后正确回绕",
+                    steps=[
+                        f"持续发送 {msg.name} 直到计数器达到最大值",
+                        "记录最大值和回绕后的值",
+                    ],
+                    expected_results=[
+                        "计数器在达到最大值后回到 0",
+                        "回绕过程无丢帧或异常",
+                    ],
+                    message_name=msg.name,
+                    priority="high",
+                )
+            )
+            # 计数器冻结检测
+            cases.append(
+                TestCase(
+                    id=f"{prefix}_CNT_FREEZE",
+                    name=f"{msg.name} 计数器冻结检测",
+                    category="计数器测试",
+                    method=method.value,
+                    description="验证接收方检测到计数器冻结（连续相同值）",
+                    steps=[
+                        f"正常发送 {msg.name} 几个周期",
+                        "连续发送计数器值相同的报文（冻结）",
+                        "观察接收方反应",
+                    ],
+                    expected_results=[
+                        "接收方检测到计数器冻结",
+                        "触发超时或错误处理机制",
+                    ],
+                    message_name=msg.name,
+                    priority="high",
+                )
+            )
+            # 计数器跳变检测
+            cases.append(
+                TestCase(
+                    id=f"{prefix}_CNT_JUMP",
+                    name=f"{msg.name} 计数器跳变检测",
+                    category="计数器测试",
+                    method=method.value,
+                    description="验证接收方检测到计数器跳变（非连续值）",
+                    steps=[
+                        f"正常发送 {msg.name}，计数器递增中",
+                        "突然发送计数器跳变的报文（如从 3 直接到 8）",
+                        "观察接收方是否检测到跳变",
+                    ],
+                    expected_results=[
+                        "接收方检测到计数器不连续",
+                        "报文被标记为无效或触发错误处理",
+                    ],
+                    message_name=msg.name,
+                    priority="medium",
                 )
             )
 

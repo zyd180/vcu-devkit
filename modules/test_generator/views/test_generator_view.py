@@ -98,10 +98,14 @@ class TestGeneratorView(QWidget):
         self.chk_normal.setChecked(True)
         self.chk_error = QCheckBox("错误注入测试 (Error Injection)")
         self.chk_timeout = QCheckBox("信号超时测试 (Signal Timeout)")
+        self.chk_e2e = QCheckBox("E2E保护测试 (E2E Protection)")
+        self.chk_counter = QCheckBox("计数器测试 (Counter Validation)")
         opt_layout.addWidget(self.chk_boundary)
         opt_layout.addWidget(self.chk_normal)
         opt_layout.addWidget(self.chk_error)
         opt_layout.addWidget(self.chk_timeout)
+        opt_layout.addWidget(self.chk_e2e)
+        opt_layout.addWidget(self.chk_counter)
         left_layout.addWidget(options_group)
 
         # Category tree
@@ -217,21 +221,30 @@ class TestGeneratorView(QWidget):
         self.status_bar.showMessage(f"已加载 {path}", 5000)
 
     def _on_generate(self):
-        methods = []
+        signal_methods = []
+        message_methods = []
         if self.chk_boundary.isChecked():
-            methods.append(TestMethod.BOUNDARY_VALUE)
+            signal_methods.append(TestMethod.BOUNDARY_VALUE)
         if self.chk_normal.isChecked():
-            methods.append(TestMethod.NORMAL_RANGE)
+            signal_methods.append(TestMethod.NORMAL_RANGE)
         if self.chk_error.isChecked():
-            methods.append(TestMethod.ERROR_INJECTION)
+            signal_methods.append(TestMethod.ERROR_INJECTION)
         if self.chk_timeout.isChecked():
-            methods.append(TestMethod.SIGNAL_TIMEOUT)
+            signal_methods.append(TestMethod.SIGNAL_TIMEOUT)
+        if self.chk_e2e.isChecked():
+            message_methods.append(TestMethod.E2E_PROTECTION)
+        if self.chk_counter.isChecked():
+            message_methods.append(TestMethod.COUNTER_VALIDATION)
 
-        if not methods:
+        if not signal_methods and not message_methods:
             QMessageBox.information(self, "提示", "请至少选择一种测试方法")
             return
 
-        count = self.controller.generate_signal_tests(methods)
+        count = 0
+        if signal_methods:
+            count += self.controller.generate_signal_tests(signal_methods)
+        if message_methods:
+            count += self.controller.generate_message_tests(message_methods)
         self._refresh_all()
         self.status_bar.showMessage(f"已生成 {count} 个测试用例", 5000)
 
