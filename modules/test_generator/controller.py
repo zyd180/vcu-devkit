@@ -76,6 +76,10 @@ class TestGeneratorController:
     def _generate_for_signal(self, msg: MessageDef, sig: SignalDef, method: TestMethod) -> list[TestCase]:
         cases = []
         prefix = f"TC_{msg.name}_{sig.name}"
+        sig_min = sig.minimum if sig.minimum is not None else 0
+        sig_max = sig.maximum if sig.maximum is not None else 0
+        sig_factor = sig.factor if sig.factor is not None else 1
+        sig_unit = sig.unit or ""
 
         if method == TestMethod.BOUNDARY_VALUE:
             # Min boundary
@@ -85,19 +89,19 @@ class TestGeneratorController:
                     name=f"{sig.name} 最小边界值",
                     category="边界值测试",
                     method=method.value,
-                    description=f"验证信号 {sig.name} 在最小物理值 ({sig.minimum}) 时的行为",
+                    description=f"验证信号 {sig.name} 在最小物理值 ({sig_min}) 时的行为",
                     steps=[
-                        f"设置 {msg.name}.{sig.name} = {sig.minimum} {sig.unit}",
+                        f"设置 {msg.name}.{sig.name} = {sig_min} {sig_unit}",
                         f"发送报文 {msg.name} (0x{msg.id:03X})",
                         "观察接收方响应",
                     ],
                     expected_results=[
-                        f"接收方正确解析 {sig.name} = {sig.minimum} {sig.unit}",
+                        f"接收方正确解析 {sig.name} = {sig_min} {sig_unit}",
                         "无错误或异常行为",
                     ],
                     signal_name=sig.name,
                     message_name=msg.name,
-                    input_value=str(sig.minimum),
+                    input_value=str(sig_min),
                     priority="high",
                 )
             )
@@ -108,19 +112,19 @@ class TestGeneratorController:
                     name=f"{sig.name} 最大边界值",
                     category="边界值测试",
                     method=method.value,
-                    description=f"验证信号 {sig.name} 在最大物理值 ({sig.maximum}) 时的行为",
+                    description=f"验证信号 {sig.name} 在最大物理值 ({sig_max}) 时的行为",
                     steps=[
-                        f"设置 {msg.name}.{sig.name} = {sig.maximum} {sig.unit}",
+                        f"设置 {msg.name}.{sig.name} = {sig_max} {sig_unit}",
                         f"发送报文 {msg.name} (0x{msg.id:03X})",
                         "观察接收方响应",
                     ],
                     expected_results=[
-                        f"接收方正确解析 {sig.name} = {sig.maximum} {sig.unit}",
+                        f"接收方正确解析 {sig.name} = {sig_max} {sig_unit}",
                         "无错误或异常行为",
                     ],
                     signal_name=sig.name,
                     message_name=msg.name,
-                    input_value=str(sig.maximum),
+                    input_value=str(sig_max),
                     priority="high",
                 )
             )
@@ -133,7 +137,7 @@ class TestGeneratorController:
                     method=method.value,
                     description=f"验证信号 {sig.name} 在低于最小物理值时的处理",
                     steps=[
-                        f"设置 {msg.name}.{sig.name} = {sig.minimum - sig.factor} {sig.unit}",
+                        f"设置 {msg.name}.{sig.name} = {sig_min - sig_factor} {sig_unit}",
                         f"发送报文 {msg.name} (0x{msg.id:03X})",
                     ],
                     expected_results=[
@@ -141,13 +145,13 @@ class TestGeneratorController:
                     ],
                     signal_name=sig.name,
                     message_name=msg.name,
-                    input_value=str(sig.minimum - sig.factor),
+                    input_value=str(sig_min - sig_factor),
                     priority="medium",
                 )
             )
 
         elif method == TestMethod.NORMAL_RANGE:
-            mid = (sig.minimum + sig.maximum) / 2
+            mid = (sig_min + sig_max) / 2
             cases.append(
                 TestCase(
                     id=f"{prefix}_NR_MID",
@@ -156,12 +160,12 @@ class TestGeneratorController:
                     method=method.value,
                     description=f"验证信号 {sig.name} 在正常中间值 ({mid:.2f}) 时的通信",
                     steps=[
-                        f"设置 {msg.name}.{sig.name} = {mid:.2f} {sig.unit}",
+                        f"设置 {msg.name}.{sig.name} = {mid:.2f} {sig_unit}",
                         f"以周期发送报文 {msg.name}",
                         "持续发送100个周期",
                     ],
                     expected_results=[
-                        f"接收方正确解析 {sig.name} ≈ {mid:.2f} {sig.unit}",
+                        f"接收方正确解析 {sig.name} ≈ {mid:.2f} {sig_unit}",
                         "无丢帧或超时",
                     ],
                     signal_name=sig.name,
@@ -180,7 +184,7 @@ class TestGeneratorController:
                     method=method.value,
                     description=f"向 {sig.name} 注入超出物理范围的原始值",
                     steps=[
-                        f"构造原始值使 {sig.name} 物理值 > {sig.maximum}",
+                        f"构造原始值使 {sig.name} 物理值 > {sig_max}",
                         f"发送报文 {msg.name} (0x{msg.id:03X})",
                     ],
                     expected_results=[
