@@ -20,6 +20,69 @@ class TestMethod(Enum):
     COUNTER_VALIDATION = "counter_validation"
 
 
+class E2EProfile(Enum):
+    """AUTOSAR E2E protection profiles."""
+
+    PROFILE_01 = "Profile 1"  # CRC-8/SAE-J1850, Counter 0-15
+    PROFILE_02 = "Profile 2"  # CRC-8/SAE-J1850, Counter 0-15
+    PROFILE_04 = "Profile 4"  # CRC-8/AUTOSAR, Counter 0-15
+    PROFILE_05 = "Profile 5"  # CRC-8/SAE-J1850, Counter 0-15
+    PROFILE_06 = "Profile 6"  # CRC-32, Counter 0-15
+    PROFILE_07 = "Profile 7"  # CRC-64, Counter 0-15
+    PROFILE_11 = "Profile 11"  # CRC-8/AUTOSAR, Counter 0-14
+    PROFILE_22 = "Profile 22"  # CRC-8/0x1D, Counter 0-15
+    CUSTOM = "Custom"
+
+
+# E2E Profile specifications
+E2E_PROFILE_SPECS: dict[E2EProfile, dict] = {
+    E2EProfile.PROFILE_01: {"crc": "CRC-8/SAE-J1850", "counter_max": 15, "counter_bits": 4, "data_id_mode": "BOTH"},
+    E2EProfile.PROFILE_02: {"crc": "CRC-8/SAE-J1850", "counter_max": 15, "counter_bits": 4, "data_id_mode": "BOTH"},
+    E2EProfile.PROFILE_04: {"crc": "CRC-8/AUTOSAR", "counter_max": 15, "counter_bits": 4, "data_id_mode": "BOTH"},
+    E2EProfile.PROFILE_05: {"crc": "CRC-8/SAE-J1850", "counter_max": 15, "counter_bits": 4, "data_id_mode": "BOTH"},
+    E2EProfile.PROFILE_06: {"crc": "CRC-32", "counter_max": 15, "counter_bits": 4, "data_id_mode": "BOTH"},
+    E2EProfile.PROFILE_07: {"crc": "CRC-64", "counter_max": 15, "counter_bits": 4, "data_id_mode": "BOTH"},
+    E2EProfile.PROFILE_11: {"crc": "CRC-8/AUTOSAR", "counter_max": 14, "counter_bits": 4, "data_id_mode": "BOTH"},
+    E2EProfile.PROFILE_22: {"crc": "CRC-8/0x1D", "counter_max": 15, "counter_bits": 4, "data_id_mode": "BOTH"},
+    E2EProfile.CUSTOM: {"crc": "CRC-8", "counter_max": 15, "counter_bits": 4, "data_id_mode": "BOTH"},
+}
+
+
+class CounterAlgorithm(Enum):
+    """Counter validation algorithms."""
+
+    SIMPLE_INCREMENT = "Simple Increment"  # 0 → Max → 0, step=1
+    ROLLING_4BIT = "Rolling 4-bit"  # 0-15, step=1
+    ROLLING_8BIT = "Rolling 8-bit"  # 0-255, step=1
+    CRC_COUNTER = "CRC + Counter"  # CRC and counter combined
+    CUSTOM = "Custom"
+
+
+# Counter algorithm specifications
+COUNTER_SPECS: dict[CounterAlgorithm, dict] = {
+    CounterAlgorithm.SIMPLE_INCREMENT: {"max": 15, "bits": 4, "step": 1},
+    CounterAlgorithm.ROLLING_4BIT: {"max": 15, "bits": 4, "step": 1},
+    CounterAlgorithm.ROLLING_8BIT: {"max": 255, "bits": 8, "step": 1},
+    CounterAlgorithm.CRC_COUNTER: {"max": 15, "bits": 4, "step": 1},
+    CounterAlgorithm.CUSTOM: {"max": 15, "bits": 4, "step": 1},
+}
+
+
+@dataclass
+class E2EConfig:
+    """Per-message E2E/Counter configuration."""
+
+    message_name: str
+    message_id: int = 0
+    e2e_enabled: bool = False
+    e2e_profile: E2EProfile = E2EProfile.PROFILE_01
+    counter_enabled: bool = False
+    counter_algorithm: CounterAlgorithm = CounterAlgorithm.SIMPLE_INCREMENT
+    crc_signal: str = ""  # auto-detected CRC signal name
+    counter_signal: str = ""  # auto-detected counter signal name
+    data_signals: list[str] = field(default_factory=list)  # remaining data signals
+
+
 @dataclass
 class TestCase:
     """Single test case definition."""
@@ -223,43 +286,139 @@ class TestGeneratorController:
 
         return cases
 
-    def generate_message_tests(self, methods: list[TestMethod] | None = None) -> int:
-        """Generate message-level test cases (E2E, Counter, etc.)."""
+    def generate_message_tests(
+        self, methods: list[TestMethod] | None = None, configs: list[E2EConfig] | None = None
+    ) -> int:
+        """Generate message-level test cases (E2E, Counter, etc.).
+
+        Args:
+            methods: which test methods to generate (kept for backward compat)
+            configs: per-message E2E/Counter configs. If None, auto-detect all.
+        """
         if self.current_dbc is None:
             return 0
-        if methods is None:
-            methods = [TestMethod.E2E_PROTECTION, TestMethod.COUNTER_VALIDATION]
+
+        if configs is None:
+            configs = self.auto_detect_e2e()
+            # Enable both by default when auto-detecting
+            for cfg in configs:
+                cfg.e2e_enabled = True
+                cfg.counter_enabled = True
 
         count = 0
-        for msg in self.current_dbc.messages:
-            for method in methods:
-                cases = self._generate_for_message(msg, method)
+        for cfg in configs:
+            # Find the matching message
+            msg = None
+            for m in self.current_dbc.messages:
+                if m.name == cfg.message_name:
+                    msg = m
+                    break
+            if msg is None:
+                continue
+
+            if cfg.e2e_enabled:
+                cases = self._generate_for_message(msg, TestMethod.E2E_PROTECTION, cfg)
+                self.test_cases.extend(cases)
+                count += len(cases)
+            if cfg.counter_enabled:
+                cases = self._generate_for_message(msg, TestMethod.COUNTER_VALIDATION, cfg)
                 self.test_cases.extend(cases)
                 count += len(cases)
         return count
 
-    def _generate_for_message(self, msg: MessageDef, method: TestMethod) -> list[TestCase]:
+    def auto_detect_e2e(self) -> list[E2EConfig]:
+        """Auto-detect E2E configuration from DBC signal naming conventions.
+
+        Scans each message for signals named like CRC, Counter, Cnt, E2E, etc.
+        Returns a list of E2EConfig (one per message).
+        """
+        if self.current_dbc is None:
+            return []
+
+        crc_patterns = ("crc", "checksum", "chk", "crc_", "_crc")
+        counter_patterns = ("counter", "cnt", "rolling", "alive", "ac", "_cnt", "counter_", "alivecounter")
+        e2e_status_patterns = ("e2e_status", "e2estatus", "e2e_st", "safety_status")
+
+        configs = []
+        for msg in self.current_dbc.messages:
+            cfg = E2EConfig(message_name=msg.name, message_id=msg.id)
+
+            sig_names_lower = {s.name.lower(): s.name for s in msg.signals}
+            crc_sig = ""
+            cnt_sig = ""
+            data_sigs = []
+
+            for sig in msg.signals:
+                name_lower = sig.name.lower()
+                if any(p in name_lower for p in crc_patterns):
+                    crc_sig = sig.name
+                elif any(p in name_lower for p in counter_patterns):
+                    cnt_sig = sig.name
+                elif any(p in name_lower for p in e2e_status_patterns):
+                    pass  # status signal, not data
+                else:
+                    data_sigs.append(sig.name)
+
+            if crc_sig or cnt_sig:
+                cfg.e2e_enabled = True
+                cfg.crc_signal = crc_sig
+                cfg.counter_signal = cnt_sig
+                cfg.data_signals = data_sigs
+
+                # Try to infer E2E profile from CRC signal bit width
+                if crc_sig:
+                    crc_obj = next((s for s in msg.signals if s.name == crc_sig), None)
+                    if crc_obj and crc_obj.bit_length == 32:
+                        cfg.e2e_profile = E2EProfile.PROFILE_06
+                    elif crc_obj and crc_obj.bit_length == 64:
+                        cfg.e2e_profile = E2EProfile.PROFILE_07
+
+                # Try to infer counter algorithm from counter signal bit width
+                if cnt_sig:
+                    cnt_obj = next((s for s in msg.signals if s.name == cnt_sig), None)
+                    if cnt_obj:
+                        if cnt_obj.bit_length == 8:
+                            cfg.counter_algorithm = CounterAlgorithm.ROLLING_8BIT
+                        else:
+                            cfg.counter_algorithm = CounterAlgorithm.ROLLING_4BIT
+
+                cfg.counter_enabled = True
+
+            configs.append(cfg)
+        return configs
+
+    def _generate_for_message(self, msg: MessageDef, method: TestMethod, cfg: E2EConfig) -> list[TestCase]:
         cases = []
         prefix = f"TC_{msg.name}"
+        spec = E2E_PROFILE_SPECS.get(cfg.e2e_profile, E2E_PROFILE_SPECS[E2EProfile.CUSTOM])
+        cnt_spec = COUNTER_SPECS.get(cfg.counter_algorithm, COUNTER_SPECS[CounterAlgorithm.CUSTOM])
+        crc_name = cfg.crc_signal or "CRC"
+        cnt_name = cfg.counter_signal or "Counter"
+        counter_max = cnt_spec["max"]
+        counter_bits = cnt_spec["bits"]
 
         if method == TestMethod.E2E_PROTECTION:
+            profile_label = cfg.e2e_profile.value
+            crc_algo = spec["crc"]
+
             # E2E CRC 校验
             cases.append(
                 TestCase(
                     id=f"{prefix}_E2E_CRC",
-                    name=f"{msg.name} E2E CRC 校验",
+                    name=f"{msg.name} E2E CRC 校验 ({crc_algo})",
                     category="E2E保护测试",
                     method=method.value,
-                    description=f"验证报文 {msg.name} (0x{msg.id:03X}) 的 E2E CRC 计算与校验",
+                    description=f"验证报文 {msg.name} (0x{msg.id:03X}) 的 E2E CRC 计算与校验 (Profile: {profile_label}, CRC: {crc_algo})",
                     steps=[
-                        f"正常发送报文 {msg.name}，CRC 字段按协议计算",
-                        "接收方校验 CRC",
-                        "修改 CRC 字段为错误值后发送",
+                        f"配置 E2E Profile = {profile_label}，CRC 算法 = {crc_algo}",
+                        f"正常发送报文 {msg.name}，信号 {crc_name} 按 {crc_algo} 计算",
+                        f"接收方通过 {crc_name} 校验数据完整性",
+                        f"修改 {crc_name} 为错误值（如全0或随机值）后发送",
                         "观察接收方是否检测到 CRC 错误",
                     ],
                     expected_results=[
-                        "正常 CRC 时接收方正确接受报文",
-                        "错误 CRC 时接收方拒绝报文或使用安全值",
+                        f"正常 {crc_name} 时接收方正确接受报文",
+                        f"错误 {crc_name} 时接收方拒绝报文或使用安全值",
                         "CRC 错误计数器递增",
                     ],
                     message_name=msg.name,
@@ -270,18 +429,20 @@ class TestGeneratorController:
             cases.append(
                 TestCase(
                     id=f"{prefix}_E2E_CNT",
-                    name=f"{msg.name} E2E 计数器校验",
+                    name=f"{msg.name} E2E 计数器校验 (0-{counter_max})",
                     category="E2E保护测试",
                     method=method.value,
-                    description=f"验证报文 {msg.name} 的 E2E 计数器按协议递增",
+                    description=f"验证报文 {msg.name} 的 E2E 计数器按 {profile_label} 递增 (位宽: {counter_bits}-bit, 范围: 0-{counter_max})",
                     steps=[
-                        f"连续发送报文 {msg.name}，观察 E2E 计数器字段",
-                        "确认计数器按 0→Max→0 循环递增",
-                        "发送计数器跳变的报文（如 0→5）",
+                        f"配置 E2E Profile = {profile_label}，计数器位宽 = {counter_bits}-bit",
+                        f"连续发送报文 {msg.name}，观察信号 {cnt_name}",
+                        f"确认计数器按 0→{counter_max}→0 循环递增，步长 = {cnt_spec['step']}",
+                        f"发送 {cnt_name} 跳变的报文（如 0→5）",
                         "观察接收方是否检测到计数器异常",
                     ],
                     expected_results=[
-                        "计数器按协议定义的步长和范围递增",
+                        f"计数器每帧递增 {cnt_spec['step']}",
+                        f"计数器在 {counter_max} 后回绕到 0",
                         "计数器跳变时接收方检测到错误",
                         "连续丢帧时接收方在超时后报错",
                     ],
@@ -300,7 +461,7 @@ class TestGeneratorController:
                     steps=[
                         f"正常发送 {msg.name} 5秒",
                         "停止发送",
-                        "等待 E2E 超时时间（通常 2-5 个报文周期）",
+                        f"等待 E2E 超时时间（通常 2-5 个 {msg.name} 周期）",
                     ],
                     expected_results=[
                         "接收方在超时后检测到 E2E 错误",
@@ -321,8 +482,8 @@ class TestGeneratorController:
                     description=f"验证报文 {msg.name} 的 E2E 状态指示位",
                     steps=[
                         f"正常发送 {msg.name}，读取 E2E 状态信号",
-                        "注入 CRC 错误，读取 E2E 状态信号",
-                        "注入计数器错误，读取 E2E 状态信号",
+                        f"注入 {crc_name} 错误，读取 E2E 状态信号",
+                        f"注入 {cnt_name} 错误，读取 E2E 状态信号",
                     ],
                     expected_results=[
                         "正常时 E2E 状态 = OK",
@@ -335,21 +496,24 @@ class TestGeneratorController:
             )
 
         elif method == TestMethod.COUNTER_VALIDATION:
+            algo_label = cfg.counter_algorithm.value
+
             # 计数器递增
             cases.append(
                 TestCase(
                     id=f"{prefix}_CNT_INC",
-                    name=f"{msg.name} 计数器递增",
+                    name=f"{msg.name} 计数器递增 ({algo_label})",
                     category="计数器测试",
                     method=method.value,
-                    description=f"验证报文 {msg.name} 的滚动计数器每周期递增",
+                    description=f"验证报文 {msg.name} 的滚动计数器每周期递增 (算法: {algo_label}, 位宽: {counter_bits}-bit, 范围: 0-{counter_max})",
                     steps=[
+                        f"配置计数器算法 = {algo_label}，位宽 = {counter_bits}-bit",
                         f"连续发送 20 个周期的 {msg.name} 报文",
-                        "记录每帧的计数器字段值",
-                        "验证相邻帧计数器差值 = 1",
+                        f"记录每帧的 {cnt_name} 字段值",
+                        f"验证相邻帧 {cnt_name} 差值 = {cnt_spec['step']}",
                     ],
                     expected_results=[
-                        "计数器每帧递增 1",
+                        f"计数器每帧递增 {cnt_spec['step']}",
                         "无跳变或重复",
                     ],
                     message_name=msg.name,
@@ -360,16 +524,16 @@ class TestGeneratorController:
             cases.append(
                 TestCase(
                     id=f"{prefix}_CNT_WRAP",
-                    name=f"{msg.name} 计数器回绕",
+                    name=f"{msg.name} 计数器回绕 (0-{counter_max})",
                     category="计数器测试",
                     method=method.value,
-                    description=f"验证报文 {msg.name} 的计数器在最大值后正确回绕",
+                    description=f"验证报文 {msg.name} 的计数器在最大值 ({counter_max}) 后正确回绕到 0",
                     steps=[
-                        f"持续发送 {msg.name} 直到计数器达到最大值",
+                        f"持续发送 {msg.name} 直到 {cnt_name} 达到 {counter_max}",
                         "记录最大值和回绕后的值",
                     ],
                     expected_results=[
-                        "计数器在达到最大值后回到 0",
+                        f"计数器在达到 {counter_max} 后回到 0",
                         "回绕过程无丢帧或异常",
                     ],
                     message_name=msg.name,
@@ -383,10 +547,10 @@ class TestGeneratorController:
                     name=f"{msg.name} 计数器冻结检测",
                     category="计数器测试",
                     method=method.value,
-                    description="验证接收方检测到计数器冻结（连续相同值）",
+                    description=f"验证接收方检测到 {cnt_name} 冻结（连续相同值）",
                     steps=[
                         f"正常发送 {msg.name} 几个周期",
-                        "连续发送计数器值相同的报文（冻结）",
+                        f"连续发送 {cnt_name} 值相同的报文（冻结在某一个值）",
                         "观察接收方反应",
                     ],
                     expected_results=[
@@ -404,10 +568,10 @@ class TestGeneratorController:
                     name=f"{msg.name} 计数器跳变检测",
                     category="计数器测试",
                     method=method.value,
-                    description="验证接收方检测到计数器跳变（非连续值）",
+                    description=f"验证接收方检测到 {cnt_name} 跳变（非连续值）",
                     steps=[
-                        f"正常发送 {msg.name}，计数器递增中",
-                        "突然发送计数器跳变的报文（如从 3 直接到 8）",
+                        f"正常发送 {msg.name}，{cnt_name} 递增中",
+                        f"突然发送 {cnt_name} 跳变的报文（如从 3 直接到 8）",
                         "观察接收方是否检测到跳变",
                     ],
                     expected_results=[

@@ -32,6 +32,7 @@ from modules.test_generator.controller import (
     TestGeneratorController,
     TestMethod,
 )
+from modules.test_generator.views.e2e_config_dialog import E2EConfigDialog
 from ui.icons import icon_clear, icon_export_excel, icon_export_json, icon_generate, icon_open
 from ui.widgets.file_worker import FileWorker
 from ui.widgets.table_editor import DataTableModel
@@ -222,7 +223,6 @@ class TestGeneratorView(QWidget):
 
     def _on_generate(self):
         signal_methods = []
-        message_methods = []
         if self.chk_boundary.isChecked():
             signal_methods.append(TestMethod.BOUNDARY_VALUE)
         if self.chk_normal.isChecked():
@@ -231,20 +231,50 @@ class TestGeneratorView(QWidget):
             signal_methods.append(TestMethod.ERROR_INJECTION)
         if self.chk_timeout.isChecked():
             signal_methods.append(TestMethod.SIGNAL_TIMEOUT)
-        if self.chk_e2e.isChecked():
-            message_methods.append(TestMethod.E2E_PROTECTION)
-        if self.chk_counter.isChecked():
-            message_methods.append(TestMethod.COUNTER_VALIDATION)
 
-        if not signal_methods and not message_methods:
+        want_e2e = self.chk_e2e.isChecked()
+        want_counter = self.chk_counter.isChecked()
+
+        if not signal_methods and not want_e2e and not want_counter:
             QMessageBox.information(self, "提示", "请至少选择一种测试方法")
             return
 
         count = 0
         if signal_methods:
             count += self.controller.generate_signal_tests(signal_methods)
-        if message_methods:
-            count += self.controller.generate_message_tests(message_methods)
+
+        if want_e2e or want_counter:
+            if not self.controller.current_dbc:
+                QMessageBox.information(self, "提示", "请先加载 DBC 文件")
+                return
+            # Auto-detect E2E configs from DBC
+            configs = self.controller.auto_detect_e2e()
+            if not configs:
+                # No E2E signals detected, create configs with both enabled
+                from modules.test_generator.controller import E2EConfig
+
+                configs = [
+                    E2EConfig(message_name=m.name, message_id=m.id, e2e_enabled=want_e2e, counter_enabled=want_counter)
+                    for m in self.controller.current_dbc.messages
+                ]
+            else:
+                for cfg in configs:
+                    cfg.e2e_enabled = want_e2e
+                    cfg.counter_enabled = want_counter
+
+            # Build signal lookup for dialog
+            signals_by_msg: dict[str, list[str]] = {}
+            for m in self.controller.current_dbc.messages:
+                signals_by_msg[m.name] = [s.name for s in m.signals]
+
+            # Show config dialog
+            dlg = E2EConfigDialog(configs, signals_by_msg, self)
+            if dlg.exec() != E2EConfigDialog.Accepted:
+                return
+
+            configs = dlg.get_configs()
+            count += self.controller.generate_message_tests(configs=configs)
+
         self._refresh_all()
         self.status_bar.showMessage(f"已生成 {count} 个测试用例", 5000)
 
